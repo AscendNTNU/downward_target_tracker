@@ -29,6 +29,7 @@
 //   $ git clone https://github.com/libjpeg-turbo/libjpeg-turbo
 //   $ cd libjpeg-turbo
 //   $ mkdir build
+//   $ autoreconf -fiv
 //   $ cd build
 //   $ sh ../configure
 //   $ make
@@ -50,6 +51,7 @@
 #include <linux/videodev2.h>
 #include <libv4l2.h>
 #include <turbojpeg.h>
+#include <assert.h>
 
 // Wrapper around v4l2_ioctl for programming the video device,
 // that automatically retries the USB request if something

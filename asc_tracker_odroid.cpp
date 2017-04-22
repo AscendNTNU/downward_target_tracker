@@ -4,6 +4,7 @@
 
 #include "asc_profiler.h"
 #include "asc_usbcam.h"
+#include "vdb_release.h"
 #include <signal.h>
 #include <assert.h>
 #include <stdint.h>
