@@ -42,6 +42,7 @@ int vdb_begin(float required_dt)
 void ctrlc(int)
 {
     usb_shutdown();
+    exit(0);
 }
 
 void downsample(unsigned char *src, int w, int h)

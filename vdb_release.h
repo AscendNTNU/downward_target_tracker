@@ -486,179 +486,575 @@ void vdb_form_frame(int length, int opcode, unsigned char **out_frame, int *out_
 int vdb_parse_message(void *recv_buffer, int received, vdb_msg_t *msg);
 
 // implementation
+#define MBEDTLS_SHA1_C
 
 // Begin auto-include sha1.c
-// SHA-1 in C
-// By Steve Reid <steve@edmweb.com>
-// 100% Public Domain
+/*
+ *  FIPS-180-1 compliant SHA-1 implementation
+ *
+ *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
+ *  SPDX-License-Identifier: Apache-2.0
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may
+ *  not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ *  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ *  This file is part of mbed TLS (https://tls.mbed.org)
+ */
+/*
+ *  The SHA-1 standard was published by NIST in 1993.
+ *
+ *  http://www.itl.nist.gov/fipspubs/fip180-1.htm
+ */
 
-// Modified by the vdb project with naming changes
+#if defined(MBEDTLS_SHA1_C)
 
-#include <string.h> // memcpy, memset
+// Begin auto-include sha1.h
+/**
+ * \file sha1.h
+ *
+ * \brief SHA-1 cryptographic hash function
+ *
+ *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
+ *  SPDX-License-Identifier: Apache-2.0
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may
+ *  not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ *  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ *  This file is part of mbed TLS (https://tls.mbed.org)
+ */
+#ifndef MBEDTLS_SHA1_H
+#define MBEDTLS_SHA1_H
 
-typedef struct {
-    unsigned long state[5];
-    unsigned long count[2];
-    unsigned char buffer[64];
-} vdb_sha1_ctx_t;
+#include <stddef.h>
+#include <stdint.h>
 
-void vdb_sha1_transform(unsigned long state[5], unsigned char buffer[64]);
-void vdb_sha1_init(vdb_sha1_ctx_t* context);
-void vdb_sha1_update(vdb_sha1_ctx_t* context, unsigned char* data, unsigned int len);
-void vdb_sha1_final(unsigned char digest[20], vdb_sha1_ctx_t* context);
+#if !defined(MBEDTLS_SHA1_ALT)
+// Regular implementation
+//
 
-#define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
-
-/* blk0() and blk() perform the initial expand. */
-/* I got the idea of expanding during the round function from SSLeay */
-#ifdef VDB_LITTLE_ENDIAN
-#define blk0(i) (block->l[i] = (rol(block->l[i],24)&0xFF00FF00) \
-    |(rol(block->l[i],8)&0x00FF00FF))
-#else
-#define blk0(i) block->l[i]
+#ifdef __cplusplus
+extern "C" {
 #endif
-#define blk(i) (block->l[i&15] = rol(block->l[(i+13)&15]^block->l[(i+8)&15] \
-    ^block->l[(i+2)&15]^block->l[i&15],1))
 
-/* (R0+R1), R2, R3, R4 are the different operations used in SHA1 */
-#define R0(v,w,x,y,z,i) z+=((w&(x^y))^y)+blk0(i)+0x5A827999+rol(v,5);w=rol(w,30);
-#define R1(v,w,x,y,z,i) z+=((w&(x^y))^y)+blk(i)+0x5A827999+rol(v,5);w=rol(w,30);
-#define R2(v,w,x,y,z,i) z+=(w^x^y)+blk(i)+0x6ED9EBA1+rol(v,5);w=rol(w,30);
-#define R3(v,w,x,y,z,i) z+=(((w|x)&y)|(w&x))+blk(i)+0x8F1BBCDC+rol(v,5);w=rol(w,30);
-#define R4(v,w,x,y,z,i) z+=(w^x^y)+blk(i)+0xCA62C1D6+rol(v,5);w=rol(w,30);
-
-
-/* Hash a single 512-bit block. This is the core of the algorithm. */
-
-void vdb_sha1_transform(unsigned long state[5], unsigned char buffer[64])
+/**
+ * \brief          SHA-1 context structure
+ */
+typedef struct
 {
-unsigned long a, b, c, d, e;
-typedef union {
-    unsigned char c[64];
-    unsigned long l[16];
-} CHAR64LONG16;
-CHAR64LONG16* block;
-#ifdef SHA1HANDSOFF
-static unsigned char workspace[64];
-    block = (CHAR64LONG16*)workspace;
-    memcpy(block, buffer, 64);
-#else
-    block = (CHAR64LONG16*)buffer;
+    uint32_t total[2];          /*!< number of bytes processed  */
+    uint32_t state[5];          /*!< intermediate digest state  */
+    unsigned char buffer[64];   /*!< data block being processed */
+}
+mbedtls_sha1_context;
+
+/**
+ * \brief          Initialize SHA-1 context
+ *
+ * \param ctx      SHA-1 context to be initialized
+ */
+void mbedtls_sha1_init( mbedtls_sha1_context *ctx );
+
+/**
+ * \brief          Clear SHA-1 context
+ *
+ * \param ctx      SHA-1 context to be cleared
+ */
+void mbedtls_sha1_free( mbedtls_sha1_context *ctx );
+
+/**
+ * \brief          Clone (the state of) a SHA-1 context
+ *
+ * \param dst      The destination context
+ * \param src      The context to be cloned
+ */
+void mbedtls_sha1_clone( mbedtls_sha1_context *dst,
+                         const mbedtls_sha1_context *src );
+
+/**
+ * \brief          SHA-1 context setup
+ *
+ * \param ctx      context to be initialized
+ */
+void mbedtls_sha1_starts( mbedtls_sha1_context *ctx );
+
+/**
+ * \brief          SHA-1 process buffer
+ *
+ * \param ctx      SHA-1 context
+ * \param input    buffer holding the  data
+ * \param ilen     length of the input data
+ */
+void mbedtls_sha1_update( mbedtls_sha1_context *ctx, const unsigned char *input, size_t ilen );
+
+/**
+ * \brief          SHA-1 final digest
+ *
+ * \param ctx      SHA-1 context
+ * \param output   SHA-1 checksum result
+ */
+void mbedtls_sha1_finish( mbedtls_sha1_context *ctx, unsigned char output[20] );
+
+/* Internal use */
+void mbedtls_sha1_process( mbedtls_sha1_context *ctx, const unsigned char data[64] );
+
+#ifdef __cplusplus
+}
 #endif
-    /* Copy context->state[] to working vars */
-    a = state[0];
-    b = state[1];
-    c = state[2];
-    d = state[3];
-    e = state[4];
-    /* 4 rounds of 20 operations each. Loop unrolled. */
-    R0(a,b,c,d,e, 0); R0(e,a,b,c,d, 1); R0(d,e,a,b,c, 2); R0(c,d,e,a,b, 3);
-    R0(b,c,d,e,a, 4); R0(a,b,c,d,e, 5); R0(e,a,b,c,d, 6); R0(d,e,a,b,c, 7);
-    R0(c,d,e,a,b, 8); R0(b,c,d,e,a, 9); R0(a,b,c,d,e,10); R0(e,a,b,c,d,11);
-    R0(d,e,a,b,c,12); R0(c,d,e,a,b,13); R0(b,c,d,e,a,14); R0(a,b,c,d,e,15);
-    R1(e,a,b,c,d,16); R1(d,e,a,b,c,17); R1(c,d,e,a,b,18); R1(b,c,d,e,a,19);
-    R2(a,b,c,d,e,20); R2(e,a,b,c,d,21); R2(d,e,a,b,c,22); R2(c,d,e,a,b,23);
-    R2(b,c,d,e,a,24); R2(a,b,c,d,e,25); R2(e,a,b,c,d,26); R2(d,e,a,b,c,27);
-    R2(c,d,e,a,b,28); R2(b,c,d,e,a,29); R2(a,b,c,d,e,30); R2(e,a,b,c,d,31);
-    R2(d,e,a,b,c,32); R2(c,d,e,a,b,33); R2(b,c,d,e,a,34); R2(a,b,c,d,e,35);
-    R2(e,a,b,c,d,36); R2(d,e,a,b,c,37); R2(c,d,e,a,b,38); R2(b,c,d,e,a,39);
-    R3(a,b,c,d,e,40); R3(e,a,b,c,d,41); R3(d,e,a,b,c,42); R3(c,d,e,a,b,43);
-    R3(b,c,d,e,a,44); R3(a,b,c,d,e,45); R3(e,a,b,c,d,46); R3(d,e,a,b,c,47);
-    R3(c,d,e,a,b,48); R3(b,c,d,e,a,49); R3(a,b,c,d,e,50); R3(e,a,b,c,d,51);
-    R3(d,e,a,b,c,52); R3(c,d,e,a,b,53); R3(b,c,d,e,a,54); R3(a,b,c,d,e,55);
-    R3(e,a,b,c,d,56); R3(d,e,a,b,c,57); R3(c,d,e,a,b,58); R3(b,c,d,e,a,59);
-    R4(a,b,c,d,e,60); R4(e,a,b,c,d,61); R4(d,e,a,b,c,62); R4(c,d,e,a,b,63);
-    R4(b,c,d,e,a,64); R4(a,b,c,d,e,65); R4(e,a,b,c,d,66); R4(d,e,a,b,c,67);
-    R4(c,d,e,a,b,68); R4(b,c,d,e,a,69); R4(a,b,c,d,e,70); R4(e,a,b,c,d,71);
-    R4(d,e,a,b,c,72); R4(c,d,e,a,b,73); R4(b,c,d,e,a,74); R4(a,b,c,d,e,75);
-    R4(e,a,b,c,d,76); R4(d,e,a,b,c,77); R4(c,d,e,a,b,78); R4(b,c,d,e,a,79);
-    /* Add the working vars back into context.state[] */
-    state[0] += a;
-    state[1] += b;
-    state[2] += c;
-    state[3] += d;
-    state[4] += e;
-    /* Wipe variables */
-    a = b = c = d = e = 0;
+
+#else  /* MBEDTLS_SHA1_ALT */
+// #include "sha1_alt.h"
+#endif /* MBEDTLS_SHA1_ALT */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * \brief          Output = SHA-1( input buffer )
+ *
+ * \param input    buffer holding the  data
+ * \param ilen     length of the input data
+ * \param output   SHA-1 checksum result
+ */
+void mbedtls_sha1( const unsigned char *input, size_t ilen, unsigned char output[20] );
+
+/**
+ * \brief          Checkup routine
+ *
+ * \return         0 if successful, or 1 if the test failed
+ */
+int mbedtls_sha1_self_test( int verbose );
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* mbedtls_sha1.h */
+
+// End auto-include sha1.h
+#include <string.h>
+
+#if !defined(MBEDTLS_SHA1_ALT)
+
+/* Implementation that should never be optimized out by the compiler */
+static void mbedtls_zeroize( void *v, size_t n ) {
+    volatile unsigned char *p = (unsigned char*)v; while( n-- ) *p++ = 0;
 }
 
+/*
+ * 32-bit integer manipulation macros (big endian)
+ */
+#ifndef GET_UINT32_BE
+#define GET_UINT32_BE(n,b,i)                            \
+{                                                       \
+    (n) = ( (uint32_t) (b)[(i)    ] << 24 )             \
+        | ( (uint32_t) (b)[(i) + 1] << 16 )             \
+        | ( (uint32_t) (b)[(i) + 2] <<  8 )             \
+        | ( (uint32_t) (b)[(i) + 3]       );            \
+}
+#endif
 
-/* vdb_sha1_init - Initialize new context */
+#ifndef PUT_UINT32_BE
+#define PUT_UINT32_BE(n,b,i)                            \
+{                                                       \
+    (b)[(i)    ] = (unsigned char) ( (n) >> 24 );       \
+    (b)[(i) + 1] = (unsigned char) ( (n) >> 16 );       \
+    (b)[(i) + 2] = (unsigned char) ( (n) >>  8 );       \
+    (b)[(i) + 3] = (unsigned char) ( (n)       );       \
+}
+#endif
 
-void vdb_sha1_init(vdb_sha1_ctx_t* context)
+void mbedtls_sha1_init( mbedtls_sha1_context *ctx )
 {
-    /* SHA1 initialization constants */
-    context->state[0] = 0x67452301;
-    context->state[1] = 0xEFCDAB89;
-    context->state[2] = 0x98BADCFE;
-    context->state[3] = 0x10325476;
-    context->state[4] = 0xC3D2E1F0;
-    context->count[0] = context->count[1] = 0;
+    memset( ctx, 0, sizeof( mbedtls_sha1_context ) );
 }
 
-
-/* Run your data through this. */
-
-void vdb_sha1_update(vdb_sha1_ctx_t* context, unsigned char* data, unsigned int len)
+void mbedtls_sha1_free( mbedtls_sha1_context *ctx )
 {
-unsigned int i, j;
+    if( ctx == NULL )
+        return;
 
-    j = (context->count[0] >> 3) & 63;
-    if ((context->count[0] += len << 3) < (len << 3)) context->count[1]++;
-    context->count[1] += (len >> 29);
-    if ((j + len) > 63) {
-        memcpy(&context->buffer[j], data, (i = 64-j));
-        vdb_sha1_transform(context->state, context->buffer);
-        for ( ; i + 63 < len; i += 64) {
-            vdb_sha1_transform(context->state, &data[i]);
+    mbedtls_zeroize( ctx, sizeof( mbedtls_sha1_context ) );
+}
+
+void mbedtls_sha1_clone( mbedtls_sha1_context *dst,
+                         const mbedtls_sha1_context *src )
+{
+    *dst = *src;
+}
+
+/*
+ * SHA-1 context setup
+ */
+void mbedtls_sha1_starts( mbedtls_sha1_context *ctx )
+{
+    ctx->total[0] = 0;
+    ctx->total[1] = 0;
+
+    ctx->state[0] = 0x67452301;
+    ctx->state[1] = 0xEFCDAB89;
+    ctx->state[2] = 0x98BADCFE;
+    ctx->state[3] = 0x10325476;
+    ctx->state[4] = 0xC3D2E1F0;
+}
+
+#if !defined(MBEDTLS_SHA1_PROCESS_ALT)
+void mbedtls_sha1_process( mbedtls_sha1_context *ctx, const unsigned char data[64] )
+{
+    uint32_t temp, W[16], A, B, C, D, E;
+
+    GET_UINT32_BE( W[ 0], data,  0 );
+    GET_UINT32_BE( W[ 1], data,  4 );
+    GET_UINT32_BE( W[ 2], data,  8 );
+    GET_UINT32_BE( W[ 3], data, 12 );
+    GET_UINT32_BE( W[ 4], data, 16 );
+    GET_UINT32_BE( W[ 5], data, 20 );
+    GET_UINT32_BE( W[ 6], data, 24 );
+    GET_UINT32_BE( W[ 7], data, 28 );
+    GET_UINT32_BE( W[ 8], data, 32 );
+    GET_UINT32_BE( W[ 9], data, 36 );
+    GET_UINT32_BE( W[10], data, 40 );
+    GET_UINT32_BE( W[11], data, 44 );
+    GET_UINT32_BE( W[12], data, 48 );
+    GET_UINT32_BE( W[13], data, 52 );
+    GET_UINT32_BE( W[14], data, 56 );
+    GET_UINT32_BE( W[15], data, 60 );
+
+#define S(x,n) ((x << n) | ((x & 0xFFFFFFFF) >> (32 - n)))
+
+#define R(t)                                            \
+(                                                       \
+    temp = W[( t -  3 ) & 0x0F] ^ W[( t - 8 ) & 0x0F] ^ \
+           W[( t - 14 ) & 0x0F] ^ W[  t       & 0x0F],  \
+    ( W[t & 0x0F] = S(temp,1) )                         \
+)
+
+#define P(a,b,c,d,e,x)                                  \
+{                                                       \
+    e += S(a,5) + F(b,c,d) + K + x; b = S(b,30);        \
+}
+
+    A = ctx->state[0];
+    B = ctx->state[1];
+    C = ctx->state[2];
+    D = ctx->state[3];
+    E = ctx->state[4];
+
+#define F(x,y,z) (z ^ (x & (y ^ z)))
+#define K 0x5A827999
+
+    P( A, B, C, D, E, W[0]  );
+    P( E, A, B, C, D, W[1]  );
+    P( D, E, A, B, C, W[2]  );
+    P( C, D, E, A, B, W[3]  );
+    P( B, C, D, E, A, W[4]  );
+    P( A, B, C, D, E, W[5]  );
+    P( E, A, B, C, D, W[6]  );
+    P( D, E, A, B, C, W[7]  );
+    P( C, D, E, A, B, W[8]  );
+    P( B, C, D, E, A, W[9]  );
+    P( A, B, C, D, E, W[10] );
+    P( E, A, B, C, D, W[11] );
+    P( D, E, A, B, C, W[12] );
+    P( C, D, E, A, B, W[13] );
+    P( B, C, D, E, A, W[14] );
+    P( A, B, C, D, E, W[15] );
+    P( E, A, B, C, D, R(16) );
+    P( D, E, A, B, C, R(17) );
+    P( C, D, E, A, B, R(18) );
+    P( B, C, D, E, A, R(19) );
+
+#undef K
+#undef F
+
+#define F(x,y,z) (x ^ y ^ z)
+#define K 0x6ED9EBA1
+
+    P( A, B, C, D, E, R(20) );
+    P( E, A, B, C, D, R(21) );
+    P( D, E, A, B, C, R(22) );
+    P( C, D, E, A, B, R(23) );
+    P( B, C, D, E, A, R(24) );
+    P( A, B, C, D, E, R(25) );
+    P( E, A, B, C, D, R(26) );
+    P( D, E, A, B, C, R(27) );
+    P( C, D, E, A, B, R(28) );
+    P( B, C, D, E, A, R(29) );
+    P( A, B, C, D, E, R(30) );
+    P( E, A, B, C, D, R(31) );
+    P( D, E, A, B, C, R(32) );
+    P( C, D, E, A, B, R(33) );
+    P( B, C, D, E, A, R(34) );
+    P( A, B, C, D, E, R(35) );
+    P( E, A, B, C, D, R(36) );
+    P( D, E, A, B, C, R(37) );
+    P( C, D, E, A, B, R(38) );
+    P( B, C, D, E, A, R(39) );
+
+#undef K
+#undef F
+
+#define F(x,y,z) ((x & y) | (z & (x | y)))
+#define K 0x8F1BBCDC
+
+    P( A, B, C, D, E, R(40) );
+    P( E, A, B, C, D, R(41) );
+    P( D, E, A, B, C, R(42) );
+    P( C, D, E, A, B, R(43) );
+    P( B, C, D, E, A, R(44) );
+    P( A, B, C, D, E, R(45) );
+    P( E, A, B, C, D, R(46) );
+    P( D, E, A, B, C, R(47) );
+    P( C, D, E, A, B, R(48) );
+    P( B, C, D, E, A, R(49) );
+    P( A, B, C, D, E, R(50) );
+    P( E, A, B, C, D, R(51) );
+    P( D, E, A, B, C, R(52) );
+    P( C, D, E, A, B, R(53) );
+    P( B, C, D, E, A, R(54) );
+    P( A, B, C, D, E, R(55) );
+    P( E, A, B, C, D, R(56) );
+    P( D, E, A, B, C, R(57) );
+    P( C, D, E, A, B, R(58) );
+    P( B, C, D, E, A, R(59) );
+
+#undef K
+#undef F
+
+#define F(x,y,z) (x ^ y ^ z)
+#define K 0xCA62C1D6
+
+    P( A, B, C, D, E, R(60) );
+    P( E, A, B, C, D, R(61) );
+    P( D, E, A, B, C, R(62) );
+    P( C, D, E, A, B, R(63) );
+    P( B, C, D, E, A, R(64) );
+    P( A, B, C, D, E, R(65) );
+    P( E, A, B, C, D, R(66) );
+    P( D, E, A, B, C, R(67) );
+    P( C, D, E, A, B, R(68) );
+    P( B, C, D, E, A, R(69) );
+    P( A, B, C, D, E, R(70) );
+    P( E, A, B, C, D, R(71) );
+    P( D, E, A, B, C, R(72) );
+    P( C, D, E, A, B, R(73) );
+    P( B, C, D, E, A, R(74) );
+    P( A, B, C, D, E, R(75) );
+    P( E, A, B, C, D, R(76) );
+    P( D, E, A, B, C, R(77) );
+    P( C, D, E, A, B, R(78) );
+    P( B, C, D, E, A, R(79) );
+
+#undef K
+#undef F
+
+    ctx->state[0] += A;
+    ctx->state[1] += B;
+    ctx->state[2] += C;
+    ctx->state[3] += D;
+    ctx->state[4] += E;
+}
+#endif /* !MBEDTLS_SHA1_PROCESS_ALT */
+
+/*
+ * SHA-1 process buffer
+ */
+void mbedtls_sha1_update( mbedtls_sha1_context *ctx, const unsigned char *input, size_t ilen )
+{
+    size_t fill;
+    uint32_t left;
+
+    if( ilen == 0 )
+        return;
+
+    left = ctx->total[0] & 0x3F;
+    fill = 64 - left;
+
+    ctx->total[0] += (uint32_t) ilen;
+    ctx->total[0] &= 0xFFFFFFFF;
+
+    if( ctx->total[0] < (uint32_t) ilen )
+        ctx->total[1]++;
+
+    if( left && ilen >= fill )
+    {
+        memcpy( (void *) (ctx->buffer + left), input, fill );
+        mbedtls_sha1_process( ctx, ctx->buffer );
+        input += fill;
+        ilen  -= fill;
+        left = 0;
+    }
+
+    while( ilen >= 64 )
+    {
+        mbedtls_sha1_process( ctx, input );
+        input += 64;
+        ilen  -= 64;
+    }
+
+    if( ilen > 0 )
+        memcpy( (void *) (ctx->buffer + left), input, ilen );
+}
+
+static const unsigned char sha1_padding[64] =
+{
+ 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
+/*
+ * SHA-1 final digest
+ */
+void mbedtls_sha1_finish( mbedtls_sha1_context *ctx, unsigned char output[20] )
+{
+    uint32_t last, padn;
+    uint32_t high, low;
+    unsigned char msglen[8];
+
+    high = ( ctx->total[0] >> 29 )
+         | ( ctx->total[1] <<  3 );
+    low  = ( ctx->total[0] <<  3 );
+
+    PUT_UINT32_BE( high, msglen, 0 );
+    PUT_UINT32_BE( low,  msglen, 4 );
+
+    last = ctx->total[0] & 0x3F;
+    padn = ( last < 56 ) ? ( 56 - last ) : ( 120 - last );
+
+    mbedtls_sha1_update( ctx, sha1_padding, padn );
+    mbedtls_sha1_update( ctx, msglen, 8 );
+
+    PUT_UINT32_BE( ctx->state[0], output,  0 );
+    PUT_UINT32_BE( ctx->state[1], output,  4 );
+    PUT_UINT32_BE( ctx->state[2], output,  8 );
+    PUT_UINT32_BE( ctx->state[3], output, 12 );
+    PUT_UINT32_BE( ctx->state[4], output, 16 );
+}
+
+#endif /* !MBEDTLS_SHA1_ALT */
+
+/*
+ * output = SHA-1( input buffer )
+ */
+void mbedtls_sha1( const unsigned char *input, size_t ilen, unsigned char output[20] )
+{
+    mbedtls_sha1_context ctx;
+
+    mbedtls_sha1_init( &ctx );
+    mbedtls_sha1_starts( &ctx );
+    mbedtls_sha1_update( &ctx, input, ilen );
+    mbedtls_sha1_finish( &ctx, output );
+    mbedtls_sha1_free( &ctx );
+}
+
+#if defined(MBEDTLS_SELF_TEST)
+/*
+ * FIPS-180-1 test vectors
+ */
+static const unsigned char sha1_test_buf[3][57] =
+{
+    { "abc" },
+    { "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq" },
+    { "" }
+};
+
+static const int sha1_test_buflen[3] =
+{
+    3, 56, 1000
+};
+
+static const unsigned char sha1_test_sum[3][20] =
+{
+    { 0xA9, 0x99, 0x3E, 0x36, 0x47, 0x06, 0x81, 0x6A, 0xBA, 0x3E,
+      0x25, 0x71, 0x78, 0x50, 0xC2, 0x6C, 0x9C, 0xD0, 0xD8, 0x9D },
+    { 0x84, 0x98, 0x3E, 0x44, 0x1C, 0x3B, 0xD2, 0x6E, 0xBA, 0xAE,
+      0x4A, 0xA1, 0xF9, 0x51, 0x29, 0xE5, 0xE5, 0x46, 0x70, 0xF1 },
+    { 0x34, 0xAA, 0x97, 0x3C, 0xD4, 0xC4, 0xDA, 0xA4, 0xF6, 0x1E,
+      0xEB, 0x2B, 0xDB, 0xAD, 0x27, 0x31, 0x65, 0x34, 0x01, 0x6F }
+};
+
+/*
+ * Checkup routine
+ */
+int mbedtls_sha1_self_test( int verbose )
+{
+    int i, j, buflen, ret = 0;
+    unsigned char buf[1024];
+    unsigned char sha1sum[20];
+    mbedtls_sha1_context ctx;
+
+    mbedtls_sha1_init( &ctx );
+
+    /*
+     * SHA-1
+     */
+    for( i = 0; i < 3; i++ )
+    {
+        if( verbose != 0 )
+            mbedtls_printf( "  SHA-1 test #%d: ", i + 1 );
+
+        mbedtls_sha1_starts( &ctx );
+
+        if( i == 2 )
+        {
+            memset( buf, 'a', buflen = 1000 );
+
+            for( j = 0; j < 1000; j++ )
+                mbedtls_sha1_update( &ctx, buf, buflen );
         }
-        j = 0;
+        else
+            mbedtls_sha1_update( &ctx, sha1_test_buf[i],
+                               sha1_test_buflen[i] );
+
+        mbedtls_sha1_finish( &ctx, sha1sum );
+
+        if( memcmp( sha1sum, sha1_test_sum[i], 20 ) != 0 )
+        {
+            if( verbose != 0 )
+                mbedtls_printf( "failed\n" );
+
+            ret = 1;
+            goto exit;
+        }
+
+        if( verbose != 0 )
+            mbedtls_printf( "passed\n" );
     }
-    else i = 0;
-    memcpy(&context->buffer[j], &data[i], len - i);
+
+    if( verbose != 0 )
+        mbedtls_printf( "\n" );
+
+exit:
+    mbedtls_sha1_free( &ctx );
+
+    return( ret );
 }
 
+#endif /* MBEDTLS_SELF_TEST */
 
-/* Add padding and return the message digest. */
+#endif /* MBEDTLS_SHA1_C */
 
-void vdb_sha1_final(unsigned char digest[20], vdb_sha1_ctx_t* context)
-{
-unsigned long i, j;
-unsigned char finalcount[8];
-
-    for (i = 0; i < 8; i++) {
-        finalcount[i] = (unsigned char)((context->count[(i >= 4 ? 0 : 1)]
-         >> ((3-(i & 3)) * 8) ) & 255);  /* Endian independent */
-    }
-    vdb_sha1_update(context, (unsigned char *)"\200", 1);
-    while ((context->count[0] & 504) != 448) {
-        vdb_sha1_update(context, (unsigned char *)"\0", 1);
-    }
-    vdb_sha1_update(context, finalcount, 8);  /* Should cause a vdb_sha1_transform() */
-    for (i = 0; i < 20; i++) {
-        digest[i] = (unsigned char)
-         ((context->state[i>>2] >> ((3-(i & 3)) * 8) ) & 255);
-    }
-    /* Wipe variables */
-    i = j = 0;
-    memset(context->buffer, 0, 64);
-    memset(context->state, 0, 20);
-    memset(context->count, 0, 8);
-    memset(&finalcount, 0, 8);
-#ifdef SHA1HANDSOFF  /* make vdb_sha1_transform overwrite it's own static vars */
-    vdb_sha1_transform(context->state, context->buffer);
-#endif
-}
-
-void vdb_sha1(unsigned char *key, unsigned int len, unsigned char sha1[20])
-{
-    vdb_sha1_ctx_t context;
-    vdb_sha1_init(&context);
-    vdb_sha1_update(&context, key, len);
-    vdb_sha1_final(sha1, &context);
-}
-
-// End auto-include sha1.c
+// End auto-include sha1.h
 
 int vdb_extract_user_key(const char *request, int request_len, char *key)
 {
@@ -718,7 +1114,7 @@ int vdb_generate_accept_key(const char *request, int request_len, char *accept_k
     {
         // Compute sha1 hash
         unsigned char sha1[20];
-        vdb_sha1(new_key, (unsigned int)new_len, sha1);
+        mbedtls_sha1(new_key, (size_t)new_len, sha1);
 
         // Convert to base64 null-terminated string
         {
@@ -751,7 +1147,7 @@ int vdb_generate_handshake(const char *request, int request_len, char **out_resp
         "Sec-WebSocket-Accept: ";
     const char *header2 = "\r\n\r\n";
     char accept_key[1024];
-    char response[1024];
+    static char response[1024];
     int response_len = 0;
     size_t i = 0;
 
@@ -914,7 +1310,7 @@ int vdb_parse_message(void *recv_buffer, int received, vdb_msg_t *msg)
     return 1;
 }
 
-// End auto-include sha1.c
+// End auto-include sha1.h
 
 // Begin auto-include vdb_handle_message.c
 
@@ -1122,8 +1518,6 @@ int vdb_recv_thread()
         }
         if (!vs->has_connection)
         {
-            char *response;
-            int response_len;
             int is_http_request;
             int is_websocket_request;
             vdb_log("Waiting for handshake\n");
@@ -1134,7 +1528,6 @@ int vdb_recv_thread()
                 vdb_sleep(1000);
                 continue;
             }
-
 
             is_http_request = vdb_is_http_request(vs->recv_buffer, read_bytes);
             is_websocket_request = vdb_is_websockets_request(vs->recv_buffer, read_bytes);
@@ -1176,25 +1569,30 @@ int vdb_recv_thread()
             }
 
             // Otherwise we will set up the Websockets connection
-            vdb_log("Generating WebSockets key\n");
-            if (!vdb_generate_handshake(vs->recv_buffer, read_bytes, &response, &response_len))
             {
-                vdb_log("Failed to generate WebSockets handshake key. Retrying.\n");
-                tcp_shutdown();
-                vdb_sleep(1000);
-                continue;
-            }
+                char *response;
+                int response_len;
 
-            vdb_log("Sending WebSockets handshake\n");
-            if (!tcp_sendall(response, response_len))
-            {
-                vdb_log("Connection went down while setting up WebSockets connection. Retrying.\n");
-                tcp_shutdown();
-                vdb_sleep(1000);
-                continue;
-            }
+                vdb_log("Generating WebSockets key\n");
+                if (!vdb_generate_handshake(vs->recv_buffer, read_bytes, &response, &response_len))
+                {
+                    vdb_log("Failed to generate WebSockets handshake key. Retrying.\n");
+                    tcp_shutdown();
+                    vdb_sleep(1000);
+                    continue;
+                }
 
-            vs->has_connection = 1;
+                vdb_log("Sending WebSockets handshake\n");
+                if (!tcp_sendall(response, response_len))
+                {
+                    vdb_log("Connection went down while setting up WebSockets connection. Retrying.\n");
+                    tcp_shutdown();
+                    vdb_sleep(1000);
+                    continue;
+                }
+
+                vs->has_connection = 1;
+            }
         }
         #ifdef VDB_UNIX
         // The send thread is allowed to return on unix, because if the connection
@@ -1731,6 +2129,12 @@ const char *vdb_html_page =
 "    height: 320px;\n"
 "}\n"
 "\n"
+"#canvas_text {\n"
+"    position: absolute;\n"
+"    z-index: 10;\n"
+"    top: 12px;\n"
+"}\n"
+"\n"
 "#container {\n"
 "    min-width: 400px;\n"
 "    width: 60%;\n"
@@ -1784,6 +2188,9 @@ const char *vdb_html_page =
 "var ws = null;\n"
 "var has_connection = false;\n"
 "var cmd_data = null;\n"
+"\n"
+"var ctx_text = null;\n"
+"var cvs_text = null;\n"
 "\n"
 "var cvs = null;\n"
 "var gl = null;\n"
@@ -2278,7 +2685,21 @@ const char *vdb_html_page =
 "    {\n"
 "        draw();\n"
 "\n"
-"        // html_fps.innerHTML = 'FPS: ' + (1.0/delta).toPrecision(4);\n"
+"        // Draw 2D text\n"
+"        // {\n"
+"        //     if (cvs_text.width  != cvs.clientWidth || cvs_text.height != cvs.clientHeight)\n"
+"        //     {\n"
+"        //         cvs_text.width  = cvs.clientWidth;\n"
+"        //         cvs_text.height = cvs.clientHeight;\n"
+"        //     }\n"
+"\n"
+"        //     ctx_text.font = '14px Times';\n"
+"        //     ctx_text.clearRect(0, 0, ctx_text.canvas.width, ctx_text.canvas.height);\n"
+"        //     var s = 'FPS: ' + (1.0/delta).toPrecision(4);\n"
+"        //     ctx_text.fillStyle = 'white';\n"
+"        //     ctx_text.fillText(s, 0.0, 16.0);\n"
+"        // }\n"
+"\n"
 "        stats_bps_dt += delta;\n"
 "\n"
 "        for (var i = 0; i < vdb_variables_used; i++)\n"
@@ -2448,10 +2869,12 @@ const char *vdb_html_page =
 "        return;\n"
 "    }\n"
 "\n"
+"    cvs_text = document.getElementById('canvas_text');\n"
+"    ctx_text = cvs_text.getContext('2d');\n"
+"\n"
 "    html_connection_address = document.getElementById('connection_address');\n"
 "    html_status = document.getElementById('status');\n"
 "    html_button_connect = document.getElementById('button_connect');\n"
-"    // html_fps = document.getElementById('fps');\n"
 "\n"
 "    html_connection_address.value = connection_address;\n"
 "    html_status.hidden = true;\n"
@@ -2516,6 +2939,7 @@ const char *vdb_html_page =
 "<body onload='pageload()'>\n"
 "    <div id='container'>\n"
 "        <canvas id='canvas'></canvas>\n"
+"        <canvas id='canvas_text'></canvas>\n"
 "\n"
 "        <a id='button_continue' href='javascript:buttonContinue()'>Continue</a>\n"
 "\n"
