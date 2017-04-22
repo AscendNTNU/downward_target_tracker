@@ -1,5 +1,4 @@
 #include "so_math.h"
-#include "im_equidistant.h"
 #include "asc_connected_components.h"
 
 struct detection_t
@@ -37,11 +36,37 @@ struct tracks_t
     int count;
 };
 
-vec3 im_ray_equidistant(float f, float u0, float v0, vec2 s)
+vec3 camera_inverse_project(float f, float u0, float v0, vec2 uv)
+//  f   (input): Equidistant fisheye camera model parameter (r = f x theta)
+// u0   (input): Center of fisheye projection in x measured from left of image
+// v0   (input): Center of fisheye projection in y measured from top of image
+// uv   (input): Pixel coordinate measured from top-left of image (DirectX convention)
+//       return: Camera-space ray from camera origin through pixel (OpenGL convention)
 {
-    vec3 p = {0};
-    im_ray_equidistant(f, u0, v0, s.x, s.y, &p.x, &p.y, &p.z);
-    return p;
+    vec3 dir;
+
+    float u = uv.x;
+    float v = uv.y;
+    float du = u-u0;
+    float dv = v0-v;
+    float r = sqrtf(du*du+dv*dv);
+    if (r > 1.0f)
+    {
+        float t = r / f;
+        float s = sinf(t);
+        float c = cosf(t);
+        dir.x = s*du/r;
+        dir.y = s*dv/r;
+        dir.z = -c;
+    }
+    else
+    {
+        dir.x = 0.0f;
+        dir.y = 0.0f;
+        dir.z = -1.0f;
+    }
+
+    return dir;
 }
 
 float metric_distance(float u1, float v1, float u2, float v2,
@@ -49,8 +74,8 @@ float metric_distance(float u1, float v1, float u2, float v2,
 {
     vec2 uv1 = { u1, v1 };
     vec2 uv2 = { u2, v2 };
-    vec3 dir1 = rot*im_ray_equidistant(f,u0,v0, uv1);
-    vec3 dir2 = rot*im_ray_equidistant(f,u0,v0, uv2);
+    vec3 dir1 = rot*camera_inverse_project(f,u0,v0, uv1);
+    vec3 dir2 = rot*camera_inverse_project(f,u0,v0, uv2);
     vec2 xy1;
     vec2 xy2;
     if (m_intersect_xy_plane(dir1, h, &xy1) &&
@@ -344,7 +369,7 @@ tracks_t track_targets(
     for (int i = 0; i < num_detections; i++)
     {
         vec2 uv = { detections[i].u, detections[i].v };
-        vec3 dir = rot*im_ray_equidistant(f,u0,v0, uv);
+        vec3 dir = rot*camera_inverse_project(f,u0,v0, uv);
         vec2 xy;
         if (m_intersect_xy_plane(dir, deltah, &xy))
         {
