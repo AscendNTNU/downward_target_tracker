@@ -1,3 +1,7 @@
+// compile on jetson:
+// follow instructions in asc_usbcam.h to install v4l2 and turbojpeg
+// g++ asc_tracker_odroid.cpp -L/usr/local/lib64 -o app -lv4l2 -lturbojpeg
+
 #define TEST_DECOMPRESSION
 // #define TEST_CALIBRATION
 #define ENABLE_TIMING
@@ -24,6 +28,7 @@ int vdb_begin(float required_dt)
     static uint64_t last_t = get_nanoseconds();
     uint64_t t = get_nanoseconds();
     uint64_t dt = t-last_t;
+    last_t = t;
     if (dt > required_dt*1e9)
     {
         return vdb_begin();
@@ -77,7 +82,7 @@ int main(int, char **)
 
     const int Ix0 = 800;
     const int Iy0 = 600;
-    usb_init(Ix0, Iy0, "/dev/video0", 60, 1);
+    usb_init(Ix0, Iy0, "/dev/video1", 30, 1);
     unsigned char I[Ix0*Iy0*3];
 
     float camera_f = 434.0f;
