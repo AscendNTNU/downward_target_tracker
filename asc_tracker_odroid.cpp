@@ -27,16 +27,16 @@ int vdb_begin(float required_dt)
 {
     static uint64_t last_t = get_nanoseconds();
     uint64_t t = get_nanoseconds();
-    uint64_t dt = t-last_t;
-    last_t = t;
-    if (dt > required_dt*1e9)
+    float dt = (t-last_t)/1e9;
+    if (dt > required_dt)
     {
-        return vdb_begin();
+        if (vdb_begin())
+        {
+            last_t = t;
+            return 1;
+        }
     }
-    else
-    {
-        return 0;
-    }
+    return 0;
 }
 
 void ctrlc(int)
