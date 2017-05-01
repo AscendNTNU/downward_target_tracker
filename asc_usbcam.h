@@ -260,6 +260,7 @@ bool usb_recvFrame(unsigned char *destination)
     unsigned char *jpg_data = (unsigned char*)buffers[buf.index].start;
     int jpg_size = buf.bytesused;
 
+    #if 0
     TIMING("jpeg");
 
     // Decompress the image and store into the input gray buffer
@@ -282,6 +283,7 @@ bool usb_recvFrame(unsigned char *destination)
         TJFLAG_FASTDCT);
 
     TIMING("jpeg");
+    #endif
 
     // Queue buffer for writing again
     xioctl(fd, VIDIOC_QBUF, &buf);

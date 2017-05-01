@@ -1,4 +1,4 @@
-#define ENABLE_TIMING
+// #define ENABLE_TIMING
 #define VDB_LOG_DEBUG
 #include "vdb_release.h"
 #include "asc_profiler.h"

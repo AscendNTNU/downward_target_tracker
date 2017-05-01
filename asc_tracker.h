@@ -91,35 +91,43 @@ float metric_distance(float u1, float v1, float u2, float v2,
 
 target_t filter_target_image_space(target_t prev, detection_t seen)
 {
-    // Predict motion 'dt' timesteps ahead
+    //
+    // Predict image-space position dt time units ahead
+    //
     float dt = seen.t - prev.last_seen.t;
     float u_pre = prev.u_hat + prev.du_hat*dt;
     float v_pre = prev.v_hat + prev.dv_hat*dt;
 
-    // World-space prediction
-    float x_pre = prev.x_hat + prev.dx_hat*dt;
-    float y_pre = prev.y_hat + prev.dy_hat*dt;
-    float dx_pre = prev.dx_hat;
-    float dy_pre = prev.dy_hat;
+    //
+    // Lowpass-filter image-space position and velocity
+    //
+    float kp = 0.7f;                                         // filter stickiness for position
+    float kd = 0.9f;                                         // filter stickiness for velocity
+    float u_hat = kp*u_pre + (1.0f-kp)*seen.u;               // lowpass-filtered position (x)
+    float v_hat = kp*v_pre + (1.0f-kp)*seen.v;               // lowpass-filtered position (y)
+    float du_obs = (u_hat - prev.u_hat)/dt;                  // 'observed' velocity (x)
+    float dv_obs = (v_hat - prev.v_hat)/dt;                  // 'observed' velocity (y)
+    float du_hat = 0.8f*(kd*prev.du_hat + (1.0f-kd)*du_obs); // lowpass-filtered velocity (x)
+    float dv_hat = 0.8f*(kd*prev.dv_hat + (1.0f-kd)*dv_obs); // lowpass-filtered velocity (y)
 
-    // Lowpass filter
-    float kp = 0.3f;
-    float kd = 0.9f;
-    float u_hat = u_pre + kp*(seen.u - u_pre);
-    float v_hat = v_pre + kp*(seen.v - v_pre);
-    float du_pre = (u_hat - prev.u_hat)/dt;
-    float dv_pre = (v_hat - prev.v_hat)/dt;
-    float du_hat = 0.8f*(kd*prev.du_hat + (1.0f-kd)*du_pre);
-    float dv_hat = 0.8f*(kd*prev.dv_hat + (1.0f-kd)*dv_pre);
+    //
+    // Predict world-space motion dt time units ahead
+    //
+    float x_pre = prev.x_hat + prev.dx_hat*dt;               // predicted position (x)
+    float y_pre = prev.y_hat + prev.dy_hat*dt;               // predicted position (y)
+    float dx_pre = prev.dx_hat;                              // predicted velocity (x)
+    float dy_pre = prev.dy_hat;                              // predicted velocity (y)
 
     if (seen.has_gps)
     {
-        float x_hat = x_pre + 0.3f*(seen.x_gps - x_pre);
-        float y_hat = y_pre + 0.3f*(seen.y_gps - y_pre);
+        float kp = 0.7f;
+        float kd = 0.8f;
+        float x_hat = kp*x_pre + (1.0f-kp)*seen.x_gps;
+        float y_hat = kp*y_pre + (1.0f-kp)*seen.y_gps;
         float dx_obs = (x_hat - prev.x_hat)/dt;
         float dy_obs = (y_hat - prev.y_hat)/dt;
-        float dx_hat = dx_pre + 0.2f*(dx_obs - dx_pre);
-        float dy_hat = dy_pre + 0.2f*(dy_obs - dy_pre);
+        float dx_hat = kd*dx_pre + (1.0f-kd)*dx_obs;
+        float dy_hat = kd*dy_pre + (1.0f-kd)*dy_obs;
 
         // estimate mode distribution
         float kt = 0.2f;
