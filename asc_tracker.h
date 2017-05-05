@@ -160,6 +160,41 @@ target_t filter_target_image_space(target_t prev, detection_t seen)
         prev.dy_hat = dy_pre;
     }
 
+    // todo: debug: removeme
+    #if 0
+    if (seen.has_gps)
+    {
+        const int window_cap = 60;
+        static int window_len = 0;
+        static float x_gps_history[window_cap];
+        static float y_gps_history[window_cap];
+        static float t_gps_history[window_cap];
+        if (window_len < window_cap)
+        {
+            x_gps_history[window_len] = seen.x_gps;
+            y_gps_history[window_len] = seen.y_gps;
+            t_gps_history[window_len] = seen.t;
+            window_len++;
+            prev.dx_hat = 0.0f;
+            prev.dy_hat = 0.0f;
+        }
+
+        if (window_len == window_cap)
+        {
+            prev.dx_hat = (seen.x_gps - x_gps_history[0]) / (seen.t - t_gps_history[0]);
+            prev.dy_hat = (seen.y_gps - y_gps_history[0]) / (seen.t - t_gps_history[0]);
+
+            for (int i = 0; i < window_cap-1; i++)
+            {
+                x_gps_history[i] = x_gps_history[i+1];
+                y_gps_history[i] = y_gps_history[i+1];
+                t_gps_history[i] = t_gps_history[i+1];
+            }
+            window_len--;
+        }
+    }
+    #endif
+
     prev.last_seen = seen;
     prev.u_hat = u_hat;
     prev.v_hat = v_hat;
