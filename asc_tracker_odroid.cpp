@@ -81,7 +81,7 @@ int main(int, char **)
 
     const int Ix = CAMERA_WIDTH>>CAMERA_LEVELS;
     const int Iy = CAMERA_HEIGHT>>CAMERA_LEVELS;
-    static unsigned char I[Ix*Iy*3];
+    static unsigned char I[CAMERA_WIDTH*CAMERA_HEIGHT*3];
 
     for (int i = 0;; i++)
     {
@@ -104,7 +104,10 @@ int main(int, char **)
         {
             uint64_t t1 = get_nanoseconds();
             if (!usbcam_mjpeg_to_rgb(Ix, Iy, I, jpg_data, jpg_size))
+            {
+                usbcam_unlock();
                 continue;
+            }
             uint64_t t2 = get_nanoseconds();
             dt_decompress = (t2-t1)/1e9;
         }
