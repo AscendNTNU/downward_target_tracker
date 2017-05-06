@@ -1,20 +1,37 @@
-// compile on jetson:
-// follow instructions in asc_usbcam.h to install v4l2 and turbojpeg
-// g++ asc_tracker_odroid.cpp -L/usr/local/lib64 -o app -lv4l2 -lturbojpeg
+// todo
+//
+// o Verify 800x600 calibration
+// o Height cutoff
+// o Jump acceptance test
+// o ROS optitrack input
+// o ROS debug io with mission debugger
+//   o image
+//   o tracks
+//   o camera calibration
+//   o timing info (vdb)
+//   o timing info (jpeg)
+//   o timing info (track)
 
-#define TEST_DECOMPRESSION
-// #define TEST_CALIBRATION
-#define ENABLE_TIMING
+// compile
+//   $ g++ asc_tracker_odroid.cpp -L/usr/local/lib64 -o app -lv4l2 -lturbojpeg
 
-#include "asc_profiler.h"
+#define USBCAM_DEBUG
+#define CAMERA_NAME        "/dev/video1"
+#define CAMERA_WIDTH       800
+#define CAMERA_HEIGHT      600
+#define CAMERA_BUFFERS     3
+#define TEST_DECOMPRESSION 0
+#define TEST_CALIBRATION   1
+
 #include "asc_usbcam.h"
 #include "vdb_release.h"
+#include "asc_tracker.h"
+#include <time.h>
 #include <signal.h>
 #include <assert.h>
 #include <stdint.h>
 
 uint64_t get_nanoseconds()
-// Returns number of nanoseconds since the UNIX epoch
 {
     struct timespec ts = {};
     clock_gettime(CLOCK_REALTIME, &ts);
@@ -41,92 +58,81 @@ int vdb_begin(float required_dt)
 
 void ctrlc(int)
 {
-    usb_shutdown();
     exit(0);
-}
-
-void downsample(unsigned char *src, int w, int h)
-{
-    assert(src != 0);
-    assert(w % 2 == 0);
-    assert(h % 2 == 0);
-    int dw = w/2;
-    int dh = h/2;
-    for (int y = 0; y < dh; y++)
-    for (int x = 0; x < dw; x++)
-    {
-        int x1 = x*2;
-        int x2 = x*2+1;
-        int y1 = y*2;
-        int y2 = y*2+1;
-        unsigned char r11 = src[(y1*w + x1)*3+0] >> 2;
-        unsigned char r12 = src[(y2*w + x1)*3+0] >> 2;
-        unsigned char r21 = src[(y1*w + x2)*3+0] >> 2;
-        unsigned char r22 = src[(y2*w + x2)*3+0] >> 2;
-        unsigned char g11 = src[(y1*w + x1)*3+1] >> 2;
-        unsigned char g12 = src[(y2*w + x1)*3+1] >> 2;
-        unsigned char g21 = src[(y1*w + x2)*3+1] >> 2;
-        unsigned char g22 = src[(y2*w + x2)*3+1] >> 2;
-        unsigned char b11 = src[(y1*w + x1)*3+2] >> 2;
-        unsigned char b12 = src[(y2*w + x1)*3+2] >> 2;
-        unsigned char b21 = src[(y1*w + x2)*3+2] >> 2;
-        unsigned char b22 = src[(y2*w + x2)*3+2] >> 2;
-        src[(y*dw + x)*3+0] = (r11+r12+r21+r22);
-        src[(y*dw + x)*3+1] = (g11+g12+g21+g22);
-        src[(y*dw + x)*3+2] = (b11+b12+b21+b22);
-    }
 }
 
 int main(int, char **)
 {
     signal(SIGINT, ctrlc);
 
-    const int Ix0 = 800;
-    const int Iy0 = 600;
-    usb_init(Ix0, Iy0, "/dev/video1", 30, 1);
-    unsigned char I[Ix0*Iy0*3];
+    usbcam_opt_t opt = {0};
+    opt.device_name = CAMERA_NAME;
+    opt.pixel_format = V4L2_PIX_FMT_MJPEG;
+    opt.width = CAMERA_WIDTH;
+    opt.height = CAMERA_HEIGHT;
+    opt.buffers = CAMERA_BUFFERS;
+    usbcam_init(opt);
 
     float camera_f = 434.0f;
     float camera_u0 = 375.0f;
     float camera_v0 = 275.0f;
+    const int image_lod = 0;
+    const int Ix = CAMERA_WIDTH>>image_lod;
+    const int Iy = CAMERA_HEIGHT>>image_lod;
+    static unsigned char I[Ix*Iy*3];
 
-    while (usb_recvFrame(I))
+    for (int i = 0;; i++)
     {
-        TIMING("downsample");
-        int Ix = Ix0;
-        int Iy = Iy0;
-        downsample(I, Ix, Iy); Ix /= 2; Iy /= 2;
-        downsample(I, Ix, Iy); Ix /= 2; Iy /= 2;
-        TIMING("downsample");
+        unsigned char *jpg_data = 0;
+        unsigned int jpg_size = 0;
+        timeval timestamp = {0};
+        usbcam_lock(&jpg_data, &jpg_size, &timestamp);
 
-        TIMING("vdb");
-        #if defined(TEST_DECOMPRESSION)
-        if (vdb_begin(0.1f))
+        float dt_internal;
         {
-            vdb_imageRGB8(I, Ix, Iy);
-            vdb_end();
+            uint64_t sec = (uint64_t)timestamp.tv_sec;
+            uint64_t usec = (uint64_t)timestamp.tv_usec;
+            uint64_t t = sec*1000*1000 + usec;
+            static uint64_t last_t = t;
+            dt_internal = (t-last_t)/1e6;
+            last_t = t;
         }
-        #elif defined(TEST_CALIBRATION)
+
+        float dt_decompress;
+        {
+            uint64_t t1 = get_nanoseconds();
+            if (!usbcam_mjpeg_to_rgb(Ix, Iy, I, jpg_data, jpg_size))
+                continue;
+            uint64_t t2 = get_nanoseconds();
+            dt_decompress = (t2-t1)/1e9;
+        }
+
+        #if 1
         if (vdb_begin(0.1f))
         {
+            #if TEST_DECOMPRESSION==1
+            vdb_imageRGB8(I, Ix, Iy);
+            #endif
+
+            #if TEST_CALIBRATION==1
             static float camera_ex = 0.0f;
             static float camera_ey = 0.0f;
             static float camera_ez = 0.0f;
-            static float camera_z = 0.0f;
+            static float camera_z = 1.0f;
             static int threshold = 20;
 
             mat3 camera_to_world = m_rotz(camera_ez)*m_roty(camera_ey)*m_rotx(camera_ex);
-            float f = camera_f * Ix/Ix0;
-            float u0 = camera_u0 * Ix/Ix0;
-            float v0 = camera_v0 * Ix/Ix0;
+            float f = camera_f * Ix/CAMERA_WIDTH;
+            float u0 = camera_u0 * Ix/CAMERA_WIDTH;
+            float v0 = camera_v0 * Ix/CAMERA_WIDTH;
 
             vdb_xrange(-4.0f, +4.0f);
             vdb_yrange(-2.0f, +2.0f);
-            for (int y = 1; y < Iy-1; y += 2)
-            for (int x = 1; x < Ix-1; x += 2)
+            for (int y = 1; y < Iy-1; y += 8)
+            for (int x = 1; x < Ix-1; x += 8)
             {
                 vec2 uv = { x+0.5f, y+0.5f };
-                vec3 dir = camera_to_world*m_ray_equidistant(f,u0,v0, uv);
+                vec3 dir = camera_to_world*camera_inverse_project(f,u0,v0, uv);
                 vec2 p;
                 if (m_intersect_xy_plane(dir, camera_z, &p))
                 {
@@ -138,18 +144,19 @@ int main(int, char **)
             vdb_slider1f("camera_f", &camera_f, 400.0f, 500.0f);
             vdb_slider1f("camera_u0", &camera_u0, 0.0f, Ix);
             vdb_slider1f("camera_v0", &camera_v0, 0.0f, Iy);
-            vdb_slider1f("camera_z", &camera_z, 0.0f, 1.0f);
+            vdb_slider1f("camera_z", &camera_z, 0.0f, 3.0f);
             vdb_slider1f("camera_ex", &camera_ex, -0.3f, +0.3f);
             vdb_slider1f("camera_ey", &camera_ey, -0.3f, +0.3f);
             vdb_slider1f("camera_ez", &camera_ez, -3.14f, +3.14f);
+            #endif
+
             vdb_end();
         }
         #endif
-        TIMING("vdb");
 
-        TIMING_SUMMARY();
+        printf("%6.2f ms (decompress)\t%6.2f ms (frame)\n", 1000.0f*dt_decompress, 1000.0f*dt_internal);
+        usbcam_unlock();
     }
 
-    usb_shutdown();
     return 0;
 }

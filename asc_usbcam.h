@@ -1,320 +1,320 @@
-// V4L2 video picture grabber
-// Copyright (C) 2009 Mauro Carvalho Chehab <mchehab@infradead.org>
-//
-// This program is free software; you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation version 2 of the License.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// Modified by Ascend NTNU:
-// * H264 streaming for Logitech C920
-// * Commentary
-// * Rewrote from C to C++
-// * Output to single file instead of frame by frame
-// * Releasing on-device allocated memory by calling VIDIOC_REQBUF
-//  with count 0
-// * Setting the framerate
-
-// How to compile
-// --------------------------------------------------------
-// Acquire the video 4 linux 2 development libraries (v4l2)
+// Get the video 4 linux 2 development libraries (v4l2)
 //   $ sudo apt-get install libv4l-dev
 //   $ sudo apt-get install v4l-utils
 //
-// Acquire the jpeg turbo library:
+// Get the turbojpeg library:
+//   (See https://github.com/libjpeg-turbo/libjpeg-turbo/blob/master/BUILDING.md)
 //   $ git clone https://github.com/libjpeg-turbo/libjpeg-turbo
 //   $ cd libjpeg-turbo
-//   $ mkdir build
 //   $ autoreconf -fiv
+//   $ mkdir build
 //   $ cd build
 //   $ sh ../configure
 //   $ make
 //   $ make install prefix=/usr/local libdir=/usr/local/lib64
-// See https://github.com/libjpeg-turbo/libjpeg-turbo/blob/master/BUILDING.md
-// if that didn't work for you.
+//
+// Get the turbojpeg documentation
+//   http://www.libjpeg-turbo.org/Documentation/Documentation
+//
+// Compiler flags
+//   g++ ... -lv4l2 -lturbojpeg
 
-// To compile with g++ link with -lv4l2 and -lturbojpeg
+#include <sys/time.h>
+struct usbcam_opt_t
+{
+    const char *device_name; // e.g. /dev/video0
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <fcntl.h>
-#include <errno.h>
+    // The driver does not overwrite buffers with latest data:
+    // Therefore, you should request as many buffers as you expect
+    // processing time to take. For example, if you need 100 ms to
+    // process one frame and the camera gives one frame every 30 ms,
+    // then it will fill up three buffers while you process. If you
+    // requested less than three buffers you will not get the latest
+    // frame when you ask for the next frame!
+    int buffers;
+
+    // Pixel formats specified as codes of four characters, and
+    // a predefined list of formats can be found in videodev2.h
+    // (http://lxr.free-electrons.com/source/include/uapi/linux/videodev2.h#L616)
+    // You can find out what formats your camera supports with
+    // $ v4l2-ctl -d /dev/video0 --list-formats-ext
+    unsigned int pixel_format; // e.g. V4L2_PIX_FMT_MJPEG
+    unsigned int width;
+    unsigned int height;
+};
+
+void usbcam_cleanup();
+void usbcam_init(usbcam_opt_t opt);
+void usbcam_lock(unsigned char **data, unsigned int *size, timeval *timestamp);
+void usbcam_unlock();
+bool usbcam_mjpeg_to_rgb(int desired_width, int desired_height, unsigned char *dst, unsigned char *src, unsigned int size);
+
+//
+// Implementation
+//
+
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#include <sys/mman.h>
+#include <stdio.h>      // printf
+#include <stdlib.h>     // exit, EXIT_FAILURE
+#include <string.h>     // strerror
+#include <fcntl.h>      // O_RDWR
+#include <errno.h>      // errno
+#include <sys/mman.h>   // mmap, munmap
 #include <linux/videodev2.h>
 #include <libv4l2.h>
 #include <turbojpeg.h>
-#include <assert.h>
 
-// Wrapper around v4l2_ioctl for programming the video device,
-// that automatically retries the USB request if something
-// unintentionally aborted the request.
-void xioctl(int fh, int request, void *arg)
+#define usbcam_max_buffers 128
+#define usbcam_assert(CONDITION, MESSAGE) { if (!(CONDITION)) { printf("[usbcam.h] Error at line %d: %s\n", __LINE__, MESSAGE); exit(EXIT_FAILURE); } }
+#ifdef USBCAM_DEBUG
+#define usbcam_debug(...) { printf("[usbcam.h] "); printf(__VA_ARGS__); }
+#else
+#define usbcam_debug(...) { }
+#endif
+
+static int          usbcam_has_mmap = 0;
+static int          usbcam_has_dqbuf = 0;
+static int          usbcam_has_fd = 0;
+static int          usbcam_has_stream = 0;
+static int          usbcam_fd = 0;
+static int          usbcam_buffers = 0;
+static void        *usbcam_buffer_start[usbcam_max_buffers] = {0};
+static unsigned int usbcam_buffer_length[usbcam_max_buffers] = {0};
+static v4l2_buffer  usbcam_dqbuf = {0};
+
+void usbcam_ioctl(int request, void *arg)
 {
+    usbcam_assert(usbcam_has_fd, "The camera device has not been opened yet!");
     int r;
     do
     {
-        r = v4l2_ioctl(fh, request, arg);
+        r = v4l2_ioctl(usbcam_fd, request, arg);
     } while (r == -1 && ((errno == EINTR) || (errno == EAGAIN)));
-
     if (r == -1)
     {
-        printf("USB request failed %d, %s\n", errno, strerror(errno));
+        printf("[usbcam.h] USB request failed (%d): %s\n", errno, strerror(errno));
         exit(EXIT_FAILURE);
     }
 }
 
-struct usb_Buffer
+void usbcam_cleanup()
 {
-    void *start;
-    size_t length;
-};
-
-struct usb_State
-{
-    bool initialized;
-
-    int fd;
-    int num_buffers;
-    tjhandle decompressor;
-    usb_Buffer buffers[4];
-};
-
-static usb_State usb_state = {0};
-
-void usb_init(int width, int height, const char *device, int fps, int mmap_buffers = 3)
-{
-    // Open the device
-    int fd = v4l2_open(device, O_RDWR | O_NONBLOCK, 0);
-    if (fd < 0)
+    // return any buffers we have dequeued (not sure if this is necessary)
+    if (usbcam_has_dqbuf)
     {
-        printf("Failed to open device\n");
-        exit(EXIT_FAILURE);
+        usbcam_debug("Requeuing buffer\n");
+        usbcam_ioctl(VIDIOC_QBUF, &usbcam_dqbuf);
+        usbcam_has_dqbuf = 0;
     }
 
-    // Specify the format of the data we want from the camera
-    // Run v4l2-ctl --device=/dev/video1 --list-formats on the
-    // device to see that sort of pixel formats are supported!
-    v4l2_format fmt = {};
-    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    fmt.fmt.pix.width = width;
-    fmt.fmt.pix.height = height;
-    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
-    fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
-    xioctl(fd, VIDIOC_S_FMT, &fmt);
-
-    // Set streaming parameters, i.e. frames per second.
-    // You'll want to query the device for whether or not it
-    // supports setting the frame time, and what possible choices
-    // it supports.
-    // See http://stackoverflow.com/questions/13981933/v4l2-fcntl-ioctl-vidioc-s-parm-for-setting-fps-and-resolution-of-camera-capture
-    v4l2_streamparm parm = {};
-    parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    parm.parm.output.timeperframe.numerator = 1;
-    parm.parm.output.timeperframe.denominator = fps;
-    xioctl(fd, VIDIOC_S_PARM, &parm);
-
-    // Sidenote: Run v4l-info /dev/video1 if you want to see what
-    // other stuff that the device supports.
-
-    int got_width = fmt.fmt.pix.width;
-    int got_height = fmt.fmt.pix.height;
-    int got_format = fmt.fmt.pix.pixelformat;
-
-    assert(got_width == width);
-    assert(got_height == height);
-    assert(got_format == V4L2_PIX_FMT_MJPEG);
-
-    // Request N buffers that are memory mapped between
-    // our application space and the device
-    v4l2_requestbuffers request = {};
-    request.count = mmap_buffers;
-    request.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    request.memory = V4L2_MEMORY_MMAP;
-    xioctl(fd, VIDIOC_REQBUFS, &request);
-
-    int num_buffers = request.count;
-
-    // Check what format we _actually_ got
-    #if 0
-    printf("Opened device %s with format:\n", device);
-    printf("\tWidth: %d\n", fmt.fmt.pix.width);
-    printf("\tHeight: %d\n", fmt.fmt.pix.height);
-    printf("\tPixel format: 0x%x\n", fmt.fmt.pix.pixelformat);
-    printf("\tBuffers: %d\n", num_buffers);
-    #else
-    printf("\nOpened device %s\n", device);
-    #endif
-
-    static usb_Buffer buffers[4];
-    assert(num_buffers <= 4);
-
-    // Find out where each requested buffer is located in memory
-    // and map them into our application space
-    for (int buffer_index = 0; buffer_index < num_buffers; ++buffer_index)
+    // free buffers
+    if (usbcam_has_mmap)
     {
-        v4l2_buffer buf = {};
-        buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        buf.memory = V4L2_MEMORY_MMAP;
-        buf.index = buffer_index;
-        xioctl(fd, VIDIOC_QUERYBUF, &buf);
+        usbcam_debug("Deallocating mmap\n");
+        for (int i = 0; i < usbcam_buffers; i++)
+            munmap(usbcam_buffer_start[i], usbcam_buffer_length[i]);
+        usbcam_has_mmap = 0;
+    }
 
-        buffers[buffer_index].length = buf.length;
-        buffers[buffer_index].start =
-                mmap(0 /* start anywhere */,
-                     buf.length,
-                     PROT_READ | PROT_WRITE /* required */,
-                     MAP_SHARED /* recommended */,
-                     fd, buf.m.offset);
+    // turn off streaming
+    if (usbcam_has_stream)
+    {
+        usbcam_debug("Turning off stream (if this freezes send me a message)\n");
+        int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        usbcam_ioctl(VIDIOC_STREAMOFF, &type);
+        usbcam_has_stream = 0;
+    }
 
-        if (MAP_FAILED == buffers[buffer_index].start)
+    if (usbcam_has_fd)
+    {
+        usbcam_debug("Closing fd\n");
+        close(usbcam_fd);
+        usbcam_has_fd = 0;
+    }
+}
+
+void usbcam_init(usbcam_opt_t opt)
+{
+    usbcam_cleanup();
+    usbcam_assert(opt.buffers <= usbcam_max_buffers, "You requested too many buffers");
+    usbcam_assert(opt.buffers > 0, "You need atleast one buffer");
+
+    // Open the device
+    usbcam_fd = v4l2_open(opt.device_name, O_RDWR, 0);
+    usbcam_assert(usbcam_fd >= 0, "Failed to open device");
+    usbcam_has_fd = 1;
+
+    // set format
+    {
+        v4l2_format fmt = {0};
+        fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        fmt.fmt.pix.pixelformat = opt.pixel_format;
+        fmt.fmt.pix.width = opt.width;
+        fmt.fmt.pix.height = opt.height;
+        usbcam_ioctl(VIDIOC_S_FMT, &fmt);
+
+        usbcam_assert(fmt.fmt.pix.pixelformat == opt.pixel_format, "Did not get the requested format");
+        usbcam_assert(fmt.fmt.pix.width == opt.width, "Did not get the requested width");
+        usbcam_assert(fmt.fmt.pix.height == opt.height, "Did not get the requested height");
+    }
+
+    usbcam_debug("Opened device (%s %dx%d)\n", opt.device_name, opt.width, opt.height);
+
+    // tell the driver how many buffers we want
+    {
+        v4l2_requestbuffers request = {0};
+        request.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        request.memory = V4L2_MEMORY_MMAP;
+        request.count = opt.buffers;
+        usbcam_ioctl(VIDIOC_REQBUFS, &request);
+
+        usbcam_assert(request.count == opt.buffers, "Did not get the requested number of buffers");
+    }
+
+    // allocate buffers
+    for (int i = 0; i < opt.buffers; i++)
+    {
+        v4l2_buffer info = {0};
+        info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        info.memory = V4L2_MEMORY_MMAP;
+        info.index = i;
+        usbcam_ioctl(VIDIOC_QUERYBUF, &info);
+
+        usbcam_buffer_length[i] = info.length;
+        usbcam_buffer_start[i] = mmap(
+            NULL,
+            info.length,
+            PROT_READ | PROT_WRITE,
+            MAP_SHARED,
+            usbcam_fd,
+            info.m.offset
+        );
+
+        usbcam_assert(usbcam_buffer_start[i] != MAP_FAILED, "Failed to allocate memory for buffers");
+    }
+
+    usbcam_buffers = opt.buffers;
+    usbcam_has_mmap = 1;
+
+    // start streaming
+    {
+        int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        usbcam_ioctl(VIDIOC_STREAMON, &type);
+    }
+
+    usbcam_has_stream = 1;
+
+    // queue buffers
+    for (int i = 0; i < opt.buffers; i++)
+    {
+        v4l2_buffer info = {0};
+        info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        info.memory = V4L2_MEMORY_MMAP;
+        info.index = i;
+        usbcam_ioctl(VIDIOC_QBUF, &info);
+    }
+}
+
+void usbcam_unlock()
+{
+    if (usbcam_has_dqbuf)
+    {
+        usbcam_ioctl(VIDIOC_QBUF, &usbcam_dqbuf);
+        usbcam_has_dqbuf = 0;
+    }
+}
+
+void usbcam_lock(unsigned char **data, unsigned int *size, timeval *timestamp)
+{
+    usbcam_assert(!usbcam_has_dqbuf, "You forgot to unlock the previous frame");
+    usbcam_assert(usbcam_has_fd, "Camera device not open");
+    usbcam_assert(usbcam_has_mmap, "Buffers not allocated");
+    usbcam_assert(usbcam_has_stream, "Stream not begun");
+
+    // dequeue all the buffers and select the one with latest data
+    v4l2_buffer buf = {0};
+    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    buf.memory = V4L2_MEMORY_MMAP;
+    {
+        // get a buffer
+        usbcam_ioctl(VIDIOC_DQBUF, &buf);
+
+        // check if there are more buffers available
+        int r = 1;
+        while (r == 1)
         {
-            printf("mmap failed %d, %s\n", errno, strerror(errno));
-            exit(EXIT_FAILURE);
+            fd_set fds;
+            FD_ZERO(&fds);
+            FD_SET(usbcam_fd, &fds);
+            timeval tv; // if both fields = 0, select returns immediately
+            tv.tv_sec = 0;
+            tv.tv_usec = 0;
+            r = select(usbcam_fd + 1, &fds, NULL, NULL, &tv); // todo: what if r == -1?
+            if (r == 1)
+            {
+                // queue the previous buffer
+                usbcam_ioctl(VIDIOC_QBUF, &buf);
+
+                // get a new buffer
+                usbcam_ioctl(VIDIOC_DQBUF, &buf);
+            }
         }
     }
 
-    // Queue the buffers, i.e. indicate to the device
-    // that they are available for writing now.
-    for (int i = 0; i < num_buffers; ++i)
-    {
-        v4l2_buffer buf = {};
-        buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        buf.memory = V4L2_MEMORY_MMAP;
-        buf.index = i;
-        xioctl(fd, VIDIOC_QBUF, &buf);
-    }
+    *timestamp = buf.timestamp;
+    *data = (unsigned char*)usbcam_buffer_start[buf.index];
+    *size = buf.bytesused;
 
-    // Start stream
-    v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    xioctl(fd, VIDIOC_STREAMON, &type);
-
-    tjhandle decompressor = tjInitDecompress();
-
-    usb_state.fd = fd;
-    usb_state.decompressor = decompressor;
-    usb_state.num_buffers = num_buffers;
-    usb_state.initialized = true;
-    for (int i = 0; i < num_buffers; i++)
-    {
-        usb_state.buffers[i] = buffers[i];
-    }
+    usbcam_dqbuf = buf;
+    usbcam_has_dqbuf = 1;
 }
 
-bool usb_recvFrame(unsigned char *destination)
+bool usbcam_mjpeg_to_rgb(int desired_width, int desired_height, unsigned char *destination, unsigned char *jpg_data, unsigned int jpg_size)
 {
-    if (!usb_state.initialized)
-    {
-        printf("Need to initialize usb camera!\n");
-        return false;
-    }
+    static tjhandle decompressor = tjInitDecompress();
+    int subsamp,width,height,error;
 
-    int fd = usb_state.fd;
-    tjhandle decompressor = usb_state.decompressor;
-    usb_Buffer *buffers = usb_state.buffers;
-    int num_buffers = usb_state.num_buffers;
-
-    // The device will now output data continuously.
-    // We will use the FD_ZERO/FD_SET/select mechanisms
-    // to wait until there is data available from the
-    // device. We can specify how long we should wait,
-    // and timeout if we think too much time has passed.
-    fd_set fds;
-    int r = 0;
-    do
-    {
-        FD_ZERO(&fds);
-        FD_SET(fd, &fds);
-        timeval tv;
-        tv.tv_sec = 2;
-        tv.tv_usec = 0;
-        r = select(fd + 1, &fds, NULL, NULL, &tv);
-    } while ((r == -1 && (errno = EINTR)));
-
-    if (r == -1)
-    {
-        printf("select failed in a bad way\n");
-        return false;
-    }
-
-    // Data has arrived! Let's "dequeue" a buffer to get its data
-    v4l2_buffer buf = {};
-    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    buf.memory = V4L2_MEMORY_MMAP;
-    xioctl(fd, VIDIOC_DQBUF, &buf);
-
-    // Now we have gotten the data into one of our buffers.
-    // buf.index                -> Which mmap'ed buffer is the data located in
-    // buffers[buf.index].start -> Where in memory is the data located
-    // buf.bytesused            -> Size of data chunk in bytes
-
-    // Do whatever you want with the stream data here!
-    // -----------------------------------------------
-    unsigned char *jpg_data = (unsigned char*)buffers[buf.index].start;
-    int jpg_size = buf.bytesused;
-
-    #if 0
-    TIMING("jpeg");
-
-    // Decompress the image and store into the input gray buffer
-    int jpg_subsamples, width, height;
-    tjDecompressHeader2(decompressor,
+    error = tjDecompressHeader2(decompressor,
         jpg_data,
         jpg_size,
         &width,
         &height,
-        &jpg_subsamples);
+        &subsamp);
 
-    tjDecompress2(decompressor,
+    if (error)
+    {
+        usbcam_debug("Error decoding JPEG: %s\n", tjGetErrorStr());
+        return false;
+    }
+
+    if (width != desired_width || height != desired_height)
+    {
+        static bool first = true;
+        if (first)
+        {
+            usbcam_debug("Resolution (%dx%d) did not match desired resolution (%dx%d)\n",
+                   width, height, desired_width, desired_height);
+            first = false;
+        }
+    }
+
+    error = tjDecompress2(decompressor,
         jpg_data,
         jpg_size,
         destination,
-        width,
+        desired_width,
         0,
-        height,
+        desired_height,
         TJPF_RGB,
         TJFLAG_FASTDCT);
 
-    TIMING("jpeg");
-    #endif
-
-    // Queue buffer for writing again
-    xioctl(fd, VIDIOC_QBUF, &buf);
+    if (error)
+    {
+        usbcam_debug("Error decoding JPEG: %s\n", tjGetErrorStr());
+        return false;
+    }
 
     return true;
-}
-
-void usb_shutdown()
-{
-    int fd = usb_state.fd;
-    tjhandle decompressor = usb_state.decompressor;
-    usb_Buffer *buffers = usb_state.buffers;
-    int num_buffers = usb_state.num_buffers;
-
-    tjDestroy(decompressor);
-
-    // Turn off stream
-    v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    xioctl(fd, VIDIOC_STREAMOFF, &type);
-
-    // Unmap buffers
-    for (int i = 0; i < num_buffers; ++i)
-        munmap(buffers[i].start, buffers[i].length);
-
-    // Tell the device that it can release memory
-    v4l2_requestbuffers request = {};
-    request.count = 0;
-    request.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    request.memory = V4L2_MEMORY_MMAP;
-    xioctl(fd, VIDIOC_REQBUFS, &request);
-
-    v4l2_close(fd);
-    printf("Closed device\n");
 }
