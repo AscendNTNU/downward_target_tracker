@@ -20,6 +20,7 @@
 #define CAMERA_WIDTH       800
 #define CAMERA_HEIGHT      600
 #define CAMERA_BUFFERS     3
+#define CAMERA_LEVELS      2 // Downscale factor (0=none, 1=half, 2=quarter)
 #define TEST_DECOMPRESSION 0
 #define TEST_CALIBRATION   1
 
@@ -76,9 +77,9 @@ int main(int, char **)
     float camera_f = 434.0f;
     float camera_u0 = 375.0f;
     float camera_v0 = 275.0f;
-    const int image_lod = 0;
-    const int Ix = CAMERA_WIDTH>>image_lod;
-    const int Iy = CAMERA_HEIGHT>>image_lod;
+
+    const int Ix = CAMERA_WIDTH>>CAMERA_LEVELS;
+    const int Iy = CAMERA_HEIGHT>>CAMERA_LEVELS;
     static unsigned char I[Ix*Iy*3];
 
     for (int i = 0;; i++)
@@ -142,8 +143,8 @@ int main(int, char **)
             }
             vdb_slider1i("threshold", &threshold, 0, 200);
             vdb_slider1f("camera_f", &camera_f, 400.0f, 500.0f);
-            vdb_slider1f("camera_u0", &camera_u0, 0.0f, Ix);
-            vdb_slider1f("camera_v0", &camera_v0, 0.0f, Iy);
+            vdb_slider1f("camera_u0", &camera_u0, 0.0f, CAMERA_WIDTH);
+            vdb_slider1f("camera_v0", &camera_v0, 0.0f, CAMERA_HEIGHT);
             vdb_slider1f("camera_z", &camera_z, 0.0f, 3.0f);
             vdb_slider1f("camera_ex", &camera_ex, -0.3f, +0.3f);
             vdb_slider1f("camera_ey", &camera_ey, -0.3f, +0.3f);
