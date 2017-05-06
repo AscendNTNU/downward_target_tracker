@@ -1,6 +1,7 @@
 // todo
 //
-// o Verify 800x600 calibration
+// x Verify 800x600 calibration
+// x Verify turbojpeg downscaling
 // o Height cutoff
 // o Jump acceptance test
 // o ROS optitrack input
