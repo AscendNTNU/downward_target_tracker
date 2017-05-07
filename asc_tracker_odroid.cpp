@@ -1,21 +1,3 @@
-// todo
-//
-// x Verify 800x600 calibration
-// x Verify turbojpeg downscaling
-// o Height cutoff
-// o Jump acceptance test
-// o ROS optitrack input
-// o ROS debug io with mission debugger
-//   o image
-//   o tracks
-//   o camera calibration
-//   o timing info (vdb)
-//   o timing info (jpeg)
-//   o timing info (track)
-
-// compile
-//   $ g++ asc_tracker_odroid.cpp -L/usr/local/lib64 -o app -lv4l2 -lturbojpeg
-
 #define USBCAM_DEBUG
 #define CAMERA_NAME        "/dev/video1"
 #define CAMERA_WIDTH       800
@@ -103,7 +85,7 @@ int main(int, char **)
         float dt_decompress;
         {
             uint64_t t1 = get_nanoseconds();
-            if (!usbcam_mjpeg_to_rgb(Ix, Iy, I, jpg_data, jpg_size))
+            if (!usbcam_jpeg_to_rgb(Ix, Iy, I, jpg_data, jpg_size))
             {
                 usbcam_unlock();
                 continue;

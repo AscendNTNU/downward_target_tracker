@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+
+<package format="2">
+  <name>downward_target_tracker</name>
+  <license>TODO</license>
+  <version>0.0.0</version>
+  <description>
+    Downward target tracker
+  </description>
+  <maintainer email="matias.christensen@ascendntnu.no">Matias Christensen</maintainer>
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>image_transport</build_depend>
+  <build_depend>libv4l-dev</build_depend>
+  <build_depend>libjpeg</build_depend>
+  <build_depend>message_generation</build_depend>
+
+  <exec_depend>message_runtime</exec_depend>
+</package>
