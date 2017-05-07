@@ -517,6 +517,7 @@ tracks_t track_targets(
     #endif
 
     static int selected_id = -1;
+    #if 0
     #if 1
     if (vdb_begin())
     {
@@ -607,6 +608,7 @@ tracks_t track_targets(
         }
         vdb_end();
     }
+    #endif
     #endif
 
     tracks_t result = {0};

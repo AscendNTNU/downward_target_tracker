@@ -4,16 +4,17 @@
 #define CAMERA_HEIGHT      600
 #define CAMERA_BUFFERS     3
 #define CAMERA_LEVELS      2 // Downscale factor (0=none, 1=half, 2=quarter)
-#define TEST_DECOMPRESSION 0
-#define TEST_CALIBRATION   1
 
 #include "asc_usbcam.h"
-#include "vdb_release.h"
 #include "asc_tracker.h"
 #include <time.h>
 #include <signal.h>
 #include <assert.h>
 #include <stdint.h>
+
+#include <ros/ros.h>
+#include <downward_target_tracker/calibration.h>
+#include <downward_target_tracker/image.h>
 
 uint64_t get_nanoseconds()
 {
@@ -24,29 +25,20 @@ uint64_t get_nanoseconds()
     return result;
 }
 
-int vdb_begin(float required_dt)
-{
-    static uint64_t last_t = get_nanoseconds();
-    uint64_t t = get_nanoseconds();
-    float dt = (t-last_t)/1e9;
-    if (dt > required_dt)
-    {
-        if (vdb_begin())
-        {
-            last_t = t;
-            return 1;
-        }
-    }
-    return 0;
-}
-
 void ctrlc(int)
 {
     exit(0);
 }
 
-int main(int, char **)
+int main(int argc, char **argv)
 {
+    ros::init(argc, argv, "downward_target_tracker");
+    ros::NodeHandle node;
+    // ros::Subscriber sub;
+    // sub = node.subscribe("/", 1, callback_)
+    ros::Publisher pub_calibration = node.advertise<downward_target_tracker::calibration>("downward_target_tracker/calibration", 1);
+    ros::Publisher pub_image       = node.advertise<downward_target_tracker::image>("downward_target_tracker/image", 1);
+
     signal(SIGINT, ctrlc);
 
     usbcam_opt_t opt = {0};
@@ -82,7 +74,8 @@ int main(int, char **)
             last_t = t;
         }
 
-        float dt_decompress;
+        float dt_decompress = 0.0f;
+        #if 0
         {
             uint64_t t1 = get_nanoseconds();
             if (!usbcam_jpeg_to_rgb(Ix, Iy, I, jpg_data, jpg_size))
@@ -93,53 +86,31 @@ int main(int, char **)
             uint64_t t2 = get_nanoseconds();
             dt_decompress = (t2-t1)/1e9;
         }
-
-        #if 1
-        if (vdb_begin(0.1f))
-        {
-            #if TEST_DECOMPRESSION==1
-            vdb_imageRGB8(I, Ix, Iy);
-            #endif
-
-            #if TEST_CALIBRATION==1
-            static float camera_ex = 0.0f;
-            static float camera_ey = 0.0f;
-            static float camera_ez = 0.0f;
-            static float camera_z = 1.0f;
-            static int threshold = 20;
-
-            mat3 camera_to_world = m_rotz(camera_ez)*m_roty(camera_ey)*m_rotx(camera_ex);
-            float f = camera_f * Ix/CAMERA_WIDTH;
-            float u0 = camera_u0 * Ix/CAMERA_WIDTH;
-            float v0 = camera_v0 * Ix/CAMERA_WIDTH;
-
-            vdb_xrange(-4.0f, +4.0f);
-            vdb_yrange(-2.0f, +2.0f);
-            for (int y = 1; y < Iy-1; y += 8)
-            for (int x = 1; x < Ix-1; x += 8)
-            {
-                vec2 uv = { x+0.5f, y+0.5f };
-                vec3 dir = camera_to_world*camera_inverse_project(f,u0,v0, uv);
-                vec2 p;
-                if (m_intersect_xy_plane(dir, camera_z, &p))
-                {
-                    vdb_color_rampf(I[3*(x + y*Ix)+0]/255.0f);
-                    vdb_point(p.x, p.y);
-                }
-            }
-            vdb_slider1i("threshold", &threshold, 0, 200);
-            vdb_slider1f("camera_f", &camera_f, 400.0f, 500.0f);
-            vdb_slider1f("camera_u0", &camera_u0, 0.0f, CAMERA_WIDTH);
-            vdb_slider1f("camera_v0", &camera_v0, 0.0f, CAMERA_HEIGHT);
-            vdb_slider1f("camera_z", &camera_z, 0.0f, 3.0f);
-            vdb_slider1f("camera_ex", &camera_ex, -0.3f, +0.3f);
-            vdb_slider1f("camera_ey", &camera_ey, -0.3f, +0.3f);
-            vdb_slider1f("camera_ez", &camera_ez, -3.14f, +3.14f);
-            #endif
-
-            vdb_end();
-        }
         #endif
+
+        ros::spinOnce();
+
+        {
+            downward_target_tracker::calibration msg;
+            msg.camera_f = 1.0f;
+            msg.camera_u0 = 2.0f;
+            msg.camera_v0 = 3.0f;
+            pub_calibration.publish(msg);
+        }
+
+        // {
+        //     downward_target_tracker::everything msg;
+        //     msg.camera_f = 1.0f;
+        //     msg.camera_u0 = 2.0f;
+        //     msg.camera_v0 = 3.0f;
+        //     static unsigned char fuck[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+        //     msg.jpg_data.resize(10);
+        //     memcpy(&msg.jpg_data[0], fuck, 10);
+        //     msg.jpg_size = 10;
+        //     // msg.jpg_data.resize(jpg_size);
+        //     // memcpy(&msg.jpg_data[0], jpg_data, jpg_size);
+        //     pub.publish(msg);
+        // }
 
         printf("%6.2f ms (decompress)\t%6.2f ms (frame)\n", 1000.0f*dt_decompress, 1000.0f*dt_internal);
         usbcam_unlock();
