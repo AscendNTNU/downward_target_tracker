@@ -26,6 +26,36 @@
 #include "asc_usbcam.h"
 #include "asc_tracker.h"
 
+// OPTIONS
+float camera_f = 434.0f;
+float camera_u0 = 375.0f;
+float camera_v0 = 275.0f;
+float platez = 0.1f;
+float merge_threshold = 0.3f;
+int   confidence_limit = 20;
+int   initial_confidence = 5;
+int   accept_confidence = 10;
+int   removal_confidence = 0;
+float removal_time = 2.0f;
+int   minimum_count = 50;
+float r_g = 3.0f;
+float r_b = 2.0f;
+float r_n = 10.0f/3.0f;
+float g_r = 1.6f;
+float g_b = 1.5f;
+float g_n = 10.0f/3.0f;
+
+mat3 latest_rot = m_id3();
+vec3 latest_pos = {0};
+
+#if DISABLE_ROS==0
+void callback_debug(downward_target_debug::debug msg)
+{
+    latest_rot = m_rotz(msg.rz)*m_roty(msg.ry)*m_rotx(msg.rx);
+    latest_pos = m_vec3(msg.tx, msg.ty, msg.tz);
+}
+#endif
+
 uint64_t get_nanoseconds()
 {
     struct timespec ts = {};
@@ -40,24 +70,6 @@ void ctrlc(int)
     exit(0);
 }
 
-//
-// Callbacks
-//
-
-float camera_f = 434.0f;
-float camera_u0 = 375.0f;
-float camera_v0 = 275.0f;
-mat3 latest_rot = m_id3();
-vec3 latest_pos = {0};
-
-#if DISABLE_ROS==0
-void callback_debug(downward_target_debug::debug msg)
-{
-    latest_rot = m_rotz(msg.rz)*m_roty(msg.ry)*m_rotx(msg.rx);
-    latest_pos = m_vec3(msg.tx, msg.ty, msg.tz);
-}
-#endif
-
 int main(int argc, char **argv)
 {
     #if DISABLE_ROS==0
@@ -71,20 +83,20 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    usbcam_opt_t opt = {0};
-    opt.device_name = CAMERA_NAME;
-    opt.pixel_format = V4L2_PIX_FMT_MJPEG;
-    opt.width = CAMERA_WIDTH;
-    opt.height = CAMERA_HEIGHT;
-    opt.buffers = CAMERA_BUFFERS;
-    usbcam_init(opt);
+    {
+        usbcam_opt_t opt = {0};
+        opt.device_name = CAMERA_NAME;
+        opt.pixel_format = V4L2_PIX_FMT_MJPEG;
+        opt.width = CAMERA_WIDTH;
+        opt.height = CAMERA_HEIGHT;
+        opt.buffers = CAMERA_BUFFERS;
+        usbcam_init(opt);
+    }
 
     const int Ix = CAMERA_WIDTH>>CAMERA_LEVELS;
     const int Iy = CAMERA_HEIGHT>>CAMERA_LEVELS;
     static unsigned char I[CAMERA_WIDTH*CAMERA_HEIGHT*3];
-
     uint64_t t_begin = get_nanoseconds();
-
     for (int frame = 0;; frame++)
     {
         unsigned char *jpg_data = 0;
@@ -122,20 +134,20 @@ int main(int argc, char **argv)
         tracks_t tracks = {0};
         {
             track_targets_opt_t opt = {0};
-            opt.platez = 0.1f;
-            opt.merge_threshold = 0.3;
-            opt.confidence_limit = 20;
-            opt.initial_confidence = 5;
-            opt.accept_confidence = 10;
-            opt.removal_confidence = 0;
-            opt.removal_time = 2.0f;
-            opt.minimum_count = 50;
-            opt.r_g = 3.0f;
-            opt.r_b = 3.0f;
-            opt.r_n = 10.0f/3.0f;
-            opt.g_r = 1.6f;
-            opt.g_b = 1.5f;
-            opt.g_n = 10.0f/3.0f;
+            opt.platez = platez;
+            opt.merge_threshold = merge_threshold;
+            opt.confidence_limit = confidence_limit;
+            opt.initial_confidence = initial_confidence;
+            opt.accept_confidence = accept_confidence;
+            opt.removal_confidence = removal_confidence;
+            opt.removal_time = removal_time;
+            opt.minimum_count = minimum_count;
+            opt.r_g = r_g;
+            opt.r_b = r_b;
+            opt.r_n = r_n;
+            opt.g_r = g_r;
+            opt.g_b = g_b;
+            opt.g_n = g_n;
             opt.f = camera_f*Ix/CAMERA_WIDTH;
             opt.u0 = camera_u0*Ix/CAMERA_WIDTH;
             opt.v0 = camera_v0*Ix/CAMERA_WIDTH;
@@ -187,6 +199,31 @@ int main(int argc, char **argv)
                 {
                     vdb_fillRect(x, y, 1.0f, 1.0f);
                 }
+            }
+
+            vdb_color_black(2);
+            for (int i = 0; i < groups.count; i++)
+            {
+                if (groups.group_n[i] > 0.025f*max_n)
+                {
+                    float min_x = groups.group_min_x[i];
+                    float min_y = groups.group_min_y[i];
+                    float max_x = groups.group_max_x[i];
+                    float max_y = groups.group_max_y[i];
+                    vdb_line(min_x, min_y, max_x, min_y);
+                    vdb_line(max_x, min_y, max_x, max_y);
+                    vdb_line(max_x, max_y, min_x, max_y);
+                    vdb_line(min_x, max_y, min_x, min_y);
+                }
+            }
+
+            {
+                vdb_slider1f("r_g", &r_g, 0.0f, 5.0f);
+                vdb_slider1f("r_b", &r_b, 0.0f, 5.0f);
+                vdb_slider1f("r_n", &r_n, 0.0f, 5.0f);
+                vdb_slider1f("g_r", &g_r, 0.0f, 5.0f);
+                vdb_slider1f("g_b", &g_b, 0.0f, 5.0f);
+                vdb_slider1f("g_n", &g_n, 0.0f, 5.0f);
             }
 
             vdb_end();
