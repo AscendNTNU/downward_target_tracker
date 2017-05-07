@@ -11,7 +11,8 @@ find_package(catkin REQUIRED
 add_message_files(
   FILES
   image.msg
-  calibration.msg
+  info.msg
+  tracks.msg
 )
 generate_messages(
   DEPENDENCIES

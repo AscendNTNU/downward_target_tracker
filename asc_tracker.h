@@ -18,8 +18,6 @@ struct target_t
     float v_hat;
     float du_hat;
     float dv_hat;
-    // float estimated_time_until_180;
-    // float estimated_time_until_45;
     int unique_id;
 
     float x_hat;
@@ -35,6 +33,56 @@ struct tracks_t
     target_t *targets;
     int count;
 };
+
+struct track_targets_opt_t
+{
+    // Height of top-plate above ground
+    float platez; // 0.1
+
+    // Maximum distance in meters for two detections to be considered the same
+    float merge_threshold; // 0.3
+
+    // Confidence is increased or decreased by one each frame
+    int confidence_limit; // 20
+    int initial_confidence; // 5
+    int accept_confidence; // 10
+    int removal_confidence; // 0
+
+    // Required elapsed time without reobservation before a track is removed
+    // (in same unit as timestamp)
+    float removal_time; // 2.0f
+
+    // Minimum number of pixels inside connected component to be accepted
+    int minimum_count; // 50
+
+    // Color segmentation thresholds
+    float r_g; // 3.0f
+    float r_b; // 3.0f
+    float r_n; // 10.0f/3.0f
+    float g_r; // 1.6f
+    float g_b; // 1.5f
+    float g_n; // 10.0f/3.0f
+
+    float f;  // camera focal length
+    float u0; // camera center in x
+    float v0; // camera center in y
+
+    unsigned char *I;  // image of densely packed 24-byte (r,g,b) pixels
+    int Ix;            // image width
+    int Iy;            // image height
+
+    mat3 rot; // R_c^g: {c}amera coordinate frame relative {g}rid
+    vec3 pos; // camera position relative some origin
+    bool gps; // whether rot/pos are valid or not
+
+    float timestamp; // monotonically increasing timer (in seconds) for when image was taken
+};
+
+tracks_t track_targets(track_targets_opt_t opt);
+
+//
+// Implementation
+//
 
 vec3 camera_inverse_project(float f, float u0, float v0, vec2 uv)
 //  f   (input): Equidistant fisheye camera model parameter (r = f x theta)
@@ -203,77 +251,48 @@ target_t filter_target_image_space(target_t prev, detection_t seen)
     return prev;
 }
 
-struct track_targets_opt_t
-{
-    float platez; // 0.1
-    float merge_threshold; // 0.3
-    int confidence_limit; // 20
-    int initial_confidence; // 5
-    int accept_confidence; // 10
-    int removal_confidence; // 0
-    float removal_time; // 2.0f
-    int minimum_count; // 50
-    float r_g; // 3.0f
-    float r_b; // 3.0f
-    float r_n; // 10.0f/3.0f
-    float g_r; // 1.6f
-    float g_b; // 1.5f
-    float g_n; // 10.0f/3.0f
-};
-
-tracks_t track_targets(
-    unsigned char *I,  // image of densely packed 24-byte (r,g,b) pixels
-    int Ix,            // image width
-    int Iy,            // image height
-    float f,           // camera focal length
-    float u0,          // camera center in x
-    float v0,          // camera center in y
-    mat3 rot,          // R_c^g: {c}amera coordinate frame relative {g}rid
-    vec3 pos,          // camera position relative some origin
-    bool has_gps,
-    float timestamp)   // monotonically increasing timer (in seconds) for when image was taken
+tracks_t track_targets(track_targets_opt_t opt)
 {
     const int MAX_TARGETS = 1024;
     static target_t targets[MAX_TARGETS];
     static int num_targets = 0;
     static int next_id = 0;
 
+    float f = opt.f;
+    float u0 = opt.u0;
+    float v0 = opt.v0;
+
+    unsigned char *I = opt.I;
+    int Ix = opt.Ix;
+    int Iy = opt.Iy;
+
+    mat3 rot = opt.rot;
+    vec3 pos = opt.pos;
+    bool has_gps = opt.gps;
+
+    float timestamp = opt.timestamp;
+
     // Height of top-plate above ground
-    float platez = 0.1f;
+    float platez = opt.platez;
 
     // Height of camera above target plate plane
     float deltah = pos.z-platez;
 
     // Maximum distance in meters for two detections to be considered the same
-    static float merge_threshold = 0.3f;
+    float merge_threshold = opt.merge_threshold;
 
     // Confidence is increased or decreased by one each frame
-    static int confidence_limit = 20;
-    static int initial_confidence = 5;
-    static int accept_confidence = 10;
-    static int removal_confidence = 0;
+    int confidence_limit = opt.confidence_limit;
+    int initial_confidence = opt.initial_confidence;
+    int accept_confidence = opt.accept_confidence;
+    int removal_confidence = opt.removal_confidence;
 
     // Required elapsed time without reobservation before a track is removed
     // (in same unit as timestamp)
-    static float removal_time = 2.0f;
+    float removal_time = opt.removal_time;
 
     // Minimum number of pixels inside connected component to be accepted
-    static int minimum_count = 50;
-
-    // Color segmentation thresholds
-    static float r_g = 3.0f;
-    static float r_b = 3.0f;
-    static float r_n = 10.0f/3.0f;
-    static float g_r = 1.6f;
-    static float g_b = 1.5f;
-    static float g_n = 10.0f/3.0f;
-    cc_options opt = {0};
-    opt.r_g = r_g;
-    opt.r_b = r_b;
-    opt.r_n = r_n;
-    opt.g_r = g_r;
-    opt.g_b = g_b;
-    opt.g_n = g_n;
+    int minimum_count = opt.minimum_count;
 
     static detection_t detections[CC_MAX_POINTS];
     int num_detections = 0;
@@ -283,7 +302,17 @@ tracks_t track_targets(
         // Find connected components belonging of top plate sections
         int *points;
         int num_points;
-        cc_groups groups = cc_find_top_plates(I, Ix, Iy, opt, &points, &num_points);
+        cc_groups groups;
+        {
+            cc_options cc_opt = {0};
+            cc_opt.r_g = opt.r_g;
+            cc_opt.r_b = opt.r_b;
+            cc_opt.r_n = opt.r_n;
+            cc_opt.g_r = opt.g_r;
+            cc_opt.g_b = opt.g_b;
+            cc_opt.g_n = opt.g_n;
+            groups = cc_find_top_plates(I, Ix, Iy, cc_opt, &points, &num_points);
+        }
 
         // I merge adjacent groups based on ground plane distance
         // This array is used for book-keeping
@@ -523,70 +552,8 @@ tracks_t track_targets(
         }
     }
 
-    // LOG XY POSITION
     #if 0
-    for (int i = 0; i < num_targets; i++)
-    {
-        static FILE *f = fopen("log_x_y.txt", "w+");
-        target_t t = targets[i];
-        printf("%d %f %f\n", t.unique_id, t.last_seen.x_gps, t.last_seen.y_gps);
-        fprintf(f, "%d %f %f\n", t.unique_id, t.last_seen.x_gps, t.last_seen.y_gps);
-    }
-    #endif
-
     static int selected_id = -1;
-    #if 0
-    #if 1
-    if (vdb_begin())
-    {
-        vdb_imageRGB8(I, Ix, Iy);
-        vdb_translucent();
-        vdb_setNicePoints(1);
-        vdb_setPointSize(16.0f);
-        vdb_color_white(0);
-        vdb_fillRect(-1.0f, -1.0f, +2.0f, +2.0f);
-        vdb_opaque();
-
-        vdb_setLineSize(4.0f);
-        vdb_setPointSize(16.0f);
-        int x_min = -4.2f;
-        int x_max = +4.2f;
-        int y_min = -2.2f;
-        int y_max = +2.2f;
-
-        vdb_xrange(x_min-0.2f, x_max+0.2f);
-        vdb_yrange(y_max+0.2f, y_min-0.2f);
-
-        vdb_color_black(2);
-        for (int x = -10; x <= +10; x++) vdb_line(x, y_min, x, y_max);
-        for (int y = -10; y <= +10; y++) vdb_line(x_min, y, x_max, y);
-
-        for (int i = 0; i < num_targets; i++)
-        {
-            float x = targets[i].x_hat;
-            float y = targets[i].y_hat;
-            float dx = targets[i].dx_hat;
-            float dy = targets[i].dy_hat;
-            vdb_point(x, y);
-            vdb_line(x, y, x + 3.0f*dx, y + 3.0f*dy);
-
-            #if 0
-            // PRINT MOVING PROBABILITY
-            if (i == 0)
-            {
-                float p_moving = targets[i].p_moving*(1.0f-targets[i].p_turning);
-                int n = (int)(32.0f*p_moving);
-                for (int i = 0; i < n; i++)
-                    printf("#");
-                for (int i = n; i < 32; i++)
-                    printf("-");
-                printf("\n");
-            }
-            #endif
-        }
-        vdb_end();
-    }
-    #else
     if (vdb_begin())
     {
         vdb_setNicePoints(1);
@@ -627,8 +594,12 @@ tracks_t track_targets(
         vdb_end();
     }
     #endif
-    #endif
 
     tracks_t result = {0};
+    {
+        result.count = num_targets;
+        for (int i = 0; i < num_targets; i++)
+            result.targets[i] = targets[i];
+    }
     return result;
 }
