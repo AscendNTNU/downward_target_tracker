@@ -30,14 +30,6 @@
 float camera_f = 434.0f;
 float camera_u0 = 375.0f;
 float camera_v0 = 275.0f;
-float platez = 0.1f;
-float merge_threshold = 0.3f;
-int   confidence_limit = 20;
-int   initial_confidence = 5;
-int   accept_confidence = 10;
-int   removal_confidence = 0;
-float removal_time = 2.0f;
-int   minimum_count = 50;
 float r_g = 3.0f;
 float r_b = 2.0f;
 float r_n = 10.0f/3.0f;
@@ -134,14 +126,6 @@ int main(int argc, char **argv)
         tracks_t tracks = {0};
         {
             track_targets_opt_t opt = {0};
-            opt.platez = platez;
-            opt.merge_threshold = merge_threshold;
-            opt.confidence_limit = confidence_limit;
-            opt.initial_confidence = initial_confidence;
-            opt.accept_confidence = accept_confidence;
-            opt.removal_confidence = removal_confidence;
-            opt.removal_time = removal_time;
-            opt.minimum_count = minimum_count;
             opt.r_g = r_g;
             opt.r_b = r_b;
             opt.r_n = r_n;
@@ -162,7 +146,7 @@ int main(int argc, char **argv)
         }
 
         #if DISABLE_ROS==1
-        #if 1
+        #if 0
         if (vdb_begin())
         {
             cc_groups groups = tracks.groups;

@@ -44,25 +44,6 @@ struct tracks_t
 
 struct track_targets_opt_t
 {
-    // Height of top-plate above ground
-    float platez; // 0.1
-
-    // Maximum distance in meters for two detections to be considered the same
-    float merge_threshold; // 0.3
-
-    // Confidence is increased or decreased by one each frame
-    int confidence_limit; // 20
-    int initial_confidence; // 5
-    int accept_confidence; // 10
-    int removal_confidence; // 0
-
-    // Required elapsed time without reobservation before a track is removed
-    // (in same unit as timestamp)
-    float removal_time; // 2.0f
-
-    // Minimum number of pixels inside connected component to be accepted
-    int minimum_count; // 50
-
     // Color segmentation thresholds
     float r_g; // 3.0f
     float r_b; // 3.0f
@@ -261,10 +242,21 @@ target_t filter_target_image_space(target_t prev, detection_t seen)
 
 tracks_t track_targets(track_targets_opt_t opt)
 {
-    const int MAX_TARGETS = 1024;
-    static target_t targets[MAX_TARGETS];
+    const float plate_z = 0.1f;         // Height of top-plate above ground
+    const float merge_threshold = 0.3f; // Maximum distance in meters for two detections to be considered the same
+    const float removal_time = 2.0f;    // Required elapsed time without reobservation before a track is removed
+    const int minimum_count = 50;       // Minimum number of pixels inside connected component to be accepted
+    const int max_targets = 1024;
+
+    static target_t targets[max_targets];
     static int num_targets = 0;
     static int next_id = 0;
+
+    // Confidence is increased or decreased by one each frame
+    const int confidence_limit = 20;
+    const int initial_confidence = 5;
+    const int accept_confidence = 10;
+    const int removal_confidence = 0;
 
     float f = opt.f;
     float u0 = opt.u0;
@@ -280,32 +272,11 @@ tracks_t track_targets(track_targets_opt_t opt)
 
     float timestamp = opt.timestamp;
 
-    // Height of top-plate above ground
-    float platez = opt.platez;
-
-    // Height of camera above target plate plane
-    float deltah = pos.z-platez;
-
-    // Maximum distance in meters for two detections to be considered the same
-    float merge_threshold = opt.merge_threshold;
-
-    // Confidence is increased or decreased by one each frame
-    int confidence_limit = opt.confidence_limit;
-    int initial_confidence = opt.initial_confidence;
-    int accept_confidence = opt.accept_confidence;
-    int removal_confidence = opt.removal_confidence;
-
-    // Required elapsed time without reobservation before a track is removed
-    // (in same unit as timestamp)
-    float removal_time = opt.removal_time;
-
-    // Minimum number of pixels inside connected component to be accepted
-    int minimum_count = opt.minimum_count;
-
-    static detection_t detections[CC_MAX_POINTS];
-    int num_detections = 0;
+    float delta_z = pos.z - plate_z; // Height of camera above target plate plane
 
     // Detect targets in input image
+    static detection_t detections[CC_MAX_POINTS];
+    int num_detections = 0;
     int *color_points;
     int color_num_points;
     cc_groups color_groups;
@@ -347,7 +318,7 @@ tracks_t track_targets(track_targets_opt_t opt)
 
                 // Check how close the group centroids are in world space
                 // and merge only if they are sufficiently close
-                float d = metric_distance(xi,yi, xj,yj, f,u0,v0,rot,deltah);
+                float d = metric_distance(xi,yi, xj,yj, f,u0,v0,rot,delta_z);
                 if (d > merge_threshold)
                     continue;
 
@@ -476,7 +447,7 @@ tracks_t track_targets(track_targets_opt_t opt)
         vec2 uv = { detections[i].u, detections[i].v };
         vec3 dir = rot*camera_inverse_project(f,u0,v0, uv);
         vec2 xy;
-        if (m_intersect_xy_plane(dir, deltah, &xy))
+        if (m_intersect_xy_plane(dir, delta_z, &xy))
         {
             detections[i].x_gps = xy.x + pos.x;
             detections[i].y_gps = xy.y + pos.y;
@@ -504,7 +475,7 @@ tracks_t track_targets(track_targets_opt_t opt)
             float vi = targets[i].v_hat;
             float uj = detections[j].u;
             float vj = detections[j].v;
-            float d = metric_distance(ui,vi, uj,vj, f,u0,v0,rot,deltah);
+            float d = metric_distance(ui,vi, uj,vj, f,u0,v0,rot,delta_z);
             if (closest_j < 0 || d < closest_d)
             {
                 closest_j = j;
@@ -543,7 +514,7 @@ tracks_t track_targets(track_targets_opt_t opt)
     {
         if (!found_match[i])
         {
-            if (num_targets < MAX_TARGETS)
+            if (num_targets < max_targets)
             {
                 target_t t = {0};
                 t.confidence = initial_confidence;
