@@ -30,8 +30,16 @@ struct target_t
 
 struct tracks_t
 {
+    int num_targets;
     target_t *targets;
-    int count;
+
+    int num_detections;
+    detection_t *detections;
+
+    // color segmentation output
+    int *points;
+    int num_points;
+    cc_groups groups;
 };
 
 struct track_targets_opt_t
@@ -298,6 +306,9 @@ tracks_t track_targets(track_targets_opt_t opt)
     int num_detections = 0;
 
     // Detect targets in input image
+    int *color_points;
+    int color_num_points;
+    cc_groups color_groups;
     {
         // Find connected components belonging of top plate sections
         int *points;
@@ -453,6 +464,10 @@ tracks_t track_targets(track_targets_opt_t opt)
                 detections[num_detections++] = d;
             }
         }
+
+        color_points = points;
+        color_num_points = num_points;
+        color_groups = groups;
     }
 
     // Compute world-space coordinates for each detection using current GPS estimate
@@ -596,10 +611,12 @@ tracks_t track_targets(track_targets_opt_t opt)
     #endif
 
     tracks_t result = {0};
-    {
-        result.count = num_targets;
-        for (int i = 0; i < num_targets; i++)
-            result.targets[i] = targets[i];
-    }
+    result.num_targets = num_targets;
+    result.num_detections = num_detections;
+    result.targets = targets;
+    result.detections = detections;
+    result.points = color_points;
+    result.num_points = color_num_points;
+    result.groups = color_groups;
     return result;
 }

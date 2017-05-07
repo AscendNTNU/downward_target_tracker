@@ -4,16 +4,24 @@
 #define CAMERA_HEIGHT      600
 #define CAMERA_BUFFERS     3
 #define CAMERA_LEVELS      2 // Downscale factor (0=none, 1=half, 2=quarter)
+#define DISABLE_ROS        1
 
 #include <time.h>
 #include <signal.h>
 #include <assert.h>
 #include <stdint.h>
+
+#if DISABLE_ROS==0
 #include <ros/ros.h>
 #include <downward_target_tracker/image.h>
 #include <downward_target_tracker/info.h>
 #include <downward_target_tracker/tracks.h>
 #include <downward_target_debug/debug.h>
+#endif
+
+#if DISABLE_ROS==1
+#include "vdb_release.h"
+#endif
 
 #include "asc_usbcam.h"
 #include "asc_tracker.h"
@@ -42,20 +50,24 @@ float camera_v0 = 275.0f;
 mat3 latest_rot = m_id3();
 vec3 latest_pos = {0};
 
+#if DISABLE_ROS==0
 void callback_debug(downward_target_debug::debug msg)
 {
     latest_rot = m_rotz(msg.rz)*m_roty(msg.ry)*m_rotx(msg.rx);
     latest_pos = m_vec3(msg.tx, msg.ty, msg.tz);
 }
+#endif
 
 int main(int argc, char **argv)
 {
+    #if DISABLE_ROS==0
     ros::init(argc, argv, "downward_target_tracker");
     ros::NodeHandle node;
     ros::Publisher pub_image  = node.advertise<downward_target_tracker::image>("downward_target_tracker/image", 1);
     ros::Publisher pub_info   = node.advertise<downward_target_tracker::info>("downward_target_tracker/info", 1);
     ros::Publisher pub_tracks = node.advertise<downward_target_tracker::tracks>("downward_target_tracker/tracks", 1);
     ros::Subscriber sub_debug = node.subscribe("/downward_target_debug/debug", 1, callback_debug);
+    #endif
 
     signal(SIGINT, ctrlc);
 
@@ -102,7 +114,11 @@ int main(int argc, char **argv)
             dt_decompress = (t2-t1)/1e9;
         }
 
-        #if 0
+        {
+            latest_rot = m_id3();
+            latest_pos = m_vec3(0.0f, 0.0f, 1.0f);
+        }
+
         tracks_t tracks = {0};
         {
             track_targets_opt_t opt = {0};
@@ -133,31 +149,85 @@ int main(int argc, char **argv)
             tracks = track_targets(opt);
         }
 
+        #if DISABLE_ROS==1
+        #if 1
+        if (vdb_begin())
+        {
+            cc_groups groups = tracks.groups;
+            int *points = tracks.points;
+            int num_points = tracks.num_points;
+
+            int max_n = 0;
+            for (int i = 0; i < groups.count; i++)
+            {
+                if (groups.group_n[i] > max_n)
+                    max_n = groups.group_n[i];
+            }
+            vdb_setNicePoints(0);
+            vdb_imageRGB8(I, Ix, Iy);
+
+            vdb_xrange(0.0f, Ix);
+            vdb_yrange(0.0f, Iy);
+
+            vdb_translucent();
+            vdb_color_white(2);
+            vdb_fillRect(0.0f, 0.0f, Ix, Iy);
+
+            vdb_opaque();
+            vdb_color_red(1);
+            for (int i = 0; i < num_points; i++)
+            {
+                int p = points[i];
+                int x = p % Ix;
+                int y = p / Ix;
+                int l = groups.label[p];
+                int n = groups.group_n[l];
+
+                if (n > 0.025f*max_n)
+                {
+                    vdb_fillRect(x, y, 1.0f, 1.0f);
+                }
+            }
+
+            vdb_end();
+        }
+        #endif
+        #endif
+
+        #if DISABLE_ROS==0
+
         {
             downward_target_tracker::tracks msg;
-            msg.count = tracks.count;
-            for (int target = 0; target < tracks.count; target++)
+            msg.num_targets = tracks.num_targets;
+            // msg.num_detections = tracks.num_detections;
+            for (int i = 0; i < tracks.num_detections; i++)
             {
-                msg.u.push_back(tracks.targets[target].last_seen.u);
-                msg.v.push_back(tracks.targets[target].last_seen.v);
-                msg.u1.push_back(tracks.targets[target].last_seen.u1);
-                msg.v1.push_back(tracks.targets[target].last_seen.v1);
-                msg.u2.push_back(tracks.targets[target].last_seen.u2);
-                msg.v2.push_back(tracks.targets[target].last_seen.v2);
-                msg.x_gps.push_back(tracks.targets[target].last_seen.x_gps);
-                msg.y_gps.push_back(tracks.targets[target].last_seen.y_gps);
-                msg.u_hat.push_back(tracks.targets[target].u_hat);
-                msg.v_hat.push_back(tracks.targets[target].v_hat);
-                msg.x_hat.push_back(tracks.targets[target].x_hat);
-                msg.y_hat.push_back(tracks.targets[target].y_hat);
-                msg.dx_hat.push_back(tracks.targets[target].dx_hat);
-                msg.dy_hat.push_back(tracks.targets[target].dy_hat);
-                msg.unique_id.push_back(tracks.targets[target].unique_id);
-                msg.confidence.push_back(tracks.targets[target].confidence);
+                msg.u.push_back(tracks.detections[i].u);
+                msg.v.push_back(tracks.detections[i].v);
+                msg.u1.push_back(tracks.detections[i].u1);
+                msg.v1.push_back(tracks.detections[i].v1);
+                msg.u2.push_back(tracks.detections[i].u2);
+                msg.v2.push_back(tracks.detections[i].v2);
+
+                // msg.u.push_back(tracks.targets[i].last_seen.u);
+                // msg.v.push_back(tracks.targets[i].last_seen.v);
+                // msg.u1.push_back(tracks.targets[i].last_seen.u1);
+                // msg.v1.push_back(tracks.targets[i].last_seen.v1);
+                // msg.u2.push_back(tracks.targets[i].last_seen.u2);
+                // msg.v2.push_back(tracks.targets[i].last_seen.v2);
+                // msg.x_gps.push_back(tracks.targets[i].last_seen.x_gps);
+                // msg.y_gps.push_back(tracks.targets[i].last_seen.y_gps);
+                // msg.u_hat.push_back(tracks.targets[i].u_hat);
+                // msg.v_hat.push_back(tracks.targets[i].v_hat);
+                // msg.x_hat.push_back(tracks.targets[i].x_hat);
+                // msg.y_hat.push_back(tracks.targets[i].y_hat);
+                // msg.dx_hat.push_back(tracks.targets[i].dx_hat);
+                // msg.dy_hat.push_back(tracks.targets[i].dy_hat);
+                // msg.unique_id.push_back(tracks.targets[i].unique_id);
+                // msg.confidence.push_back(tracks.targets[i].confidence);
             }
             pub_tracks.publish(msg);
         }
-        #endif
 
         {
             downward_target_tracker::info msg;
@@ -179,6 +249,7 @@ int main(int argc, char **argv)
         }
 
         ros::spinOnce();
+        #endif
 
         usbcam_unlock();
     }

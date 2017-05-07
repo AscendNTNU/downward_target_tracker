@@ -1,4 +1,4 @@
-int32 count
+int32 num_targets
 
 float32[] u
 float32[] v
