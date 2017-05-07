@@ -1,25 +1,31 @@
-#define MOCK_IMAGE         1
-#define DISABLE_ROS        1
+#define mock_image         1
+#define disable_ros        1
 
-#if MOCK_IMAGE==0
+#if mock_image==0
 #define USBCAM_DEBUG       1
-#define CAMERA_NAME        "/dev/video1"
-#define CAMERA_WIDTH       800
-#define CAMERA_HEIGHT      600
-#define CAMERA_BUFFERS     3
-#define CAMERA_LEVELS      2 // Downscale factor (0=none, 1=half, 2=quarter)
+#define device_name        "/dev/video1"
+#define camera_width       800
+#define camera_height      600
+#define camera_buffers     3
+#define camera_levels      2 // Downscale factor (0=none, 1=half, 2=quarter)
+#define camera_f_init      434.0f
+#define camera_u0_init     375.0f
+#define camera_v0_init     275.0f
 #else
 #include "mock_jpg.h"      // hint: run "xxd -i" on an image to generate a header-embedded binary
-#define CAMERA_WIDTH       1280
-#define CAMERA_HEIGHT      720
-#define CAMERA_LEVELS      3
+#define camera_width       1280
+#define camera_height      720
+#define camera_levels      3
+#define camera_f_init      494.0f
+#define camera_u0_init     649.0f
+#define camera_v0_init     335.0f
 #endif
 
 #include <signal.h>
 #include <assert.h>
 #include <stdint.h>
 
-#if DISABLE_ROS==0
+#if disable_ros==0
 #include <ros/ros.h>
 #include <downward_target_tracker/image.h>
 #include <downward_target_tracker/info.h>
@@ -27,7 +33,7 @@
 #include <downward_target_debug/debug.h>
 #endif
 
-#if DISABLE_ROS==1
+#if disable_ros==1
 #include "vdb_release.h"
 #endif
 #include "asc_usbcam.h"
@@ -35,9 +41,9 @@
 #include "get_nanoseconds.h"
 
 // OPTIONS
-float camera_f = 434.0f;
-float camera_u0 = 375.0f;
-float camera_v0 = 275.0f;
+float camera_f = camera_f_init;
+float camera_u0 = camera_u0_init;
+float camera_v0 = camera_v0_init;
 float r_g = 3.0f;
 float r_b = 2.0f;
 float r_n = 10.0f/3.0f;
@@ -48,7 +54,7 @@ float g_n = 10.0f/3.0f;
 mat3 latest_rot = m_id3();
 vec3 latest_pos = {0};
 
-#if DISABLE_ROS==0
+#if disable_ros==0
 void callback_debug(downward_target_debug::debug msg)
 {
     latest_rot = m_rotz(msg.rz)*m_roty(msg.ry)*m_rotx(msg.rx);
@@ -63,7 +69,7 @@ void ctrlc(int)
 
 int main(int argc, char **argv)
 {
-    #if DISABLE_ROS==0
+    #if disable_ros==0
     ros::init(argc, argv, "downward_target_tracker");
     ros::NodeHandle node;
     ros::Publisher pub_image  = node.advertise<downward_target_tracker::image>("downward_target_tracker/image", 1);
@@ -74,28 +80,28 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    #if MOCK_IMAGE==0
+    #if mock_image==0
     {
         usbcam_opt_t opt = {0};
-        opt.device_name = CAMERA_NAME;
+        opt.device_name = device_name;
         opt.pixel_format = V4L2_PIX_FMT_MJPEG;
-        opt.width = CAMERA_WIDTH;
-        opt.height = CAMERA_HEIGHT;
-        opt.buffers = CAMERA_BUFFERS;
+        opt.width = camera_width;
+        opt.height = camera_height;
+        opt.buffers = camera_buffers;
         usbcam_init(opt);
     }
     #endif
 
-    const int Ix = CAMERA_WIDTH>>CAMERA_LEVELS;
-    const int Iy = CAMERA_HEIGHT>>CAMERA_LEVELS;
-    static unsigned char I[CAMERA_WIDTH*CAMERA_HEIGHT*3];
+    const int Ix = camera_width>>camera_levels;
+    const int Iy = camera_height>>camera_levels;
+    static unsigned char I[camera_width*camera_height*3];
     uint64_t t_begin = get_nanoseconds();
     for (int frame = 0;; frame++)
     {
         unsigned char *jpg_data = 0;
         unsigned int jpg_size = 0;
         timeval timestamp = {0};
-        #if MOCK_IMAGE==1
+        #if mock_image==1
         jpg_data = mock_jpg;
         jpg_size = mock_jpg_len;
         usleep(16*1000);
@@ -141,9 +147,9 @@ int main(int argc, char **argv)
             opt.g_r = g_r;
             opt.g_b = g_b;
             opt.g_n = g_n;
-            opt.f = camera_f*Ix/CAMERA_WIDTH;
-            opt.u0 = camera_u0*Ix/CAMERA_WIDTH;
-            opt.v0 = camera_v0*Ix/CAMERA_WIDTH;
+            opt.f = camera_f*Ix/camera_width;
+            opt.u0 = camera_u0*Ix/camera_width;
+            opt.v0 = camera_v0*Ix/camera_width;
             opt.I = I;
             opt.Ix = Ix;
             opt.Iy = Iy;
@@ -156,7 +162,7 @@ int main(int argc, char **argv)
             dt_track_targets = (t2-t1)/1e9;
         }
 
-        #if DISABLE_ROS==1
+        #if disable_ros==1
         #if 1
         if (vdb_begin())
         {
@@ -273,7 +279,7 @@ int main(int argc, char **argv)
         #endif
         #endif
 
-        #if DISABLE_ROS==0
+        #if disable_ros==0
 
         {
             downward_target_tracker::tracks msg;
@@ -316,8 +322,8 @@ int main(int argc, char **argv)
             msg.camera_f = camera_f;
             msg.camera_u0 = camera_u0;
             msg.camera_v0 = camera_v0;
-            msg.camera_w = CAMERA_WIDTH;
-            msg.camera_h = CAMERA_HEIGHT;
+            msg.camera_w = camera_width;
+            msg.camera_h = camera_height;
             pub_info.publish(msg);
         }
 
@@ -331,7 +337,7 @@ int main(int argc, char **argv)
         ros::spinOnce();
         #endif
 
-        #if MOCK_IMAGE==0
+        #if mock_image==0
         usbcam_unlock();
         #endif
     }
