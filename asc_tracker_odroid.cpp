@@ -1,3 +1,13 @@
+//
+// notes for myself
+//
+// R_cam^imu = Rz(cam_imu_rz)Ry(cam_imu_ry)Rx(cam_imu_rx) [camera to imu frame]
+// T_cam/imu^imu = (cam_imu_tx, cam_imu_ty, cam_imu_tz)   [camera relative imu in imu frame]
+
+//
+// below are compile-time settings
+//
+
 #define mock_image         1
 #define disable_ros        1
 
@@ -21,10 +31,26 @@
 #define camera_v0_init     335.0f
 #endif
 
+#define cam_imu_rx_init    0.0f
+#define cam_imu_ry_init    0.0f
+#define cam_imu_rz_init    0.0f
+#define cam_imu_tx_init    0.0f
+#define cam_imu_ty_init    0.0f
+#define cam_imu_tz_init    0.0f
+#define r_g_init           3.0f
+#define r_b_init           2.0f
+#define r_n_init           10.0f/3.0f
+#define g_r_init           1.6f
+#define g_b_init           1.5f
+#define g_n_init           10.0f/3.0f
+
+//
+// below is lots of code
+//
+
 #include <signal.h>
 #include <assert.h>
 #include <stdint.h>
-
 #if disable_ros==0
 #include <ros/ros.h>
 #include <downward_target_tracker/image.h>
@@ -32,10 +58,7 @@
 #include <downward_target_tracker/tracks.h>
 #include <downward_target_debug/debug.h>
 #endif
-
-#if disable_ros==1
 #include "vdb_release.h"
-#endif
 #include "asc_usbcam.h"
 #include "asc_tracker.h"
 #include "get_nanoseconds.h"
@@ -43,28 +66,25 @@
 //
 // OPTIONS
 //
-
 float camera_f = camera_f_init;
 float camera_u0 = camera_u0_init;
 float camera_v0 = camera_v0_init;
+float cam_imu_rx = cam_imu_rx_init;
+float cam_imu_ry = cam_imu_ry_init;
+float cam_imu_rz = cam_imu_rz_init;
+float cam_imu_tx = cam_imu_tx_init;
+float cam_imu_ty = cam_imu_ty_init;
+float cam_imu_tz = cam_imu_tz_init;
+float r_g = r_g_init;
+float r_b = r_b_init;
+float r_n = r_n_init;
+float g_r = g_r_init;
+float g_b = g_b_init;
+float g_n = g_n_init;
 
-// R_cam^imu = Rz(rz)Ry(ry)Rx(rx)
-float cam_imu_rx = 0.0f;
-float cam_imu_ry = 0.0f;
-float cam_imu_rz = 0.0f;
-
-// T_cam/imu^imu = (tx, ty, tz)
-float cam_imu_tx = 0.0f;
-float cam_imu_ty = 0.0f;
-float cam_imu_tz = 0.0f;
-
-float r_g = 3.0f;
-float r_b = 2.0f;
-float r_n = 10.0f/3.0f;
-float g_r = 1.6f;
-float g_b = 1.5f;
-float g_n = 10.0f/3.0f;
-
+//
+// LATEST MESSAGES
+//
 mat3 latest_imu_rot = m_id3();
 vec3 latest_imu_pos = m_vec3(0.0f, 0.0f, 1.0f);
 
