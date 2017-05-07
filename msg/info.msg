@@ -4,5 +4,17 @@ float32 dt_track_targets
 float32 camera_f
 float32 camera_u0
 float32 camera_v0
+float32 cam_imu_rx
+float32 cam_imu_ry
+float32 cam_imu_rz
+float32 cam_imu_tx
+float32 cam_imu_ty
+float32 cam_imu_tz
+float32 r_g
+float32 r_b
+float32 r_n
+float32 g_r
+float32 g_b
+float32 g_n
 int32 camera_w
 int32 camera_h

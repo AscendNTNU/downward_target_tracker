@@ -9,7 +9,7 @@
 //
 
 #define mock_image         1
-#define disable_ros        1
+#define disable_ros        0
 
 #if mock_image==0
 #define USBCAM_DEBUG       1
@@ -53,10 +53,10 @@
 #include <stdint.h>
 #if disable_ros==0
 #include <ros/ros.h>
+#include <std_msgs/Float32.h>
 #include <downward_target_tracker/image.h>
 #include <downward_target_tracker/info.h>
 #include <downward_target_tracker/tracks.h>
-#include <downward_target_debug/debug.h>
 #endif
 #include "vdb_release.h"
 #include "asc_usbcam.h"
@@ -88,11 +88,25 @@ float g_n = g_n_init;
 mat3 latest_imu_rot = m_id3();
 vec3 latest_imu_pos = m_vec3(0.0f, 0.0f, 1.0f);
 
+//
+// CALLBACKS
+//
 #if disable_ros==0
-void callback_debug(downward_target_debug::debug msg)
-{
-
-}
+void callback_camera_f(std_msgs::Float32 msg) { camera_f = msg.data; }
+void callback_camera_u0(std_msgs::Float32 msg) { camera_u0 = msg.data; }
+void callback_camera_v0(std_msgs::Float32 msg) { camera_v0 = msg.data; }
+void callback_cam_imu_rx(std_msgs::Float32 msg) { cam_imu_rx = msg.data; }
+void callback_cam_imu_ry(std_msgs::Float32 msg) { cam_imu_ry = msg.data; }
+void callback_cam_imu_rz(std_msgs::Float32 msg) { cam_imu_rz = msg.data; }
+void callback_cam_imu_tx(std_msgs::Float32 msg) { cam_imu_tx = msg.data; }
+void callback_cam_imu_ty(std_msgs::Float32 msg) { cam_imu_ty = msg.data; }
+void callback_cam_imu_tz(std_msgs::Float32 msg) { cam_imu_tz = msg.data; }
+void callback_r_g(std_msgs::Float32 msg) { r_g = msg.data; }
+void callback_r_b(std_msgs::Float32 msg) { r_b = msg.data; }
+void callback_r_n(std_msgs::Float32 msg) { r_n = msg.data; }
+void callback_g_r(std_msgs::Float32 msg) { g_r = msg.data; }
+void callback_g_b(std_msgs::Float32 msg) { g_b = msg.data; }
+void callback_g_n(std_msgs::Float32 msg) { g_n = msg.data; }
 #endif
 
 void ctrlc(int)
@@ -105,10 +119,24 @@ int main(int argc, char **argv)
     #if disable_ros==0
     ros::init(argc, argv, "downward_target_tracker");
     ros::NodeHandle node;
-    ros::Publisher pub_image  = node.advertise<downward_target_tracker::image>("downward_target_tracker/image", 1);
-    ros::Publisher pub_info   = node.advertise<downward_target_tracker::info>("downward_target_tracker/info", 1);
+    ros::Publisher pub_image = node.advertise<downward_target_tracker::image>("downward_target_tracker/image", 1);
+    ros::Publisher pub_info = node.advertise<downward_target_tracker::info>("downward_target_tracker/info", 1);
     ros::Publisher pub_tracks = node.advertise<downward_target_tracker::tracks>("downward_target_tracker/tracks", 1);
-    ros::Subscriber sub_debug = node.subscribe("/downward_target_debug/debug", 1, callback_debug);
+    ros::Subscriber sub_camera_f = node.subscribe("/downward_target_debug/camera_f", 1, callback_camera_f);
+    ros::Subscriber sub_camera_u0 = node.subscribe("/downward_target_debug/camera_u0", 1, callback_camera_u0);
+    ros::Subscriber sub_camera_v0 = node.subscribe("/downward_target_debug/camera_v0", 1, callback_camera_v0);
+    ros::Subscriber sub_cam_imu_rx = node.subscribe("/downward_target_debug/cam_imu_rx", 1, callback_cam_imu_rx);
+    ros::Subscriber sub_cam_imu_ry = node.subscribe("/downward_target_debug/cam_imu_ry", 1, callback_cam_imu_ry);
+    ros::Subscriber sub_cam_imu_rz = node.subscribe("/downward_target_debug/cam_imu_rz", 1, callback_cam_imu_rz);
+    ros::Subscriber sub_cam_imu_tx = node.subscribe("/downward_target_debug/cam_imu_tx", 1, callback_cam_imu_tx);
+    ros::Subscriber sub_cam_imu_ty = node.subscribe("/downward_target_debug/cam_imu_ty", 1, callback_cam_imu_ty);
+    ros::Subscriber sub_cam_imu_tz = node.subscribe("/downward_target_debug/cam_imu_tz", 1, callback_cam_imu_tz);
+    ros::Subscriber sub_r_g = node.subscribe("/downward_target_debug/r_g", 1, callback_r_g);
+    ros::Subscriber sub_r_b = node.subscribe("/downward_target_debug/r_b", 1, callback_r_b);
+    ros::Subscriber sub_r_n = node.subscribe("/downward_target_debug/r_n", 1, callback_r_n);
+    ros::Subscriber sub_g_r = node.subscribe("/downward_target_debug/g_r", 1, callback_g_r);
+    ros::Subscriber sub_g_b = node.subscribe("/downward_target_debug/g_b", 1, callback_g_b);
+    ros::Subscriber sub_g_n = node.subscribe("/downward_target_debug/g_n", 1, callback_g_n);
     #endif
 
     signal(SIGINT, ctrlc);
@@ -131,17 +159,21 @@ int main(int argc, char **argv)
     uint64_t t_begin = get_nanoseconds();
     for (int frame = 0;; frame++)
     {
+        // RECEIVE LATEST IMAGE
         unsigned char *jpg_data = 0;
         unsigned int jpg_size = 0;
         timeval timestamp = {0};
-        #if mock_image==1
-        jpg_data = mock_jpg;
-        jpg_size = mock_jpg_len;
-        usleep(16*1000);
-        #else
-        usbcam_lock(&jpg_data, &jpg_size, &timestamp);
-        #endif
+        {
+            #if mock_image==1
+            jpg_data = mock_jpg;
+            jpg_size = mock_jpg_len;
+            usleep(16*1000);
+            #else
+            usbcam_lock(&jpg_data, &jpg_size, &timestamp);
+            #endif
+        }
 
+        // MEASURE TIME BETWEEN WHEN IMAGES WERE TAKEN
         float dt_frame = 0.0f;
         {
             uint64_t sec = (uint64_t)timestamp.tv_sec;
@@ -152,6 +184,7 @@ int main(int argc, char **argv)
             last_t = t;
         }
 
+        // DECOMPRESS
         float dt_jpeg_to_rgb = 0.0f;
         {
             uint64_t t1 = get_nanoseconds();
@@ -164,10 +197,12 @@ int main(int argc, char **argv)
             dt_jpeg_to_rgb = (t2-t1)/1e9;
         }
 
+        // GET LATEST MESSAGES BEFORE PROCESSING IMAGE
         #if disable_ros==0
         ros::spinOnce();
         #endif
 
+        // RUN ONE ITERATION OF TARGET DETECTION AND TRACKING
         mat3 cam_imu_rot = m_rotz(cam_imu_rz)*m_roty(cam_imu_ry)*m_rotx(cam_imu_rx);
         vec3 cam_imu_pos = m_vec3(cam_imu_tx, cam_imu_ty, cam_imu_tz);
         mat3 rot = latest_imu_rot*cam_imu_rot;
@@ -175,7 +210,6 @@ int main(int argc, char **argv)
         float f = camera_f*Ix/camera_width;
         float u0 = camera_u0*Ix/camera_width;
         float v0 = camera_v0*Ix/camera_width;
-
         tracks_t tracks = {0};
         float dt_track_targets = 0.0f;
         {
@@ -202,8 +236,8 @@ int main(int argc, char **argv)
             dt_track_targets = (t2-t1)/1e9;
         }
 
+        // DEBUG STUFF
         #if disable_ros==1
-
         // COLOR SEGMENTATION TEST
         #if 0
         if (vdb_begin())
@@ -344,40 +378,45 @@ int main(int argc, char **argv)
         #endif
         #endif
 
+        // PUBLISH STUFF
         #if disable_ros==0
+        // PUBLISH TARGET TRACKS
         {
             downward_target_tracker::tracks msg;
             msg.num_targets = tracks.num_targets;
-            // msg.num_detections = tracks.num_detections;
+            msg.num_detections = tracks.num_detections;
             for (int i = 0; i < tracks.num_detections; i++)
             {
-                msg.u.push_back(tracks.detections[i].u);
-                msg.v.push_back(tracks.detections[i].v);
-                msg.u1.push_back(tracks.detections[i].u1);
-                msg.v1.push_back(tracks.detections[i].v1);
-                msg.u2.push_back(tracks.detections[i].u2);
-                msg.v2.push_back(tracks.detections[i].v2);
-
-                // msg.u.push_back(tracks.targets[i].last_seen.u);
-                // msg.v.push_back(tracks.targets[i].last_seen.v);
-                // msg.u1.push_back(tracks.targets[i].last_seen.u1);
-                // msg.v1.push_back(tracks.targets[i].last_seen.v1);
-                // msg.u2.push_back(tracks.targets[i].last_seen.u2);
-                // msg.v2.push_back(tracks.targets[i].last_seen.v2);
-                // msg.x_gps.push_back(tracks.targets[i].last_seen.x_gps);
-                // msg.y_gps.push_back(tracks.targets[i].last_seen.y_gps);
-                // msg.u_hat.push_back(tracks.targets[i].u_hat);
-                // msg.v_hat.push_back(tracks.targets[i].v_hat);
-                // msg.x_hat.push_back(tracks.targets[i].x_hat);
-                // msg.y_hat.push_back(tracks.targets[i].y_hat);
-                // msg.dx_hat.push_back(tracks.targets[i].dx_hat);
-                // msg.dy_hat.push_back(tracks.targets[i].dy_hat);
-                // msg.unique_id.push_back(tracks.targets[i].unique_id);
-                // msg.confidence.push_back(tracks.targets[i].confidence);
+                msg.detection_u.push_back(tracks.detections[i].u);
+                msg.detection_v.push_back(tracks.detections[i].v);
+                msg.detection_u1.push_back(tracks.detections[i].u1);
+                msg.detection_v1.push_back(tracks.detections[i].v1);
+                msg.detection_u2.push_back(tracks.detections[i].u2);
+                msg.detection_v2.push_back(tracks.detections[i].v2);
+            }
+            for (int i = 0; i < tracks.num_targets; i++)
+            {
+                msg.u.push_back(tracks.targets[i].last_seen.u);
+                msg.v.push_back(tracks.targets[i].last_seen.v);
+                msg.u1.push_back(tracks.targets[i].last_seen.u1);
+                msg.v1.push_back(tracks.targets[i].last_seen.v1);
+                msg.u2.push_back(tracks.targets[i].last_seen.u2);
+                msg.v2.push_back(tracks.targets[i].last_seen.v2);
+                msg.x_gps.push_back(tracks.targets[i].last_seen.x_gps);
+                msg.y_gps.push_back(tracks.targets[i].last_seen.y_gps);
+                msg.u_hat.push_back(tracks.targets[i].u_hat);
+                msg.v_hat.push_back(tracks.targets[i].v_hat);
+                msg.x_hat.push_back(tracks.targets[i].x_hat);
+                msg.y_hat.push_back(tracks.targets[i].y_hat);
+                msg.dx_hat.push_back(tracks.targets[i].dx_hat);
+                msg.dy_hat.push_back(tracks.targets[i].dy_hat);
+                msg.unique_id.push_back(tracks.targets[i].unique_id);
+                msg.confidence.push_back(tracks.targets[i].confidence);
             }
             pub_tracks.publish(msg);
         }
 
+        // PUBLISH OPTIONS
         {
             downward_target_tracker::info msg;
             msg.dt_frame = dt_frame;
@@ -388,9 +427,22 @@ int main(int argc, char **argv)
             msg.camera_v0 = camera_v0;
             msg.camera_w = camera_width;
             msg.camera_h = camera_height;
+            msg.cam_imu_rx = cam_imu_rx;
+            msg.cam_imu_ry = cam_imu_ry;
+            msg.cam_imu_rz = cam_imu_rz;
+            msg.cam_imu_tx = cam_imu_tx;
+            msg.cam_imu_ty = cam_imu_ty;
+            msg.cam_imu_tz = cam_imu_tz;
+            msg.r_g = r_g;
+            msg.r_b = r_b;
+            msg.r_n = r_n;
+            msg.g_r = g_r;
+            msg.g_b = g_b;
+            msg.g_n = g_n;
             pub_info.publish(msg);
         }
 
+        // PUBLISH JPEG
         {
             downward_target_tracker::image msg;
             msg.jpg_data.resize(jpg_size);
