@@ -6,7 +6,6 @@
 #define CAMERA_LEVELS      2 // Downscale factor (0=none, 1=half, 2=quarter)
 #define DISABLE_ROS        1
 
-#include <time.h>
 #include <signal.h>
 #include <assert.h>
 #include <stdint.h>
@@ -22,9 +21,9 @@
 #if DISABLE_ROS==1
 #include "vdb_release.h"
 #endif
-
 #include "asc_usbcam.h"
 #include "asc_tracker.h"
+#include "get_nanoseconds.h"
 
 // OPTIONS
 float camera_f = 434.0f;
@@ -47,15 +46,6 @@ void callback_debug(downward_target_debug::debug msg)
     latest_pos = m_vec3(msg.tx, msg.ty, msg.tz);
 }
 #endif
-
-uint64_t get_nanoseconds()
-{
-    struct timespec ts = {};
-    clock_gettime(CLOCK_REALTIME, &ts);
-    uint64_t result = ((uint64_t)ts.tv_sec)*1000000000 +
-                      ((uint64_t)ts.tv_nsec);
-    return result;
-}
 
 void ctrlc(int)
 {
