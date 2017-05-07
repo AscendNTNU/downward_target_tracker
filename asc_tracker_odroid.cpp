@@ -40,10 +40,24 @@
 #include "asc_tracker.h"
 #include "get_nanoseconds.h"
 
+//
 // OPTIONS
+//
+
 float camera_f = camera_f_init;
 float camera_u0 = camera_u0_init;
 float camera_v0 = camera_v0_init;
+
+// R_cam^imu = Rz(rz)Ry(ry)Rx(rx)
+float cam_imu_rx = 0.0f;
+float cam_imu_ry = 0.0f;
+float cam_imu_rz = 0.0f;
+
+// T_cam/imu^imu = (tx, ty, tz)
+float cam_imu_tx = 0.0f;
+float cam_imu_ty = 0.0f;
+float cam_imu_tz = 0.0f;
+
 float r_g = 3.0f;
 float r_b = 2.0f;
 float r_n = 10.0f/3.0f;
@@ -51,14 +65,13 @@ float g_r = 1.6f;
 float g_b = 1.5f;
 float g_n = 10.0f/3.0f;
 
-mat3 latest_rot = m_id3();
-vec3 latest_pos = {0};
+mat3 latest_imu_rot = m_id3();
+vec3 latest_imu_pos = m_vec3(0.0f, 0.0f, 1.0f);
 
 #if disable_ros==0
 void callback_debug(downward_target_debug::debug msg)
 {
-    latest_rot = m_rotz(msg.rz)*m_roty(msg.ry)*m_rotx(msg.rx);
-    latest_pos = m_vec3(msg.tx, msg.ty, msg.tz);
+
 }
 #endif
 
@@ -131,10 +144,17 @@ int main(int argc, char **argv)
             dt_jpeg_to_rgb = (t2-t1)/1e9;
         }
 
-        {
-            latest_rot = m_id3();
-            latest_pos = m_vec3(0.0f, 0.0f, 1.0f);
-        }
+        #if disable_ros==0
+        ros::spinOnce();
+        #endif
+
+        mat3 cam_imu_rot = m_rotz(cam_imu_rz)*m_roty(cam_imu_ry)*m_rotx(cam_imu_rx);
+        vec3 cam_imu_pos = m_vec3(cam_imu_tx, cam_imu_ty, cam_imu_tz);
+        mat3 rot = latest_imu_rot*cam_imu_rot;
+        vec3 pos = latest_imu_pos + latest_imu_rot*cam_imu_pos;
+        float f = camera_f*Ix/camera_width;
+        float u0 = camera_u0*Ix/camera_width;
+        float v0 = camera_v0*Ix/camera_width;
 
         tracks_t tracks = {0};
         float dt_track_targets = 0.0f;
@@ -147,14 +167,14 @@ int main(int argc, char **argv)
             opt.g_r = g_r;
             opt.g_b = g_b;
             opt.g_n = g_n;
-            opt.f = camera_f*Ix/camera_width;
-            opt.u0 = camera_u0*Ix/camera_width;
-            opt.v0 = camera_v0*Ix/camera_width;
+            opt.f = f;
+            opt.u0 = u0;
+            opt.v0 = v0;
             opt.I = I;
             opt.Ix = Ix;
             opt.Iy = Iy;
-            opt.rot = latest_rot;
-            opt.pos = latest_pos;
+            opt.rot = rot;
+            opt.pos = pos;
             opt.gps = true;
             opt.timestamp = (get_nanoseconds()-t_begin)/1e9;
             tracks = track_targets(opt);
@@ -163,7 +183,9 @@ int main(int argc, char **argv)
         }
 
         #if disable_ros==1
-        #if 1
+
+        // COLOR SEGMENTATION TEST
+        #if 0
         if (vdb_begin())
         {
             cc_groups groups = tracks.groups;
@@ -231,6 +253,7 @@ int main(int argc, char **argv)
         }
         #endif
 
+        // TARGET TRACKING TEST
         #if 0
         if (vdb_begin())
         {
@@ -277,10 +300,31 @@ int main(int argc, char **argv)
             vdb_end();
         }
         #endif
+
+        // CALIBRATION TEST
+        #if 1
+        if (vdb_begin())
+        {
+            vdb_xrange(-4.0f, +4.0f);
+            vdb_yrange(-2.0f, +2.0f);
+            for (int y = 1; y < Iy-1; y++)
+            for (int x = 1; x < Ix-1; x++)
+            {
+                vec2 uv = { x+0.5f, y+0.5f };
+                vec3 dir = rot*camera_inverse_project(f,u0,v0, uv);
+                vec2 p;
+                if (m_intersect_xy_plane(dir, pos.z, &p))
+                {
+                    vdb_color_rampf(I[3*(x + y*Ix)+0]/255.0f);
+                    vdb_point(p.x, p.y);
+                }
+            }
+            vdb_end();
+        }
+        #endif
         #endif
 
         #if disable_ros==0
-
         {
             downward_target_tracker::tracks msg;
             msg.num_targets = tracks.num_targets;
@@ -333,8 +377,6 @@ int main(int argc, char **argv)
             memcpy(&msg.jpg_data[0], jpg_data, jpg_size);
             pub_image.publish(msg);
         }
-
-        ros::spinOnce();
         #endif
 
         #if mock_image==0
