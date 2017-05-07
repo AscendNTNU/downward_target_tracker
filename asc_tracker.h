@@ -203,6 +203,24 @@ target_t filter_target_image_space(target_t prev, detection_t seen)
     return prev;
 }
 
+struct track_targets_opt_t
+{
+    float platez; // 0.1
+    float merge_threshold; // 0.3
+    int confidence_limit; // 20
+    int initial_confidence; // 5
+    int accept_confidence; // 10
+    int removal_confidence; // 0
+    float removal_time; // 2.0f
+    int minimum_count; // 50
+    float r_g; // 3.0f
+    float r_b; // 3.0f
+    float r_n; // 10.0f/3.0f
+    float g_r; // 1.6f
+    float g_b; // 1.5f
+    float g_n; // 10.0f/3.0f
+};
+
 tracks_t track_targets(
     unsigned char *I,  // image of densely packed 24-byte (r,g,b) pixels
     int Ix,            // image width

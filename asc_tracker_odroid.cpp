@@ -64,7 +64,7 @@ int main(int argc, char **argv)
         timeval timestamp = {0};
         usbcam_lock(&jpg_data, &jpg_size, &timestamp);
 
-        float dt_internal;
+        float dt_internal = 0.0f;
         {
             uint64_t sec = (uint64_t)timestamp.tv_sec;
             uint64_t usec = (uint64_t)timestamp.tv_usec;
@@ -75,7 +75,6 @@ int main(int argc, char **argv)
         }
 
         float dt_decompress = 0.0f;
-        #if 0
         {
             uint64_t t1 = get_nanoseconds();
             if (!usbcam_jpeg_to_rgb(Ix, Iy, I, jpg_data, jpg_size))
@@ -86,9 +85,6 @@ int main(int argc, char **argv)
             uint64_t t2 = get_nanoseconds();
             dt_decompress = (t2-t1)/1e9;
         }
-        #endif
-
-        ros::spinOnce();
 
         {
             downward_target_tracker::calibration msg;
@@ -98,19 +94,14 @@ int main(int argc, char **argv)
             pub_calibration.publish(msg);
         }
 
-        // {
-        //     downward_target_tracker::everything msg;
-        //     msg.camera_f = 1.0f;
-        //     msg.camera_u0 = 2.0f;
-        //     msg.camera_v0 = 3.0f;
-        //     static unsigned char fuck[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        //     msg.jpg_data.resize(10);
-        //     memcpy(&msg.jpg_data[0], fuck, 10);
-        //     msg.jpg_size = 10;
-        //     // msg.jpg_data.resize(jpg_size);
-        //     // memcpy(&msg.jpg_data[0], jpg_data, jpg_size);
-        //     pub.publish(msg);
-        // }
+        {
+            downward_target_tracker::image msg;
+            msg.jpg_data.resize(jpg_size);
+            memcpy(&msg.jpg_data[0], jpg_data, jpg_size);
+            pub_image.publish(msg);
+        }
+
+        ros::spinOnce();
 
         printf("%6.2f ms (decompress)\t%6.2f ms (frame)\n", 1000.0f*dt_decompress, 1000.0f*dt_internal);
         usbcam_unlock();
