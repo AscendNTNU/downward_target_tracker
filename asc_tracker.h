@@ -567,49 +567,6 @@ tracks_t track_targets(track_targets_opt_t opt)
         }
     }
 
-    #if 0
-    static int selected_id = -1;
-    if (vdb_begin())
-    {
-        vdb_setNicePoints(1);
-        vdb_imageRGB8(I, Ix, Iy);
-
-        vdb_xrange(0.0f, (float)Ix);
-        vdb_yrange(0.0f, (float)Iy);
-
-        for (int i = 0; i < num_targets; i++)
-        {
-            float u1 = targets[i].last_seen.u1;
-            float v1 = targets[i].last_seen.v1;
-            float u2 = targets[i].last_seen.u2;
-            float v2 = targets[i].last_seen.v2;
-            float u = targets[i].u_hat;
-            float v = targets[i].v_hat;
-
-            float mx,my;
-            if (vdb_mouse_click(&mx, &my))
-            {
-                if (mx >= u1 && mx <= u2 && my >= v1 && my <= v2)
-                {
-                    selected_id = targets[i].unique_id;
-                }
-            }
-
-            if (targets[i].unique_id == selected_id)
-                vdb_color_red(2);
-            else
-                vdb_color_white(0);
-
-            vdb_line(u1,v1, u2,v1);
-            vdb_line(u2,v1, u2,v2);
-            vdb_line(u2,v2, u1,v2);
-            vdb_line(u1,v2, u1,v1);
-            vdb_point(u, v);
-        }
-        vdb_end();
-    }
-    #endif
-
     tracks_t result = {0};
     result.num_targets = num_targets;
     result.num_detections = num_detections;
