@@ -308,7 +308,7 @@ int main(int argc, char **argv)
         #endif
 
         // TARGET TRACKING TEST
-        #if 0
+        #if 1
         if (vdb_begin())
         {
             int num_targets = tracks.num_targets;
@@ -356,7 +356,7 @@ int main(int argc, char **argv)
         #endif
 
         // CALIBRATION TEST
-        #if 1
+        #if 0
         if (vdb_begin())
         {
             vdb_xrange(-4.0f, +4.0f);
@@ -385,6 +385,8 @@ int main(int argc, char **argv)
             downward_target_tracker::tracks msg;
             msg.num_targets = tracks.num_targets;
             msg.num_detections = tracks.num_detections;
+            msg.image_x = Ix;
+            msg.image_y = Iy;
             for (int i = 0; i < tracks.num_detections; i++)
             {
                 msg.detection_u.push_back(tracks.detections[i].u);
@@ -425,8 +427,6 @@ int main(int argc, char **argv)
             msg.camera_f = camera_f;
             msg.camera_u0 = camera_u0;
             msg.camera_v0 = camera_v0;
-            msg.camera_w = camera_width;
-            msg.camera_h = camera_height;
             msg.cam_imu_rx = cam_imu_rx;
             msg.cam_imu_ry = cam_imu_ry;
             msg.cam_imu_rz = cam_imu_rz;
@@ -439,6 +439,8 @@ int main(int argc, char **argv)
             msg.g_r = g_r;
             msg.g_b = g_b;
             msg.g_n = g_n;
+            msg.camera_w = camera_width;
+            msg.camera_h = camera_height;
             pub_info.publish(msg);
         }
 

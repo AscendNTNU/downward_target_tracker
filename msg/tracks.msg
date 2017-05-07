@@ -1,4 +1,7 @@
 int32 num_targets
+int32 num_detections
+int32 image_x
+int32 image_y
 
 float32[] u
 float32[] v
@@ -17,8 +20,6 @@ float32[] dx_hat
 float32[] dy_hat
 int32[] unique_id
 int32[] confidence
-
-int32 num_detections
 
 float32[] detection_u
 float32[] detection_v
