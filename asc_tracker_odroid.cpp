@@ -69,10 +69,10 @@
 float camera_f = camera_f_init;
 float camera_u0 = camera_u0_init;
 float camera_v0 = camera_v0_init;
-float cam_imu_rx = cam_imu_rx_init;
+float cam_imu_rx = cam_imu_rx_init; // R_cam^imu
 float cam_imu_ry = cam_imu_ry_init;
 float cam_imu_rz = cam_imu_rz_init;
-float cam_imu_tx = cam_imu_tx_init;
+float cam_imu_tx = cam_imu_tx_init; // T_cam/imu^imu
 float cam_imu_ty = cam_imu_ty_init;
 float cam_imu_tz = cam_imu_tz_init;
 float r_g = r_g_init;
@@ -85,8 +85,12 @@ float g_n = g_n_init;
 //
 // LATEST MESSAGES
 //
-mat3 latest_imu_rot = m_id3();
-vec3 latest_imu_pos = m_vec3(0.0f, 0.0f, 1.0f);
+float imu_rx = 0.0f; // R_imu^world
+float imu_ry = 0.0f;
+float imu_rz = 0.0f;
+float imu_tx = 0.0f; // T_imu/world^world
+float imu_ty = 0.0f;
+float imu_tz = 1.0f;
 
 //
 // CALLBACKS
@@ -203,10 +207,12 @@ int main(int argc, char **argv)
         #endif
 
         // RUN ONE ITERATION OF TARGET DETECTION AND TRACKING
+        mat3 imu_rot = m_rotz(imu_rz)*m_roty(imu_ry)*m_rotx(imu_rx);
+        vec3 imu_pos = m_vec3(imu_tx, imu_ty, imu_tz);
         mat3 cam_imu_rot = m_rotz(cam_imu_rz)*m_roty(cam_imu_ry)*m_rotx(cam_imu_rx);
         vec3 cam_imu_pos = m_vec3(cam_imu_tx, cam_imu_ty, cam_imu_tz);
-        mat3 rot = latest_imu_rot*cam_imu_rot;
-        vec3 pos = latest_imu_pos + latest_imu_rot*cam_imu_pos;
+        mat3 rot = imu_rot*cam_imu_rot;
+        vec3 pos = imu_pos + imu_rot*cam_imu_pos;
         float f = camera_f*Ix/camera_width;
         float u0 = camera_u0*Ix/camera_width;
         float v0 = camera_v0*Ix/camera_width;
@@ -439,8 +445,16 @@ int main(int argc, char **argv)
             msg.g_r = g_r;
             msg.g_b = g_b;
             msg.g_n = g_n;
+
+            // not modifiable:
             msg.camera_w = camera_width;
             msg.camera_h = camera_height;
+            msg.imu_rx = imu_rx;
+            msg.imu_ry = imu_ry;
+            msg.imu_rz = imu_rz;
+            msg.imu_tx = imu_tx;
+            msg.imu_ty = imu_ty;
+            msg.imu_tz = imu_tz;
             pub_info.publish(msg);
         }
 
