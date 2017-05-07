@@ -1,10 +1,19 @@
-#define USBCAM_DEBUG
+#define MOCK_IMAGE         1
+#define DISABLE_ROS        1
+
+#if MOCK_IMAGE==0
+#define USBCAM_DEBUG       1
 #define CAMERA_NAME        "/dev/video1"
 #define CAMERA_WIDTH       800
 #define CAMERA_HEIGHT      600
 #define CAMERA_BUFFERS     3
 #define CAMERA_LEVELS      2 // Downscale factor (0=none, 1=half, 2=quarter)
-#define DISABLE_ROS        1
+#else
+#include "mock_jpg.h"      // hint: run "xxd -i" on an image to generate a header-embedded binary
+#define CAMERA_WIDTH       1280
+#define CAMERA_HEIGHT      720
+#define CAMERA_LEVELS      3
+#endif
 
 #include <signal.h>
 #include <assert.h>
@@ -65,6 +74,7 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
+    #if MOCK_IMAGE==0
     {
         usbcam_opt_t opt = {0};
         opt.device_name = CAMERA_NAME;
@@ -74,6 +84,7 @@ int main(int argc, char **argv)
         opt.buffers = CAMERA_BUFFERS;
         usbcam_init(opt);
     }
+    #endif
 
     const int Ix = CAMERA_WIDTH>>CAMERA_LEVELS;
     const int Iy = CAMERA_HEIGHT>>CAMERA_LEVELS;
@@ -84,7 +95,13 @@ int main(int argc, char **argv)
         unsigned char *jpg_data = 0;
         unsigned int jpg_size = 0;
         timeval timestamp = {0};
+        #if MOCK_IMAGE==1
+        jpg_data = mock_jpg;
+        jpg_size = mock_jpg_len;
+        usleep(16*1000);
+        #else
         usbcam_lock(&jpg_data, &jpg_size, &timestamp);
+        #endif
 
         float dt_frame = 0.0f;
         {
@@ -96,7 +113,7 @@ int main(int argc, char **argv)
             last_t = t;
         }
 
-        float dt_decompress = 0.0f;
+        float dt_jpeg_to_rgb = 0.0f;
         {
             uint64_t t1 = get_nanoseconds();
             if (!usbcam_jpeg_to_rgb(Ix, Iy, I, jpg_data, jpg_size))
@@ -105,7 +122,7 @@ int main(int argc, char **argv)
                 continue;
             }
             uint64_t t2 = get_nanoseconds();
-            dt_decompress = (t2-t1)/1e9;
+            dt_jpeg_to_rgb = (t2-t1)/1e9;
         }
 
         {
@@ -114,7 +131,9 @@ int main(int argc, char **argv)
         }
 
         tracks_t tracks = {0};
+        float dt_track_targets = 0.0f;
         {
+            uint64_t t1 = get_nanoseconds();
             track_targets_opt_t opt = {0};
             opt.r_g = r_g;
             opt.r_b = r_b;
@@ -133,10 +152,12 @@ int main(int argc, char **argv)
             opt.gps = true;
             opt.timestamp = (get_nanoseconds()-t_begin)/1e9;
             tracks = track_targets(opt);
+            uint64_t t2 = get_nanoseconds();
+            dt_track_targets = (t2-t1)/1e9;
         }
 
         #if DISABLE_ROS==1
-        #if 0
+        #if 1
         if (vdb_begin())
         {
             cc_groups groups = tracks.groups;
@@ -290,7 +311,8 @@ int main(int argc, char **argv)
         {
             downward_target_tracker::info msg;
             msg.dt_frame = dt_frame;
-            msg.dt_decompress = dt_decompress;
+            msg.dt_jpeg_to_rgb = dt_jpeg_to_rgb;
+            msg.dt_track_targets = dt_track_targets;
             msg.camera_f = camera_f;
             msg.camera_u0 = camera_u0;
             msg.camera_v0 = camera_v0;
@@ -309,7 +331,9 @@ int main(int argc, char **argv)
         ros::spinOnce();
         #endif
 
+        #if MOCK_IMAGE==0
         usbcam_unlock();
+        #endif
     }
 
     return 0;
