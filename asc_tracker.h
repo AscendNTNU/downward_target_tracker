@@ -6,7 +6,7 @@ struct detection_t
     float t;   // Timestamp
     float u,v; // Image coordinates
     float u1,v1,u2,v2; // Bounding box in image
-    float x_gps,y_gps; // World coordinates
+    float x,y; // World coordinates
     bool has_gps;
 };
 
@@ -159,8 +159,8 @@ target_t filter_target_image_space(target_t prev, detection_t seen)
     {
         float kp = 0.7f;
         float kd = 0.8f;
-        float x_hat = kp*x_pre + (1.0f-kp)*seen.x_gps;
-        float y_hat = kp*y_pre + (1.0f-kp)*seen.y_gps;
+        float x_hat = kp*x_pre + (1.0f-kp)*seen.x;
+        float y_hat = kp*y_pre + (1.0f-kp)*seen.y;
         float dx_obs = (x_hat - prev.x_hat)/dt;
         float dy_obs = (y_hat - prev.y_hat)/dt;
         float dx_hat = kd*dx_pre + (1.0f-kd)*dx_obs;
@@ -184,8 +184,8 @@ target_t filter_target_image_space(target_t prev, detection_t seen)
             prev.p_turning += (0.0f - prev.p_turning)*(dt/kt);
             prev.p_moving  += (0.0f - prev.p_moving)*(dt/kt);
         }
-        prev.x_hat = seen.x_gps;
-        prev.y_hat = seen.y_gps;
+        prev.x_hat = seen.x;
+        prev.y_hat = seen.y;
         prev.dx_hat = dx_hat;
         prev.dy_hat = dy_hat;
     }
@@ -208,8 +208,8 @@ target_t filter_target_image_space(target_t prev, detection_t seen)
         static float t_gps_history[window_cap];
         if (window_len < window_cap)
         {
-            x_gps_history[window_len] = seen.x_gps;
-            y_gps_history[window_len] = seen.y_gps;
+            x_gps_history[window_len] = seen.x;
+            y_gps_history[window_len] = seen.y;
             t_gps_history[window_len] = seen.t;
             window_len++;
             prev.dx_hat = 0.0f;
@@ -218,8 +218,8 @@ target_t filter_target_image_space(target_t prev, detection_t seen)
 
         if (window_len == window_cap)
         {
-            prev.dx_hat = (seen.x_gps - x_gps_history[0]) / (seen.t - t_gps_history[0]);
-            prev.dy_hat = (seen.y_gps - y_gps_history[0]) / (seen.t - t_gps_history[0]);
+            prev.dx_hat = (seen.x - x_gps_history[0]) / (seen.t - t_gps_history[0]);
+            prev.dy_hat = (seen.y - y_gps_history[0]) / (seen.t - t_gps_history[0]);
 
             for (int i = 0; i < window_cap-1; i++)
             {
@@ -449,8 +449,8 @@ tracks_t track_targets(track_targets_opt_t opt)
         vec2 xy;
         if (m_intersect_xy_plane(dir, delta_z, &xy))
         {
-            detections[i].x_gps = xy.x + pos.x;
-            detections[i].y_gps = xy.y + pos.y;
+            detections[i].x = xy.x + pos.x;
+            detections[i].y = xy.y + pos.y;
             detections[i].has_gps = true;
         }
         else
@@ -524,8 +524,8 @@ tracks_t track_targets(track_targets_opt_t opt)
                 t.du_hat = 0.0f;
                 t.dv_hat = 0.0f;
 
-                t.x_hat = detections[i].x_gps;
-                t.y_hat = detections[i].y_gps;
+                t.x_hat = detections[i].x;
+                t.y_hat = detections[i].y;
                 t.dx_hat = 0.0f;
                 t.dy_hat = 0.0f;
                 t.p_moving = 0.8f;

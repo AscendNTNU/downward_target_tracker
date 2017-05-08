@@ -9,7 +9,7 @@
 //
 
 #define mock_image         1
-#define disable_ros        1
+#define disable_ros        0
 
 #if mock_image==0
 #define USBCAM_DEBUG       1
@@ -243,9 +243,9 @@ int main(int argc, char **argv)
         }
 
         // DEBUG STUFF
-        float dt_vdb = 0.0f;
         #if disable_ros==1
         {
+            float dt_vdb = 0.0f;
             uint64_t t1 = get_nanoseconds();
 
             // COLOR SEGMENTATION TEST
@@ -418,86 +418,98 @@ int main(int argc, char **argv)
         }
         #endif
 
+        // MEASURE TIME BETWEEN EACH OUTPUT
+        float dt_cycle = 0.0f;
+        {
+            static uint64_t t1 = get_nanoseconds();
+            uint64_t t2 = get_nanoseconds();
+            dt_cycle = (t2-t1)/1e9;
+            t1 = t2;
+        }
+
         // PUBLISH STUFF
         #if disable_ros==0
-        // PUBLISH TARGET TRACKS
         {
-            downward_target_tracker::tracks msg;
-            msg.num_targets = tracks.num_targets;
-            msg.num_detections = tracks.num_detections;
-            msg.image_x = Ix;
-            msg.image_y = Iy;
-            for (int i = 0; i < tracks.num_detections; i++)
+            // PUBLISH TARGET TRACKS
             {
-                msg.detection_u.push_back(tracks.detections[i].u);
-                msg.detection_v.push_back(tracks.detections[i].v);
-                msg.detection_u1.push_back(tracks.detections[i].u1);
-                msg.detection_v1.push_back(tracks.detections[i].v1);
-                msg.detection_u2.push_back(tracks.detections[i].u2);
-                msg.detection_v2.push_back(tracks.detections[i].v2);
+                downward_target_tracker::tracks msg;
+                msg.num_targets = tracks.num_targets;
+                msg.num_detections = tracks.num_detections;
+                msg.image_x = Ix;
+                msg.image_y = Iy;
+                for (int i = 0; i < tracks.num_detections; i++)
+                {
+                    msg.detection_u.push_back(tracks.detections[i].u);
+                    msg.detection_v.push_back(tracks.detections[i].v);
+                    msg.detection_u1.push_back(tracks.detections[i].u1);
+                    msg.detection_v1.push_back(tracks.detections[i].v1);
+                    msg.detection_u2.push_back(tracks.detections[i].u2);
+                    msg.detection_v2.push_back(tracks.detections[i].v2);
+                }
+                for (int i = 0; i < tracks.num_targets; i++)
+                {
+                    msg.u.push_back(tracks.targets[i].last_seen.u);
+                    msg.v.push_back(tracks.targets[i].last_seen.v);
+                    msg.u1.push_back(tracks.targets[i].last_seen.u1);
+                    msg.v1.push_back(tracks.targets[i].last_seen.v1);
+                    msg.u2.push_back(tracks.targets[i].last_seen.u2);
+                    msg.v2.push_back(tracks.targets[i].last_seen.v2);
+                    msg.x.push_back(tracks.targets[i].last_seen.x_gps);
+                    msg.y.push_back(tracks.targets[i].last_seen.y_gps);
+                    msg.u_hat.push_back(tracks.targets[i].u_hat);
+                    msg.v_hat.push_back(tracks.targets[i].v_hat);
+                    msg.x_hat.push_back(tracks.targets[i].x_hat);
+                    msg.y_hat.push_back(tracks.targets[i].y_hat);
+                    msg.dx_hat.push_back(tracks.targets[i].dx_hat);
+                    msg.dy_hat.push_back(tracks.targets[i].dy_hat);
+                    msg.unique_id.push_back(tracks.targets[i].unique_id);
+                    msg.confidence.push_back(tracks.targets[i].confidence);
+                }
+                pub_tracks.publish(msg);
             }
-            for (int i = 0; i < tracks.num_targets; i++)
+
+            // PUBLISH OPTIONS
             {
-                msg.u.push_back(tracks.targets[i].last_seen.u);
-                msg.v.push_back(tracks.targets[i].last_seen.v);
-                msg.u1.push_back(tracks.targets[i].last_seen.u1);
-                msg.v1.push_back(tracks.targets[i].last_seen.v1);
-                msg.u2.push_back(tracks.targets[i].last_seen.u2);
-                msg.v2.push_back(tracks.targets[i].last_seen.v2);
-                msg.x_gps.push_back(tracks.targets[i].last_seen.x_gps);
-                msg.y_gps.push_back(tracks.targets[i].last_seen.y_gps);
-                msg.u_hat.push_back(tracks.targets[i].u_hat);
-                msg.v_hat.push_back(tracks.targets[i].v_hat);
-                msg.x_hat.push_back(tracks.targets[i].x_hat);
-                msg.y_hat.push_back(tracks.targets[i].y_hat);
-                msg.dx_hat.push_back(tracks.targets[i].dx_hat);
-                msg.dy_hat.push_back(tracks.targets[i].dy_hat);
-                msg.unique_id.push_back(tracks.targets[i].unique_id);
-                msg.confidence.push_back(tracks.targets[i].confidence);
+                downward_target_tracker::info msg;
+                msg.dt_frame = dt_frame;
+                msg.dt_jpeg_to_rgb = dt_jpeg_to_rgb;
+                msg.dt_track_targets = dt_track_targets;
+                msg.dt_cycle = dt_cycle;
+                msg.camera_f = camera_f;
+                msg.camera_u0 = camera_u0;
+                msg.camera_v0 = camera_v0;
+                msg.cam_imu_rx = cam_imu_rx;
+                msg.cam_imu_ry = cam_imu_ry;
+                msg.cam_imu_rz = cam_imu_rz;
+                msg.cam_imu_tx = cam_imu_tx;
+                msg.cam_imu_ty = cam_imu_ty;
+                msg.cam_imu_tz = cam_imu_tz;
+                msg.r_g = r_g;
+                msg.r_b = r_b;
+                msg.r_n = r_n;
+                msg.g_r = g_r;
+                msg.g_b = g_b;
+                msg.g_n = g_n;
+
+                // not modifiable:
+                msg.camera_w = camera_width;
+                msg.camera_h = camera_height;
+                msg.imu_rx = imu_rx;
+                msg.imu_ry = imu_ry;
+                msg.imu_rz = imu_rz;
+                msg.imu_tx = imu_tx;
+                msg.imu_ty = imu_ty;
+                msg.imu_tz = imu_tz;
+                pub_info.publish(msg);
             }
-            pub_tracks.publish(msg);
-        }
 
-        // PUBLISH OPTIONS
-        {
-            downward_target_tracker::info msg;
-            msg.dt_frame = dt_frame;
-            msg.dt_jpeg_to_rgb = dt_jpeg_to_rgb;
-            msg.dt_track_targets = dt_track_targets;
-            msg.camera_f = camera_f;
-            msg.camera_u0 = camera_u0;
-            msg.camera_v0 = camera_v0;
-            msg.cam_imu_rx = cam_imu_rx;
-            msg.cam_imu_ry = cam_imu_ry;
-            msg.cam_imu_rz = cam_imu_rz;
-            msg.cam_imu_tx = cam_imu_tx;
-            msg.cam_imu_ty = cam_imu_ty;
-            msg.cam_imu_tz = cam_imu_tz;
-            msg.r_g = r_g;
-            msg.r_b = r_b;
-            msg.r_n = r_n;
-            msg.g_r = g_r;
-            msg.g_b = g_b;
-            msg.g_n = g_n;
-
-            // not modifiable:
-            msg.camera_w = camera_width;
-            msg.camera_h = camera_height;
-            msg.imu_rx = imu_rx;
-            msg.imu_ry = imu_ry;
-            msg.imu_rz = imu_rz;
-            msg.imu_tx = imu_tx;
-            msg.imu_ty = imu_ty;
-            msg.imu_tz = imu_tz;
-            pub_info.publish(msg);
-        }
-
-        // PUBLISH JPEG
-        {
-            downward_target_tracker::image msg;
-            msg.jpg_data.resize(jpg_size);
-            memcpy(&msg.jpg_data[0], jpg_data, jpg_size);
-            pub_image.publish(msg);
+            // PUBLISH JPEG
+            {
+                downward_target_tracker::image msg;
+                msg.jpg_data.resize(jpg_size);
+                memcpy(&msg.jpg_data[0], jpg_data, jpg_size);
+                pub_image.publish(msg);
+            }
         }
         #endif
 
