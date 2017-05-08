@@ -318,7 +318,7 @@ int main(int argc, char **argv)
             #endif
 
             // TARGET TRACKING TEST
-            #if 0
+            #if 1
             if (vdb_begin())
             {
                 int num_targets = tracks.num_targets;
@@ -454,8 +454,9 @@ int main(int argc, char **argv)
                     msg.v1.push_back(tracks.targets[i].last_seen.v1);
                     msg.u2.push_back(tracks.targets[i].last_seen.u2);
                     msg.v2.push_back(tracks.targets[i].last_seen.v2);
-                    msg.x.push_back(tracks.targets[i].last_seen.x_gps);
-                    msg.y.push_back(tracks.targets[i].last_seen.y_gps);
+                    msg.x.push_back(tracks.targets[i].last_seen.x);
+                    msg.y.push_back(tracks.targets[i].last_seen.y);
+                    msg.t.push_back(tracks.targets[i].last_seen.t);
                     msg.u_hat.push_back(tracks.targets[i].u_hat);
                     msg.v_hat.push_back(tracks.targets[i].v_hat);
                     msg.x_hat.push_back(tracks.targets[i].x_hat);
