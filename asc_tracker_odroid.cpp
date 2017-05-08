@@ -9,7 +9,7 @@
 //
 
 #define mock_image         1
-#define disable_ros        0
+#define disable_ros        1
 
 #if mock_image==0
 #define USBCAM_DEBUG       1
@@ -243,145 +243,179 @@ int main(int argc, char **argv)
         }
 
         // DEBUG STUFF
+        float dt_vdb = 0.0f;
         #if disable_ros==1
-        // COLOR SEGMENTATION TEST
-        #if 0
-        if (vdb_begin())
         {
-            cc_groups groups = tracks.groups;
-            int *points = tracks.points;
-            int num_points = tracks.num_points;
+            uint64_t t1 = get_nanoseconds();
 
-            int max_n = 0;
-            for (int i = 0; i < groups.count; i++)
+            // COLOR SEGMENTATION TEST
+            #if 0
+            if (vdb_begin())
             {
-                if (groups.group_n[i] > max_n)
-                    max_n = groups.group_n[i];
-            }
-            vdb_setNicePoints(0);
-            vdb_imageRGB8(I, Ix, Iy);
+                cc_groups groups = tracks.groups;
+                int *points = tracks.points;
+                int num_points = tracks.num_points;
 
-            vdb_xrange(0.0f, Ix);
-            vdb_yrange(0.0f, Iy);
-
-            vdb_translucent();
-            vdb_color_white(2);
-            vdb_fillRect(0.0f, 0.0f, Ix, Iy);
-
-            vdb_opaque();
-            vdb_color_red(1);
-            for (int i = 0; i < num_points; i++)
-            {
-                int p = points[i];
-                int x = p % Ix;
-                int y = p / Ix;
-                int l = groups.label[p];
-                int n = groups.group_n[l];
-
-                if (n > 0.025f*max_n)
+                int max_n = 0;
+                for (int i = 0; i < groups.count; i++)
                 {
-                    vdb_fillRect(x, y, 1.0f, 1.0f);
+                    if (groups.group_n[i] > max_n)
+                        max_n = groups.group_n[i];
                 }
-            }
+                vdb_setNicePoints(0);
+                vdb_imageRGB8(I, Ix, Iy);
 
-            vdb_color_black(2);
-            for (int i = 0; i < groups.count; i++)
-            {
-                if (groups.group_n[i] > 0.025f*max_n)
+                vdb_xrange(0.0f, Ix);
+                vdb_yrange(0.0f, Iy);
+
+                vdb_translucent();
+                vdb_color_white(2);
+                vdb_fillRect(0.0f, 0.0f, Ix, Iy);
+
+                vdb_opaque();
+                vdb_color_red(1);
+                for (int i = 0; i < num_points; i++)
                 {
-                    float min_x = groups.group_min_x[i];
-                    float min_y = groups.group_min_y[i];
-                    float max_x = groups.group_max_x[i];
-                    float max_y = groups.group_max_y[i];
-                    vdb_line(min_x, min_y, max_x, min_y);
-                    vdb_line(max_x, min_y, max_x, max_y);
-                    vdb_line(max_x, max_y, min_x, max_y);
-                    vdb_line(min_x, max_y, min_x, min_y);
-                }
-            }
+                    int p = points[i];
+                    int x = p % Ix;
+                    int y = p / Ix;
+                    int l = groups.label[p];
+                    int n = groups.group_n[l];
 
-            {
-                vdb_slider1f("r_g", &r_g, 0.0f, 5.0f);
-                vdb_slider1f("r_b", &r_b, 0.0f, 5.0f);
-                vdb_slider1f("r_n", &r_n, 0.0f, 5.0f);
-                vdb_slider1f("g_r", &g_r, 0.0f, 5.0f);
-                vdb_slider1f("g_b", &g_b, 0.0f, 5.0f);
-                vdb_slider1f("g_n", &g_n, 0.0f, 5.0f);
-            }
-
-            vdb_end();
-        }
-        #endif
-
-        // TARGET TRACKING TEST
-        #if 1
-        if (vdb_begin())
-        {
-            int num_targets = tracks.num_targets;
-            target_t *targets = tracks.targets;
-
-            static int selected_id = -1;
-
-            vdb_setNicePoints(1);
-            vdb_imageRGB8(I, Ix, Iy);
-
-            vdb_xrange(0.0f, (float)Ix);
-            vdb_yrange(0.0f, (float)Iy);
-
-            for (int i = 0; i < num_targets; i++)
-            {
-                float u1 = targets[i].last_seen.u1;
-                float v1 = targets[i].last_seen.v1;
-                float u2 = targets[i].last_seen.u2;
-                float v2 = targets[i].last_seen.v2;
-                float u = targets[i].u_hat;
-                float v = targets[i].v_hat;
-
-                float mx,my;
-                if (vdb_mouse_click(&mx, &my))
-                {
-                    if (mx >= u1 && mx <= u2 && my >= v1 && my <= v2)
+                    if (n > 0.025f*max_n)
                     {
-                        selected_id = targets[i].unique_id;
+                        vdb_fillRect(x, y, 1.0f, 1.0f);
                     }
                 }
 
-                if (targets[i].unique_id == selected_id)
-                    vdb_color_red(2);
-                else
-                    vdb_color_white(0);
-
-                vdb_line(u1,v1, u2,v1);
-                vdb_line(u2,v1, u2,v2);
-                vdb_line(u2,v2, u1,v2);
-                vdb_line(u1,v2, u1,v1);
-                vdb_point(u, v);
-            }
-            vdb_end();
-        }
-        #endif
-
-        // CALIBRATION TEST
-        #if 0
-        if (vdb_begin())
-        {
-            vdb_xrange(-4.0f, +4.0f);
-            vdb_yrange(-2.0f, +2.0f);
-            for (int y = 1; y < Iy-1; y++)
-            for (int x = 1; x < Ix-1; x++)
-            {
-                vec2 uv = { x+0.5f, y+0.5f };
-                vec3 dir = rot*camera_inverse_project(f,u0,v0, uv);
-                vec2 p;
-                if (m_intersect_xy_plane(dir, pos.z, &p))
+                vdb_color_black(2);
+                for (int i = 0; i < groups.count; i++)
                 {
-                    vdb_color_rampf(I[3*(x + y*Ix)+0]/255.0f);
-                    vdb_point(p.x, p.y);
+                    if (groups.group_n[i] > 0.025f*max_n)
+                    {
+                        float min_x = groups.group_min_x[i];
+                        float min_y = groups.group_min_y[i];
+                        float max_x = groups.group_max_x[i];
+                        float max_y = groups.group_max_y[i];
+                        vdb_line(min_x, min_y, max_x, min_y);
+                        vdb_line(max_x, min_y, max_x, max_y);
+                        vdb_line(max_x, max_y, min_x, max_y);
+                        vdb_line(min_x, max_y, min_x, min_y);
+                    }
                 }
+
+                {
+                    vdb_slider1f("r_g", &r_g, 0.0f, 5.0f);
+                    vdb_slider1f("r_b", &r_b, 0.0f, 5.0f);
+                    vdb_slider1f("r_n", &r_n, 0.0f, 5.0f);
+                    vdb_slider1f("g_r", &g_r, 0.0f, 5.0f);
+                    vdb_slider1f("g_b", &g_b, 0.0f, 5.0f);
+                    vdb_slider1f("g_n", &g_n, 0.0f, 5.0f);
+                }
+
+                vdb_end();
             }
-            vdb_end();
+            #endif
+
+            // TARGET TRACKING TEST
+            #if 0
+            if (vdb_begin())
+            {
+                int num_targets = tracks.num_targets;
+                target_t *targets = tracks.targets;
+
+                static int selected_id = -1;
+
+                vdb_setNicePoints(1);
+                vdb_imageRGB8(I, Ix, Iy);
+
+                vdb_xrange(0.0f, (float)Ix);
+                vdb_yrange(0.0f, (float)Iy);
+
+                for (int i = 0; i < num_targets; i++)
+                {
+                    float u1 = targets[i].last_seen.u1;
+                    float v1 = targets[i].last_seen.v1;
+                    float u2 = targets[i].last_seen.u2;
+                    float v2 = targets[i].last_seen.v2;
+                    float u = targets[i].u_hat;
+                    float v = targets[i].v_hat;
+
+                    float mx,my;
+                    if (vdb_mouse_click(&mx, &my))
+                    {
+                        if (mx >= u1 && mx <= u2 && my >= v1 && my <= v2)
+                        {
+                            selected_id = targets[i].unique_id;
+                        }
+                    }
+
+                    if (targets[i].unique_id == selected_id)
+                        vdb_color_red(2);
+                    else
+                        vdb_color_white(0);
+
+                    vdb_line(u1,v1, u2,v1);
+                    vdb_line(u2,v1, u2,v2);
+                    vdb_line(u2,v2, u1,v2);
+                    vdb_line(u1,v2, u1,v1);
+                    vdb_point(u, v);
+                }
+                vdb_end();
+            }
+            #endif
+
+            // CALIBRATION TEST
+            #if 0
+            if (vdb_begin())
+            {
+                vdb_xrange(-4.0f, +4.0f);
+                vdb_yrange(-2.0f, +2.0f);
+                for (int y = 1; y < Iy-1; y += 2)
+                for (int x = 1; x < Ix-1; x += 2)
+                {
+                    vec2 uv = { x+0.5f, y+0.5f };
+                    vec3 dir = rot*camera_inverse_project(f,u0,v0, uv);
+                    vec2 p;
+                    if (m_intersect_xy_plane(dir, pos.z, &p))
+                    {
+                        vdb_color_rampf(I[3*(x + y*Ix)+0]/255.0f);
+                        vdb_point(p.x, p.y);
+                    }
+                }
+
+                vdb_color_red(1);
+                vdb_line(-4.0f, -2.0f, +4.0f, -2.0f);
+                vdb_line(-4.0f, -1.0f, +4.0f, -1.0f);
+                vdb_line(-4.0f, +0.0f, +4.0f, +0.0f);
+                vdb_line(-4.0f, +1.0f, +4.0f, +1.0f);
+                vdb_line(-4.0f, +2.0f, +4.0f, +2.0f);
+                vdb_line(-4.0f, -2.0f, -4.0f, +2.0f);
+                vdb_line(-3.0f, -2.0f, -3.0f, +2.0f);
+                vdb_line(-2.0f, -2.0f, -2.0f, +2.0f);
+                vdb_line(-1.0f, -2.0f, -1.0f, +2.0f);
+                vdb_line(-0.0f, -2.0f, -0.0f, +2.0f);
+                vdb_line(+1.0f, -2.0f, +1.0f, +2.0f);
+                vdb_line(+2.0f, -2.0f, +2.0f, +2.0f);
+                vdb_line(+3.0f, -2.0f, +3.0f, +2.0f);
+                vdb_line(+4.0f, -2.0f, +4.0f, +2.0f);
+
+                vdb_slider1f("cam_imu_rx", &cam_imu_rx, -0.3f, +0.3f);
+                vdb_slider1f("cam_imu_ry", &cam_imu_ry, -0.3f, +0.3f);
+                vdb_slider1f("cam_imu_rz", &cam_imu_rz, -3.1f, +3.1f);
+
+                vdb_slider1f("cam_imu_tx", &cam_imu_tx, -0.3f, +0.3f);
+                vdb_slider1f("cam_imu_ty", &cam_imu_ty, -0.3f, +0.3f);
+                vdb_slider1f("cam_imu_tz", &cam_imu_tz, -0.3f, +0.3f);
+
+                vdb_end();
+
+            }
+            #endif
+
+            uint64_t t2 = get_nanoseconds();
+            dt_vdb = (t2-t1)/1e9;
         }
-        #endif
         #endif
 
         // PUBLISH STUFF
