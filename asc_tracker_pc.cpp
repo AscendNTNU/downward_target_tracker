@@ -101,7 +101,8 @@ int main(int, char **)
         fclose(f);
     }
 
-    for (int log_index = 0; log_index < log_length; log_index++)
+    int skip_count = 1;
+    for (int log_index = 0; log_index < log_length; log_index+=skip_count)
     {
         if (!poses_ok[video_i[log_index]])
             continue;
@@ -236,6 +237,7 @@ int main(int, char **)
                     }
                 }
                 glEnd();
+                vdbAlphaBlend();
 
                 bool changed = false;
                 changed |= SliderFloat("r_g", &opt.r_g, 0.0f, 10.0f);
@@ -247,6 +249,22 @@ int main(int, char **)
                 if (changed)
                 {
                     tracks = track_targets(opt);
+                }
+            }
+
+            // draw detections
+            {
+                detection_t *detections = tracks.detections;
+                int num_detections = tracks.num_detections;
+                for (int i = 0; i < num_detections; i++)
+                {
+                    float u = detections[i].u;
+                    float v = detections[i].v;
+
+                    glLines(2.0f);
+                    glColor4f(1.0f,1.0f,0.2f, 1.0f);
+                    vdbDrawCircle(u,v,6);
+                    glEnd();
                 }
             }
 
@@ -271,6 +289,8 @@ int main(int, char **)
 
             //     vdbNote(u,v,"ID: %d", targets[i].unique_id);
             // }
+
+            SliderInt("skip_count", &skip_count, 1, 16);
         }
         VDBE();
         #endif
