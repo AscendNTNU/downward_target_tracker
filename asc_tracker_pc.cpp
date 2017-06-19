@@ -1,19 +1,17 @@
-// #define ENABLE_TIMING
-#define VDB_LOG_DEBUG
-#include "vdb_release.h"
-#include "asc_profiler.h"
-#include "asc_tracker.h"
+#include <stdio.h>
+#include <stdint.h>
+#include <assert.h>
+#include <vdb.h>
 
-// For debugging: Load images and sensor data from directory
 #define STB_IMAGE_IMPLEMENTATION
-#define DATA_DIR           "C:/Temp/data_3aug_2/"
-#define IMU_LOG   DATA_DIR "log_imu.txt"
-#define LIDAR_LOG DATA_DIR "log_lidar_filtered.txt"
-#define VIDEO_LOG DATA_DIR "log_video2.txt"
-#define VIDEO_NAME DATA_DIR "video_2_%04d.jpg"
-#define LOG_MAX_COUNT 10000
-#include "asc_readlog.h"
+#include "asc_tracker.h"
 #include "stb_image.h"
+
+#define DATA_DIR            "C:/Temp/data_3aug_2/"
+#define VIDEO_LOG  DATA_DIR "log_video2.txt"
+#define POSES_LOG  DATA_DIR "log_poses.txt"
+#define VIDEO_NAME DATA_DIR "video_2_%04d.jpg"
+#define MAX_LOGS 10000
 
 void downsample(unsigned char *src, int w, int h)
 {
@@ -47,7 +45,7 @@ void downsample(unsigned char *src, int w, int h)
     }
 }
 
-int main()
+int main(int, char **)
 {
     int levels = 3;
 
@@ -60,24 +58,84 @@ int main()
     float u0 = u0_calibrated*downscale_factor;
     float v0 = v0_calibrated*downscale_factor;
 
-    const int max_gps = 5000;
-    static mat3 gps_rot[max_gps] = {0};
-    static vec3 gps_pos[max_gps] = {0};
-    static int  gps_ok[max_gps] = {0};
+    const int max_log = 10000;
+    int log_length = 0;
+
+    // READ VIDEO LOG FILE
+    static int   video_i[max_log]; // filename suffix
+    static float video_t[max_log]; // timestamp
     {
-        FILE *file = fopen("../poses_3aug_2.txt", "r");
-        assert(file);
-        int i; float ex, ey, ez, tx, ty, tz;
-        while (7 == fscanf(file, "%d %f %f %f %f %f %f", &i, &ex, &ey, &ez, &tx, &ty, &tz))
+        FILE *f = fopen(DATA_DIR "log_video2.txt", "r");
+        assert(f);
+        int i; // filename suffix
+        uint64_t t; // timestamp in microseconds since UNIX epoch
+        while (2 == fscanf(f, "%d %llu", &i, &t) && log_length < max_log)
         {
-            gps_rot[i] = m_rotz(ez)*m_roty(ey)*m_rotx(ex);
-            gps_pos[i] = m_vec3(tx, ty, tz);
-            gps_ok[i] = true;
+            video_i[log_length] = i;
+            video_t[log_length] = t/1e6;
+            log_length++;
         }
-        fclose(file);
+        fclose(f);
     }
 
-    log_readData();
+    // READ POSES LOG FILE
+    static mat3 poses_rot[max_log]; // rotation corresponding to video_i
+    static vec3 poses_pos[max_log]; // translation corresponding to video_i
+    static bool poses_ok[max_log] = {0};
+    {
+        FILE *f = fopen(POSES_LOG, "r");
+        assert(f);
+        int i; // corresponding video suffix
+        float rx, ry, rz, tx, ty, tz; // rotation and translation
+        while (7 == fscanf(f, "%d %f %f %f %f %f %f", &i, &rx,&ry,&rz, &tx,&ty,&tz))
+        {
+            poses_rot[i] = m_rotz(rz)*m_roty(ry)*m_rotx(rx);
+            poses_pos[i] = m_vec3(tx, ty, tz);
+            poses_ok[i] = true;
+        }
+        fclose(f);
+    }
+
+    for (int log_index = 0; log_index < log_length; log_index++)
+    {
+        if (!poses_ok[video_i[log_index]])
+            continue;
+
+        // LOAD IMAGE
+        int Ix, Iy, Ic;
+        unsigned char *I;
+        {
+            char name[1024];
+            sprintf(name, VIDEO_NAME, video_i[log_index]);
+            I = stbi_load(name, &Ix, &Iy, &Ic, 3);
+            assert(I);
+        }
+
+        // RESIZE IMAGE
+        for (int i = 0; i < levels; i++)
+        {
+            downsample(I, Ix, Iy);
+            Ix /= 2;
+            Iy /= 2;
+        }
+
+        mat3 rot = poses_rot[video_i[log_index]];
+        vec3 pos = poses_pos[video_i[log_index]];
+
+        VDBB("Input");
+        {
+            vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
+            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
+            vdbDrawTexture2D(0);
+        }
+        VDBE();
+
+        free(I);
+    }
+
+    #if 0
+
+    read_log_data();
     float timestamp = 0.0f;
     for (int log_index = 1000; log_index < log_count; log_index++)
     {
@@ -156,4 +214,6 @@ int main()
         timestamp += 1.0f/60.0f;
         free(I);
     }
+    #endif
+    return 0;
 }
