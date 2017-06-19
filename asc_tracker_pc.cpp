@@ -76,8 +76,9 @@ int main(int, char **)
         uint64_t t; // timestamp in microseconds since UNIX epoch
         while (2 == fscanf(f, "%d %llu", &i, &t) && log_length < max_log)
         {
+            static uint64_t t_begin = t;
             video_i[log_length] = i;
-            video_t[log_length] = t/1e6;
+            video_t[log_length] = (float)(t-t_begin)/1e6;
             log_length++;
         }
         fclose(f);
@@ -141,8 +142,7 @@ int main(int, char **)
             opt.Iy = Iy;
             opt.rot = rot;
             opt.pos = pos;
-            opt.gps = true;
-            opt.timestamp = video_t[log_index]/1e6;
+            opt.timestamp = video_t[log_index];
             tracks = track_targets(opt);
         }
 
@@ -187,110 +187,161 @@ int main(int, char **)
         #if debug_draw_track==1
         VDBB("Tracks");
         {
-            vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
-            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
-            vdbDrawTexture2D(0);
+            const int mode_draw_image = 0;
+            const int mode_draw_world = 1;
+            static int mode = mode_draw_image;
 
-            // draw connected components
+            SliderInt("skip_count", &skip_count, 1, 16);
+            SliderInt("log_index", &log_index, 0, log_length-1);
+            RadioButton("Draw image", &mode, mode_draw_image);
+            RadioButton("Draw world", &mode, mode_draw_world);
+
+            if (mode == mode_draw_image)
             {
-                int *points = tracks.points;
-                int num_points = tracks.num_points;
-                cc_groups groups = tracks.groups;
+                vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
+                vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
+                vdbDrawTexture2D(0);
 
-                int max_n = 0;
-                for (int i = 0; i < groups.count; i++)
+                // draw connected components
                 {
-                    if (groups.group_n[i] > max_n)
-                        max_n = groups.group_n[i];
-                }
+                    int *points = tracks.points;
+                    int num_points = tracks.num_points;
+                    cc_groups groups = tracks.groups;
 
-                vdbOrtho(0.0f, Ix, Iy, 0.0f);
-                glBegin(GL_TRIANGLES);
-                for (int i = 0; i < num_points; i++)
-                {
-                    int p = points[i];
-                    int x = p % Ix;
-                    int y = p / Ix;
-                    int l = groups.label[p];
-                    int n = groups.group_n[l];
-
-                    if (n > 0.025f*max_n)
+                    int max_n = 0;
+                    for (int i = 0; i < groups.count; i++)
                     {
-                        glColor4f(vdbPalette(l));
-                        vdbFillRect(x, y, 1.0f, 1.0f);
+                        if (groups.group_n[i] > max_n)
+                            max_n = groups.group_n[i];
+                    }
+
+                    vdbOrtho(0.0f, Ix, Iy, 0.0f);
+                    glBegin(GL_TRIANGLES);
+                    for (int i = 0; i < num_points; i++)
+                    {
+                        int p = points[i];
+                        int x = p % Ix;
+                        int y = p / Ix;
+                        int l = groups.label[p];
+                        int n = groups.group_n[l];
+
+                        if (n > 0.025f*max_n)
+                        {
+                            glColor4f(vdbPalette(l));
+                            vdbFillRect(x, y, 1.0f, 1.0f);
+                        }
+                    }
+                    glEnd();
+
+                    vdbAdditiveBlend();
+                    glLines(2.0f);
+                    glColor4f(0.2f, 0.8f, 1.0f, 1.0f);
+                    for (int i = 0; i < groups.count; i++)
+                    {
+                        if (groups.group_n[i] > 0.025f*max_n)
+                        {
+                            float min_x = groups.group_min_x[i];
+                            float min_y = groups.group_min_y[i];
+                            float max_x = groups.group_max_x[i];
+                            float max_y = groups.group_max_y[i];
+                            vdbDrawRect(min_x+0.5f, min_y+0.5f, max_x-min_x, max_y-min_y);
+                        }
+                    }
+                    glEnd();
+                    vdbAlphaBlend();
+
+                    bool changed = false;
+                    changed |= SliderFloat("r_g", &opt.r_g, 0.0f, 10.0f);
+                    changed |= SliderFloat("r_b", &opt.r_b, 0.0f, 10.0f);
+                    changed |= SliderFloat("r_n", &opt.r_n, 0.0f, 255.0f);
+                    changed |= SliderFloat("g_r", &opt.g_r, 0.0f, 10.0f);
+                    changed |= SliderFloat("g_b", &opt.g_b, 0.0f, 10.0f);
+                    changed |= SliderFloat("g_n", &opt.g_n, 0.0f, 255.0f);
+                    if (changed)
+                    {
+                        tracks = track_targets(opt);
                     }
                 }
-                glEnd();
 
-                vdbAdditiveBlend();
-                glLines(2.0f);
-                glColor4f(0.2f, 0.8f, 1.0f, 1.0f);
-                for (int i = 0; i < groups.count; i++)
+                // draw detections
                 {
-                    if (groups.group_n[i] > 0.025f*max_n)
+                    detection_t *detections = tracks.detections;
+                    int num_detections = tracks.num_detections;
+                    for (int i = 0; i < num_detections; i++)
                     {
-                        float min_x = groups.group_min_x[i];
-                        float min_y = groups.group_min_y[i];
-                        float max_x = groups.group_max_x[i];
-                        float max_y = groups.group_max_y[i];
-                        vdbDrawRect(min_x+0.5f, min_y+0.5f, max_x-min_x, max_y-min_y);
+                        float u = detections[i].u;
+                        float v = detections[i].v;
+
+                        glLines(2.0f);
+                        glColor4f(1.0f,1.0f,0.2f, 1.0f);
+                        vdbDrawCircle(u,v,6);
+                        glEnd();
                     }
                 }
-                glEnd();
-                vdbAlphaBlend();
 
-                bool changed = false;
-                changed |= SliderFloat("r_g", &opt.r_g, 0.0f, 10.0f);
-                changed |= SliderFloat("r_b", &opt.r_b, 0.0f, 10.0f);
-                changed |= SliderFloat("r_n", &opt.r_n, 0.0f, 255.0f);
-                changed |= SliderFloat("g_r", &opt.g_r, 0.0f, 10.0f);
-                changed |= SliderFloat("g_b", &opt.g_b, 0.0f, 10.0f);
-                changed |= SliderFloat("g_n", &opt.g_n, 0.0f, 255.0f);
-                if (changed)
+                // draw tracks
                 {
-                    tracks = track_targets(opt);
+                    target_t *targets = tracks.targets;
+                    int num_targets = tracks.num_targets;
+                    for (int i = 0; i < num_targets; i++)
+                    {
+                        float u1 = targets[i].last_seen.u1;
+                        float v1 = targets[i].last_seen.v1;
+                        float u2 = targets[i].last_seen.u2;
+                        float v2 = targets[i].last_seen.v2;
+                        float u = targets[i].last_seen.u;
+                        float v = targets[i].last_seen.v;
+
+                        vdbNote(u,v,"ID: %d", targets[i].unique_id);
+                    }
                 }
             }
 
-            // draw detections
+            // draw track windows
+            if (mode == mode_draw_world)
             {
+                float aspect = (float)vdb_input.width/vdb_input.height;
+                vdbOrtho(-2.0f*aspect, +2.0f*aspect, -2.0f, +2.0f);
+                glLines(2.0f);
+                glColor4f(0.5f,0.5f,0.5f,1.0f);
+                vdbGridXY(-2.0f, +2.0f, -2.0f, +2.0f, 4);
+                glEnd();
+
                 detection_t *detections = tracks.detections;
                 int num_detections = tracks.num_detections;
-                for (int i = 0; i < num_detections; i++)
+                target_t *targets = tracks.targets;
+                int num_targets = tracks.num_targets;
+                for (int i = 0; i < num_targets; i++)
                 {
-                    float u = detections[i].u;
-                    float v = detections[i].v;
+                    glBegin(GL_TRIANGLES);
+                    glColor4f(vdbPalette(i, 0.3f));
+                    vdbFillCircle(targets[i].last_seen.x, targets[i].last_seen.y, 0.15f);
+                    glEnd();
 
                     glLines(2.0f);
-                    glColor4f(1.0f,1.0f,0.2f, 1.0f);
-                    vdbDrawCircle(u,v,6);
+                    glColor4f(vdbPalette(i));
+                    detection_t *window = targets[i].window;
+                    int num_window = targets[i].num_window;
+                    for (int j = 0; j < num_window-1; j++)
+                    {
+                        float x1 = window[j].x;
+                        float y1 = window[j].y;
+                        float x2 = window[j+1].x;
+                        float y2 = window[j+1].y;
+                        glVertex2f(x1,y1);
+                        glVertex2f(x2,y2);
+                    }
+                    glEnd();
+                }
+
+                for (int i = 0; i < num_detections; i++)
+                {
+                    glLines(2.0f);
+                    glColor4f(1.0f,1.0f,0.2f,1.0f);
+                    vdbDrawCircle(detections[i].x, detections[i].y, 0.15f);
                     glEnd();
                 }
             }
-
-            // target_t *targets = tracks.targets;
-            // int num_targets = tracks.num_targets;
-            // for (int i = 0; i < num_targets; i++)
-            // {
-            //     float u1 = targets[i].last_seen.u1;
-            //     float v1 = targets[i].last_seen.v1;
-            //     float u2 = targets[i].last_seen.u2;
-            //     float v2 = targets[i].last_seen.v2;
-            //     float u = targets[i].last_seen.u;
-            //     float v = targets[i].last_seen.v;
-
-            //     vdbOrtho(0,Ix,Iy,0);
-            //     glLines(2.0f);
-            //     glColor4f(1.0f,1.0f,1.0f,1.0f);
-            //     vdbDrawRect(u1,v1,u2-u1,v2-v1);
-            //     glColor4f(1.0f,1.0f,0.2f,1.0f);
-            //     vdbDrawCircle(u,v,2);
-            //     glEnd();
-
-            //     vdbNote(u,v,"ID: %d", targets[i].unique_id);
-            // }
-
-            SliderInt("skip_count", &skip_count, 1, 16);
         }
         VDBE();
         #endif

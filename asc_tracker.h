@@ -1,31 +1,22 @@
 #include "so_math.h"
 #include "asc_connected_components.h"
+const int detection_window_count = 60;
 
 struct detection_t
 {
-    float t;   // Timestamp
-    float u,v; // Image coordinates
+    float t;           // Timestamp when detection was made
+    float u,v;         // Image coordinates
     float u1,v1,u2,v2; // Bounding box in image
-    float x,y; // World coordinates
-    bool has_gps;
+    float x,y;         // World coordinates
 };
 
 struct target_t
 {
-    int confidence;
     detection_t last_seen;
-    float u_hat;
-    float v_hat;
-    float du_hat;
-    float dv_hat;
+    float last_closest_d;
+    detection_t window[detection_window_count];
+    int num_window;
     int unique_id;
-
-    float x_hat;
-    float y_hat;
-    float dx_hat;
-    float dy_hat;
-    float p_turning;
-    float p_moving;
 };
 
 struct tracks_t
@@ -62,7 +53,6 @@ struct track_targets_opt_t
 
     mat3 rot; // R_c^g: {c}amera coordinate frame relative {g}rid
     vec3 pos; // camera position relative some origin
-    bool gps; // whether rot/pos are valid or not
 
     float timestamp; // monotonically increasing timer (in seconds) for when image was taken
 };
@@ -126,6 +116,7 @@ float metric_distance(float u1, float v1, float u2, float v2,
     }
 }
 
+#if 0
 target_t filter_target_image_space(target_t prev, detection_t seen)
 {
     //
@@ -239,24 +230,19 @@ target_t filter_target_image_space(target_t prev, detection_t seen)
     prev.dv_hat = dv_hat;
     return prev;
 }
+#endif
 
 tracks_t track_targets(track_targets_opt_t opt)
 {
     const float plate_z = 0.1f;         // Height of top-plate above ground
     const float merge_threshold = 0.3f; // Maximum distance in meters for two detections to be considered the same
-    const float removal_time = 2.0f;    // Required elapsed time without reobservation before a track is removed
+    const float removal_time = 10.5f;    // Required elapsed time without reobservation before a track is removed
     const int minimum_count = 50;       // Minimum number of pixels inside connected component to be accepted
     const int max_targets = 1024;
 
     static target_t targets[max_targets];
     static int num_targets = 0;
     static int next_id = 0;
-
-    // Confidence is increased or decreased by one each frame
-    const int confidence_limit = 20;
-    const int initial_confidence = 5;
-    const int accept_confidence = 10;
-    const int removal_confidence = 0;
 
     float f = opt.f;
     float u0 = opt.u0;
@@ -268,7 +254,6 @@ tracks_t track_targets(track_targets_opt_t opt)
 
     mat3 rot = opt.rot;
     vec3 pos = opt.pos;
-    bool has_gps = opt.gps;
 
     float timestamp = opt.timestamp;
 
@@ -451,11 +436,11 @@ tracks_t track_targets(track_targets_opt_t opt)
         {
             detections[i].x = xy.x + pos.x;
             detections[i].y = xy.y + pos.y;
-            detections[i].has_gps = true;
         }
         else
         {
-            detections[i].has_gps = false;
+            detections[i].x = -1000.0f;
+            detections[i].y = -1000.0f;
         }
     }
 
@@ -466,16 +451,27 @@ tracks_t track_targets(track_targets_opt_t opt)
     // Update existing tracks
     for (int i = 0; i < num_targets; i++)
     {
-        // First, find the closest detection
+        // Remove targets that we haven't seen for a while
+        if (timestamp - targets[i].last_seen.t >= removal_time)
+        {
+            targets[i] = targets[num_targets-1];
+            num_targets--;
+            i--;
+            continue;
+        }
+
+        // Find the closest detection
         int closest_j = -1;
         float closest_d = 0.0f;
         for (int j = 0; j < num_detections; j++)
         {
-            float ui = targets[i].u_hat;
-            float vi = targets[i].v_hat;
+            float ui = targets[i].last_seen.u;
+            float vi = targets[i].last_seen.v;
             float uj = detections[j].u;
             float vj = detections[j].v;
-            float d = metric_distance(ui,vi, uj,vj, f,u0,v0,rot,delta_z);
+            float dx = targets[i].last_seen.x-detections[j].x;
+            float dy = targets[i].last_seen.y-detections[j].y;
+            float d = sqrtf(dx*dx + dy*dy);
             if (closest_j < 0 || d < closest_d)
             {
                 closest_j = j;
@@ -486,26 +482,23 @@ tracks_t track_targets(track_targets_opt_t opt)
         // If the detection is sufficiently close we are reobserving the same target
         if (closest_j >= 0 && closest_d < merge_threshold)
         {
-            // @ todo: merge neighboring detections _during_ filtering
             found_match[closest_j] = true;
-            targets[i] = filter_target_image_space(targets[i], detections[closest_j]);
+            targets[i].last_seen = detections[closest_j];
+            targets[i].last_closest_d = closest_d;
 
-            if (targets[i].confidence < confidence_limit)
-                targets[i].confidence++;
-        }
-        else
-        {
-            if (targets[i].confidence > 0)
-                targets[i].confidence--;
-        }
+            if (targets[i].num_window < detection_window_count)
+            {
+                for (int k = targets[i].num_window; k > 0; k--)
+                    targets[i].window[k] = targets[i].window[k-1];
+                targets[i].num_window++;
+            }
+            else
+            {
+                for (int k = detection_window_count-1; k > 0; k--)
+                    targets[i].window[k] = targets[i].window[k-1];
+            }
 
-        bool should_remove = (targets[i].confidence <= removal_confidence) ||
-                             (timestamp - targets[i].last_seen.t >= removal_time);
-        if (should_remove)
-        {
-            targets[i] = targets[num_targets-1];
-            num_targets--;
-            i--;
+            targets[i].window[0] = detections[closest_j];
         }
     }
 
@@ -517,21 +510,9 @@ tracks_t track_targets(track_targets_opt_t opt)
             if (num_targets < max_targets)
             {
                 target_t t = {0};
-                t.confidence = initial_confidence;
                 t.last_seen = detections[i];
-                t.u_hat = detections[i].u;
-                t.v_hat = detections[i].v;
-                t.du_hat = 0.0f;
-                t.dv_hat = 0.0f;
-
-                t.x_hat = detections[i].x;
-                t.y_hat = detections[i].y;
-                t.dx_hat = 0.0f;
-                t.dy_hat = 0.0f;
-                t.p_moving = 0.8f;
-                t.p_turning = 0.2f;
-
                 t.unique_id = next_id++;
+                t.num_window = 0;
                 targets[num_targets] = t;
                 num_targets++;
             }
