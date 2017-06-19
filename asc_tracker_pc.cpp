@@ -301,7 +301,8 @@ int main(int, char **)
             if (mode == mode_draw_world)
             {
                 float aspect = (float)vdb_input.width/vdb_input.height;
-                vdbOrtho(-2.0f*aspect, +2.0f*aspect, -2.0f, +2.0f);
+                vdbFreeSphereCamera();
+                // vdbOrtho(-2.0f*aspect, +2.0f*aspect, -2.0f, +2.0f);
                 glLines(2.0f);
                 glColor4f(0.5f,0.5f,0.5f,1.0f);
                 vdbGridXY(-2.0f, +2.0f, -2.0f, +2.0f, 4);
@@ -313,6 +314,49 @@ int main(int, char **)
                 int num_targets = tracks.num_targets;
                 for (int i = 0; i < num_targets; i++)
                 {
+                    detection_t *window = targets[i].window;
+                    int num_window = targets[i].num_window;
+
+                    {
+                        float best_x0 = 0.0f;
+                        float best_y0 = 0.0f;
+                        float best_dx = 0.0f;
+                        float best_dy = 0.0f;
+                        int best_n = 0;
+                        for (int j = 0; j < num_window; j++)
+                        for (int k = j; k < num_window; k++)
+                        {
+                            float dx = window[k].x - window[j].x;
+                            float dy = window[k].y - window[j].y;
+                            float len = sqrtf(dx*dx + dy*dy);
+                            if (len == 0.0f)
+                                continue;
+                            float nx = -dy/len;
+                            float ny = dx/len;
+                            int n = 0;
+                            for (int l = 0; l < num_window; l++)
+                            {
+                                float e = (window[l].x-window[j].x)*nx + (window[l].y-window[j].y)*ny;
+                                if (fabsf(e) < 0.02f)
+                                    n++;
+                            }
+                            if (n > best_n)
+                            {
+                                best_x0 = window[j].x;
+                                best_y0 = window[j].y;
+                                best_dx = dx/len;
+                                best_dy = dy/len;
+                                best_n = n;
+                            }
+                        }
+
+                        glLines(1.0f);
+                        glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
+                        glVertex2f(best_x0, best_y0);
+                        glVertex2f(best_x0+best_dx, best_y0+best_dy);
+                        glEnd();
+                    }
+
                     glBegin(GL_TRIANGLES);
                     glColor4f(vdbPalette(i, 0.3f));
                     vdbFillCircle(targets[i].last_seen.x, targets[i].last_seen.y, 0.15f);
@@ -320,8 +364,6 @@ int main(int, char **)
 
                     glLines(2.0f);
                     glColor4f(vdbPalette(i));
-                    detection_t *window = targets[i].window;
-                    int num_window = targets[i].num_window;
                     for (int j = 0; j < num_window-1; j++)
                     {
                         float x1 = window[j].x;
