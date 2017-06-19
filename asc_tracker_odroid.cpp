@@ -51,6 +51,7 @@
 #include <signal.h>
 #include <assert.h>
 #include <stdint.h>
+#include <time.h>
 #if disable_ros==0
 #include <ros/ros.h>
 #include <std_msgs/Float32.h>
@@ -61,7 +62,6 @@
 #include "vdb_release.h"
 #include "asc_usbcam.h"
 #include "asc_tracker.h"
-#include "get_nanoseconds.h"
 
 //
 // OPTIONS
@@ -113,6 +113,15 @@ void callback_g_b(std_msgs::Float32 msg) { g_b = msg.data; }
 void callback_g_n(std_msgs::Float32 msg) { g_n = msg.data; }
 #endif
 
+uint64_t getnsec()
+{
+    struct timespec ts = {};
+    clock_gettime(CLOCK_REALTIME, &ts);
+    uint64_t result = ((uint64_t)ts.tv_sec)*1000000000 +
+                      ((uint64_t)ts.tv_nsec);
+    return result;
+}
+
 void ctrlc(int)
 {
     exit(0);
@@ -160,7 +169,7 @@ int main(int argc, char **argv)
     const int Ix = camera_width>>camera_levels;
     const int Iy = camera_height>>camera_levels;
     static unsigned char I[camera_width*camera_height*3];
-    uint64_t t_begin = get_nanoseconds();
+    uint64_t t_begin = getnsec();
     for (int frame = 0;; frame++)
     {
         // RECEIVE LATEST IMAGE
@@ -191,13 +200,13 @@ int main(int argc, char **argv)
         // DECOMPRESS
         float dt_jpeg_to_rgb = 0.0f;
         {
-            uint64_t t1 = get_nanoseconds();
+            uint64_t t1 = getnsec();
             if (!usbcam_jpeg_to_rgb(Ix, Iy, I, jpg_data, jpg_size))
             {
                 usbcam_unlock();
                 continue;
             }
-            uint64_t t2 = get_nanoseconds();
+            uint64_t t2 = getnsec();
             dt_jpeg_to_rgb = (t2-t1)/1e9;
         }
 
@@ -219,7 +228,7 @@ int main(int argc, char **argv)
         tracks_t tracks = {0};
         float dt_track_targets = 0.0f;
         {
-            uint64_t t1 = get_nanoseconds();
+            uint64_t t1 = getnsec();
             track_targets_opt_t opt = {0};
             opt.r_g = r_g;
             opt.r_b = r_b;
@@ -236,9 +245,9 @@ int main(int argc, char **argv)
             opt.rot = rot;
             opt.pos = pos;
             opt.gps = true;
-            opt.timestamp = (get_nanoseconds()-t_begin)/1e9;
+            opt.timestamp = (getnsec()-t_begin)/1e9;
             tracks = track_targets(opt);
-            uint64_t t2 = get_nanoseconds();
+            uint64_t t2 = getnsec();
             dt_track_targets = (t2-t1)/1e9;
         }
 
@@ -246,7 +255,7 @@ int main(int argc, char **argv)
         #if disable_ros==1
         {
             float dt_vdb = 0.0f;
-            uint64_t t1 = get_nanoseconds();
+            uint64_t t1 = getnsec();
 
             // COLOR SEGMENTATION TEST
             #if 0
@@ -413,7 +422,7 @@ int main(int argc, char **argv)
             }
             #endif
 
-            uint64_t t2 = get_nanoseconds();
+            uint64_t t2 = getnsec();
             dt_vdb = (t2-t1)/1e9;
         }
         #endif
@@ -421,8 +430,8 @@ int main(int argc, char **argv)
         // MEASURE TIME BETWEEN EACH OUTPUT
         float dt_cycle = 0.0f;
         {
-            static uint64_t t1 = get_nanoseconds();
-            uint64_t t2 = get_nanoseconds();
+            static uint64_t t1 = getnsec();
+            uint64_t t2 = getnsec();
             dt_cycle = (t2-t1)/1e9;
             t1 = t2;
         }
