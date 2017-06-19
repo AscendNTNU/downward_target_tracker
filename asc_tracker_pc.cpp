@@ -1,3 +1,11 @@
+#define debug_draw_input 0
+#define debug_draw_calib 0
+#define debug_draw_track 1
+#define data_directory   "C:/Temp/data_3aug_2/"
+#define poses_log_name   data_directory "log_poses.txt"
+#define video_log_name   data_directory "log_video2.txt"
+#define video_filename   data_directory "video_2_%04d.jpg"
+
 #include <stdio.h>
 #include <stdint.h>
 #include <assert.h>
@@ -6,12 +14,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "asc_tracker.h"
 #include "stb_image.h"
-
-#define DATA_DIR            "C:/Temp/data_3aug_2/"
-#define VIDEO_LOG  DATA_DIR "log_video2.txt"
-#define POSES_LOG  DATA_DIR "log_poses.txt"
-#define VIDEO_NAME DATA_DIR "video_2_%04d.jpg"
-#define MAX_LOGS 10000
 
 void downsample(unsigned char *src, int w, int h)
 {
@@ -48,15 +50,10 @@ void downsample(unsigned char *src, int w, int h)
 int main(int, char **)
 {
     int levels = 3;
-
-    float rotz_camera_body = -3.1415f/2.0f;
     float f_calibrated = 494.0f;
     float u0_calibrated = 649.0f;
     float v0_calibrated = 335.0f;
-    float downscale_factor = 1.0f / (float)(1 << levels);
-    float f = f_calibrated*downscale_factor;
-    float u0 = u0_calibrated*downscale_factor;
-    float v0 = v0_calibrated*downscale_factor;
+    float Ix_calibrated = 1280.0f;
 
     const int max_log = 10000;
     int log_length = 0;
@@ -65,7 +62,7 @@ int main(int, char **)
     static int   video_i[max_log]; // filename suffix
     static float video_t[max_log]; // timestamp
     {
-        FILE *f = fopen(DATA_DIR "log_video2.txt", "r");
+        FILE *f = fopen(video_log_name, "r");
         assert(f);
         int i; // filename suffix
         uint64_t t; // timestamp in microseconds since UNIX epoch
@@ -83,7 +80,7 @@ int main(int, char **)
     static vec3 poses_pos[max_log]; // translation corresponding to video_i
     static bool poses_ok[max_log] = {0};
     {
-        FILE *f = fopen(POSES_LOG, "r");
+        FILE *f = fopen(poses_log_name, "r");
         assert(f);
         int i; // corresponding video suffix
         float rx, ry, rz, tx, ty, tz; // rotation and translation
@@ -106,7 +103,7 @@ int main(int, char **)
         unsigned char *I;
         {
             char name[1024];
-            sprintf(name, VIDEO_NAME, video_i[log_index]);
+            sprintf(name, video_filename, video_i[log_index]);
             I = stbi_load(name, &Ix, &Iy, &Ic, 3);
             assert(I);
         }
@@ -121,7 +118,33 @@ int main(int, char **)
 
         mat3 rot = poses_rot[video_i[log_index]];
         vec3 pos = poses_pos[video_i[log_index]];
+        float f = f_calibrated*Ix/Ix_calibrated;
+        float u0 = u0_calibrated*Ix/Ix_calibrated;
+        float v0 = v0_calibrated*Ix/Ix_calibrated;
 
+        tracks_t tracks = {0};
+        {
+            track_targets_opt_t opt = {0};
+            opt.r_g = 3.0f;
+            opt.r_b = 2.0f;
+            opt.r_n = 10.0f/3.0f;
+            opt.g_r = 1.6f;
+            opt.g_b = 1.5f;
+            opt.g_n = 10.0f/3.0f;
+            opt.f = f;
+            opt.u0 = u0;
+            opt.v0 = v0;
+            opt.I = I;
+            opt.Ix = Ix;
+            opt.Iy = Iy;
+            opt.rot = rot;
+            opt.pos = pos;
+            opt.gps = true;
+            opt.timestamp = video_t[log_index]/1e6;
+            tracks = track_targets(opt);
+        }
+
+        #if debug_draw_input==1
         VDBB("Input");
         {
             vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
@@ -129,91 +152,67 @@ int main(int, char **)
             vdbDrawTexture2D(0);
         }
         VDBE();
-
-        free(I);
-    }
-
-    #if 0
-
-    read_log_data();
-    float timestamp = 0.0f;
-    for (int log_index = 1000; log_index < log_count; log_index++)
-    {
-        TIMING("load");
-        int Ix, Iy, Ic;
-        char name[1024];
-        sprintf(name, VIDEO_NAME, log_entries[log_index].video_i);
-        unsigned char *I = stbi_load(name, &Ix, &Iy, &Ic, 3);
-        assert(I);
-        TIMING("load");
-
-        TIMING("resize");
-        for (int i = 0; i < levels; i++)
-        {
-            downsample(I, Ix, Iy);
-            Ix /= 2;
-            Iy /= 2;
-        }
-        TIMING("resize");
-
-        mat3 rot;
-        vec3 pos;
-        static vec3 last_gps_pos;
-
-        if (gps_ok[log_index])
-        {
-            rot = gps_rot[log_index];
-            pos = gps_pos[log_index];
-            last_gps_pos = pos;
-        }
-        else
-        {
-            vec4 q_body_grid = {0};
-            q_body_grid.x = log_entries[log_index].qx;
-            q_body_grid.y = log_entries[log_index].qy;
-            q_body_grid.z = log_entries[log_index].qz;
-            q_body_grid.w = log_entries[log_index].qw;
-            mat3 rot_body_grid = m_quat_to_so3(q_body_grid); // R_b^g
-            mat3 rot_camera_body = m_rotz(rotz_camera_body); // R_c^b
-            rot = rot_body_grid*rot_camera_body;             // R_c^g = R_b^g * R_c^b
-            pos.x = last_gps_pos.x;
-            pos.y = last_gps_pos.y;
-            pos.z = m_dot(log_entries[log_index].r*rot.a3, m_vec3(0,0,1));
-        }
-
-        #if 0 // DEBUG GROUND PLANE PROJECTION
-        if (vdb_begin())
-        {
-            static int threshold = 20;
-            vdb_xrange(-4.0f, +4.0f);
-            vdb_yrange(-2.0f, +2.0f);
-            for (int y = 1; y < Iy-1; y += 2)
-            for (int x = 1; x < Ix-1; x += 2)
-            {
-                vec2 uv = { x+0.5f, y+0.5f };
-                vec3 dir = rot*m_ray_equidistant(f,u0,v0, uv);
-                vec2 p;
-                if (m_intersect_xy_plane(dir, camz, &p))
-                {
-                    vdb_color_rampf(I[3*(x + y*Ix)+0]/255.0f);
-                    vdb_point(p.x, p.y);
-                }
-            }
-            vdb_slider1i("threshold", &threshold, 0, 200);
-            vdb_end();
-        }
-
-        #else
-        TIMING("track");
-        track_targets(I,Ix,Iy, f,u0,v0, rot, pos, gps_ok[log_index], timestamp);
-        TIMING("track");
         #endif
 
-        TIMING_SUMMARY();
+        #if debug_draw_calib==1
+        VDBB("Calibration");
+        {
+            vdbOrtho(-2.0f, +2.0f, -2.0f, +2.0f);
+            glPoints(4.0f);
+            for (int y = 0; y < Iy; y++)
+            for (int x = 0; x < Ix; x++)
+            {
+                float cr = I[(x + y*Ix)*3+0]/255.0f;
+                float cg = I[(x + y*Ix)*3+1]/255.0f;
+                float cb = I[(x + y*Ix)*3+2]/255.0f;
+                vec3 dir = rot*camera_inverse_project(f,u0,v0, m_vec2(x,y));
+                vec2 p;
+                if ((rand() % 1024 < 500) && m_intersect_xy_plane(dir, pos.z, &p))
+                {
+                    glColor4f(cr,cg,cb,1.0f);
+                    glVertex2f(pos.x+p.x, pos.y+p.y);
+                }
+            }
+            glEnd();
+            glLines(2.0f);
+            glColor4f(1.0f,1.0f,1.0f,1.0f);
+            vdbGridXY(-2.0f,+2.0f,-2.0f,+2.0f,4);
+            glEnd();
+        }
+        VDBE();
+        #endif
 
-        timestamp += 1.0f/60.0f;
+        #if debug_draw_track==1
+        VDBB("Tracks");
+        {
+            vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
+            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
+            vdbDrawTexture2D(0);
+
+            detection_t *detections = tracks.detections;
+            int num_detections = tracks.num_detections;
+            for (int i = 0; i < num_detections; i++)
+            {
+                float u1 = detections[i].u1;
+                float v1 = detections[i].v1;
+                float u2 = detections[i].u2;
+                float v2 = detections[i].v2;
+                float u = detections[i].u;
+                float v = detections[i].v;
+
+                vdbOrtho(0,Ix,Iy,0);
+                glLines(2.0f);
+                glColor4f(1.0f,1.0f,1.0f,1.0f);
+                vdbDrawRect(u1,v1,u2-u1,v2-v1);
+                glColor4f(1.0f,1.0f,0.2f,1.0f);
+                vdbDrawCircle(u,v,2);
+                glEnd();
+            }
+        }
+        VDBE();
+        #endif
+
         free(I);
     }
-    #endif
     return 0;
 }
