@@ -38,26 +38,32 @@ struct tracks_t
 
 struct track_targets_opt_t
 {
-    // Color segmentation thresholds
-    float r_g; // 3.0f
-    float r_b; // 3.0f
-    float r_n; // 10.0f/3.0f
-    float g_r; // 1.6f
-    float g_b; // 1.5f
-    float g_n; // 10.0f/3.0f
+    // 'red' classification thresholds
+    float r_g; // How much stronger red must be over green
+    float r_b; // How much stronger red must be over blue
+    float r_n; // How bright the average (R+G+B)/3 must be
 
+    // 'green' classification thresholds
+    float g_r; // How much stronger green must be over red
+    float g_b; // How much stronger green must be over blue
+    float g_n; // How bright the average (R+G+B)/3 must be
+
+    // camera calibration
     float f;  // camera focal length
     float u0; // camera center in x
     float v0; // camera center in y
 
+    // input image
     unsigned char *I;  // image of densely packed 24-byte (r,g,b) pixels
     int Ix;            // image width
     int Iy;            // image height
 
+    // pose of camera relative grid
     mat3 rot; // R_c^g: {c}amera coordinate frame relative {g}rid
     vec3 pos; // camera position relative some origin
 
-    float timestamp; // monotonically increasing timer (in seconds) for when image was taken
+    // monotonically increasing timer (in seconds) for when image was taken
+    float timestamp;
 };
 
 tracks_t track_targets(track_targets_opt_t opt);
