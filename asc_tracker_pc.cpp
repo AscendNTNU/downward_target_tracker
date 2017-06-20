@@ -292,7 +292,9 @@ int main(int, char **)
                         float u = targets[i].last_seen.u;
                         float v = targets[i].last_seen.v;
 
-                        vdbNote(u,v,"ID: %d", targets[i].unique_id);
+                        vdbNote(u,v,"ID: %d\nRate: %.2f",
+                                targets[i].unique_id,
+                                targets[i].detection_rate);
                     }
                 }
             }

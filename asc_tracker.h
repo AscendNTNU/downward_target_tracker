@@ -13,8 +13,8 @@ struct detection_t
 struct target_t
 {
     detection_t last_seen;
-    float last_closest_d;
-    detection_t window[detection_window_count];
+    detection_t window[detection_window_count]; // last n detections (latest at [0], oldest at [n-1])
+    float detection_rate;
     int num_window;
     int unique_id;
 };
@@ -116,129 +116,15 @@ float metric_distance(float u1, float v1, float u2, float v2,
     }
 }
 
-#if 0
-target_t filter_target_image_space(target_t prev, detection_t seen)
-{
-    //
-    // Predict image-space position dt time units ahead
-    //
-    float dt = seen.t - prev.last_seen.t;
-    float u_pre = prev.u_hat + prev.du_hat*dt;
-    float v_pre = prev.v_hat + prev.dv_hat*dt;
-
-    //
-    // Lowpass-filter image-space position and velocity
-    //
-    float kp = 0.7f;                                         // filter stickiness for position
-    float kd = 0.9f;                                         // filter stickiness for velocity
-    float u_hat = kp*u_pre + (1.0f-kp)*seen.u;               // lowpass-filtered position (x)
-    float v_hat = kp*v_pre + (1.0f-kp)*seen.v;               // lowpass-filtered position (y)
-    float du_obs = (u_hat - prev.u_hat)/dt;                  // 'observed' velocity (x)
-    float dv_obs = (v_hat - prev.v_hat)/dt;                  // 'observed' velocity (y)
-    float du_hat = 0.8f*(kd*prev.du_hat + (1.0f-kd)*du_obs); // lowpass-filtered velocity (x)
-    float dv_hat = 0.8f*(kd*prev.dv_hat + (1.0f-kd)*dv_obs); // lowpass-filtered velocity (y)
-
-    //
-    // Predict world-space motion dt time units ahead
-    //
-    float x_pre = prev.x_hat + prev.dx_hat*dt;               // predicted position (x)
-    float y_pre = prev.y_hat + prev.dy_hat*dt;               // predicted position (y)
-    float dx_pre = prev.dx_hat;                              // predicted velocity (x)
-    float dy_pre = prev.dy_hat;                              // predicted velocity (y)
-
-    if (seen.has_gps)
-    {
-        float kp = 0.7f;
-        float kd = 0.8f;
-        float x_hat = kp*x_pre + (1.0f-kp)*seen.x;
-        float y_hat = kp*y_pre + (1.0f-kp)*seen.y;
-        float dx_obs = (x_hat - prev.x_hat)/dt;
-        float dy_obs = (y_hat - prev.y_hat)/dt;
-        float dx_hat = kd*dx_pre + (1.0f-kd)*dx_obs;
-        float dy_hat = kd*dy_pre + (1.0f-kd)*dy_obs;
-
-        // estimate mode distribution
-        float kt = 0.2f;
-        float magnitude = sqrtf(dx_obs*dx_obs + dy_obs*dy_obs);
-        if (magnitude < 0.15f)
-        {
-            prev.p_turning += (1.0f - prev.p_turning)*(dt/kt);
-            prev.p_moving  += (0.0f - prev.p_moving)*(dt/kt);
-        }
-        else if (magnitude > 0.15f && magnitude < 0.4f)
-        {
-            prev.p_turning += (0.0f - prev.p_turning)*(dt/kt);
-            prev.p_moving  += (1.0f - prev.p_moving)*(dt/kt);
-        }
-        else
-        {
-            prev.p_turning += (0.0f - prev.p_turning)*(dt/kt);
-            prev.p_moving  += (0.0f - prev.p_moving)*(dt/kt);
-        }
-        prev.x_hat = seen.x;
-        prev.y_hat = seen.y;
-        prev.dx_hat = dx_hat;
-        prev.dy_hat = dy_hat;
-    }
-    else
-    {
-        prev.x_hat = x_pre;
-        prev.y_hat = y_pre;
-        prev.dx_hat = dx_pre;
-        prev.dy_hat = dy_pre;
-    }
-
-    // todo: debug: removeme
-    #if 0
-    if (seen.has_gps)
-    {
-        const int window_cap = 60;
-        static int window_len = 0;
-        static float x_gps_history[window_cap];
-        static float y_gps_history[window_cap];
-        static float t_gps_history[window_cap];
-        if (window_len < window_cap)
-        {
-            x_gps_history[window_len] = seen.x;
-            y_gps_history[window_len] = seen.y;
-            t_gps_history[window_len] = seen.t;
-            window_len++;
-            prev.dx_hat = 0.0f;
-            prev.dy_hat = 0.0f;
-        }
-
-        if (window_len == window_cap)
-        {
-            prev.dx_hat = (seen.x - x_gps_history[0]) / (seen.t - t_gps_history[0]);
-            prev.dy_hat = (seen.y - y_gps_history[0]) / (seen.t - t_gps_history[0]);
-
-            for (int i = 0; i < window_cap-1; i++)
-            {
-                x_gps_history[i] = x_gps_history[i+1];
-                y_gps_history[i] = y_gps_history[i+1];
-                t_gps_history[i] = t_gps_history[i+1];
-            }
-            window_len--;
-        }
-    }
-    #endif
-
-    prev.last_seen = seen;
-    prev.u_hat = u_hat;
-    prev.v_hat = v_hat;
-    prev.du_hat = du_hat;
-    prev.dv_hat = dv_hat;
-    return prev;
-}
-#endif
-
 tracks_t track_targets(track_targets_opt_t opt)
 {
-    const float plate_z = 0.1f;         // Height of top-plate above ground
-    const float merge_threshold = 0.3f; // Maximum distance in meters for two detections to be considered the same
+    const float plate_z = 0.1f;          // Height of top-plate above ground
+    const float merge_threshold = 0.3f;  // Maximum distance in meters for two detections to be considered the same
     const float removal_time = 10.5f;    // Required elapsed time without reobservation before a track is removed
-    const int minimum_count = 50;       // Minimum number of pixels inside connected component to be accepted
+    const int minimum_count = 50;        // Minimum number of pixels inside connected component to be accepted
     const int max_targets = 1024;
+    const float detection_rate_period = 0.2f;
+    const float frames_per_second = 60.0f;
 
     static target_t targets[max_targets];
     static int num_targets = 0;
@@ -247,16 +133,9 @@ tracks_t track_targets(track_targets_opt_t opt)
     float f = opt.f;
     float u0 = opt.u0;
     float v0 = opt.v0;
-
-    unsigned char *I = opt.I;
-    int Ix = opt.Ix;
-    int Iy = opt.Iy;
-
     mat3 rot = opt.rot;
     vec3 pos = opt.pos;
-
     float timestamp = opt.timestamp;
-
     float delta_z = pos.z - plate_z; // Height of camera above target plate plane
 
     // Detect targets in input image
@@ -266,6 +145,10 @@ tracks_t track_targets(track_targets_opt_t opt)
     int color_num_points;
     cc_groups color_groups;
     {
+        unsigned char *I = opt.I;
+        int Ix = opt.Ix;
+        int Iy = opt.Iy;
+
         // Find connected components belonging of top plate sections
         int *points;
         int num_points;
@@ -460,46 +343,70 @@ tracks_t track_targets(track_targets_opt_t opt)
             continue;
         }
 
-        // Find the closest detection
-        int closest_j = -1;
-        float closest_d = 0.0f;
-        for (int j = 0; j < num_detections; j++)
+        // Find the closest acceptable detection or continue otherwise
+        detection_t detection = {0};
+        bool reobserving = false;
         {
-            float ui = targets[i].last_seen.u;
-            float vi = targets[i].last_seen.v;
-            float uj = detections[j].u;
-            float vj = detections[j].v;
-            float dx = targets[i].last_seen.x-detections[j].x;
-            float dy = targets[i].last_seen.y-detections[j].y;
-            float d = sqrtf(dx*dx + dy*dy);
-            if (closest_j < 0 || d < closest_d)
+            int closest_j = -1;
+            float closest_d = 0.0f;
+            for (int j = 0; j < num_detections; j++)
             {
-                closest_j = j;
-                closest_d = d;
+                float ui = targets[i].last_seen.u;
+                float vi = targets[i].last_seen.v;
+                float uj = detections[j].u;
+                float vj = detections[j].v;
+                float dx = targets[i].last_seen.x-detections[j].x;
+                float dy = targets[i].last_seen.y-detections[j].y;
+                float d = sqrtf(dx*dx + dy*dy);
+                if (closest_j < 0 || d < closest_d)
+                {
+                    closest_j = j;
+                    closest_d = d;
+                }
+            }
+
+            if (closest_j >= 0 && closest_d <= merge_threshold)
+            {
+                reobserving = true;
+                found_match[closest_j] = true;
+                detection = detections[closest_j];
             }
         }
 
-        // If the detection is sufficiently close we are reobserving the same target
-        if (closest_j >= 0 && closest_d < merge_threshold)
+        // If the detection was sufficiently close we are reobserving the target
+        if (reobserving)
         {
-            found_match[closest_j] = true;
-            targets[i].last_seen = detections[closest_j];
-            targets[i].last_closest_d = closest_d;
+            targets[i].last_seen = detection;
 
-            if (targets[i].num_window < detection_window_count)
+            // Update window of detections with latest detection
             {
-                for (int k = targets[i].num_window; k > 0; k--)
-                    targets[i].window[k] = targets[i].window[k-1];
-                targets[i].num_window++;
+                if (targets[i].num_window < detection_window_count)
+                {
+                    for (int k = targets[i].num_window; k > 0; k--)
+                        targets[i].window[k] = targets[i].window[k-1];
+                    targets[i].num_window++;
+                }
+                else
+                {
+                    for (int k = detection_window_count-1; k > 0; k--)
+                        targets[i].window[k] = targets[i].window[k-1];
+                }
+                targets[i].window[0] = detection;
             }
-            else
-            {
-                for (int k = detection_window_count-1; k > 0; k--)
-                    targets[i].window[k] = targets[i].window[k-1];
-            }
-
-            targets[i].window[0] = detections[closest_j];
         }
+
+        // Update detection rate
+        float detection_rate = 0.0f;
+        {
+            int hits = 0;
+            for (int k = 0; k < targets[i].num_window; k++)
+            {
+                if (timestamp - targets[i].window[k].t <= detection_rate_period)
+                    hits++;
+            }
+            detection_rate = (hits/detection_rate_period) / frames_per_second;
+        }
+        targets[i].detection_rate = detection_rate;
     }
 
     // Add new tracks
