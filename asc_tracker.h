@@ -17,6 +17,9 @@ struct target_t
     float detection_rate;
     int num_window;
     int unique_id;
+
+    float velocity_x;
+    float velocity_y;
 };
 
 struct tracks_t
@@ -125,6 +128,7 @@ tracks_t track_targets(track_targets_opt_t opt)
     const int minimum_count = 50;             // Minimum number of pixels inside connected component to be accepted
     const float detection_rate_period = 0.2f; // Time interval used to compute detection rate (hits per second)
     const float frames_per_second = 60.0f;    // Framerate used to normalize detection rate (corresponds to max hits per second)
+    const int velocity_averaging_window = 60; // Number of past position measurements used to compute velocity
 
     // requirements for a color detection to be valid
     const float min_aspect_ratio = 0.2f;      // A detection must be sufficiently square (aspect ~ 1)
@@ -412,6 +416,27 @@ tracks_t track_targets(track_targets_opt_t opt)
             detection_rate = (hits/detection_rate_period) / frames_per_second;
         }
         targets[i].detection_rate = detection_rate;
+
+        // Update velocity
+        {
+            detection_t *window = targets[i].window;
+            float dx_sum = 0.0f;
+            float dy_sum = 0.0f;
+            int sum_n = 0;
+            for (int k = 1; k < targets[i].num_window && k < velocity_averaging_window; k++)
+            {
+                float dx = window[0].x - window[k].x;
+                float dy = window[0].y - window[k].y;
+                float dt = window[0].t - window[k].t;
+                dx_sum += dx/dt;
+                dy_sum += dy/dt;
+                sum_n++;
+            }
+            float dx = dx_sum/sum_n;
+            float dy = dy_sum/sum_n;
+            targets[i].velocity_x = dx;
+            targets[i].velocity_y = dy;
+        }
     }
 
     // Add new tracks
@@ -425,6 +450,9 @@ tracks_t track_targets(track_targets_opt_t opt)
                 t.last_seen = detections[i];
                 t.unique_id = next_id++;
                 t.num_window = 0;
+                t.detection_rate = 0.0f;
+                t.velocity_x = 0.0f;
+                t.velocity_y = 0.0f;
                 targets[num_targets] = t;
                 num_targets++;
             }

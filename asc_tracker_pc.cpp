@@ -316,106 +316,36 @@ int main(int, char **)
                 int num_targets = tracks.num_targets;
                 for (int i = 0; i < num_targets; i++)
                 {
-                    detection_t *window = targets[i].window;
-                    int num_window = targets[i].num_window;
+                    // Draw velocity
+                    float x = targets[i].last_seen.x;
+                    float y = targets[i].last_seen.y;
+                    float dx = targets[i].velocity_x;
+                    float dy = targets[i].velocity_y;
+                    glLines(1.0f);
+                    glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
+                    glVertex2f(x, y);
+                    glVertex2f(x+dx, y+dy);
+                    glEnd();
+                    vdbNote(x, y, "%.2f", sqrtf(dx*dx + dy*dy));
 
-                    #if 0
-                    {
-                        float best_x0 = 0.0f;
-                        float best_y0 = 0.0f;
-                        float best_dx = 0.0f;
-                        float best_dy = 0.0f;
-                        int best_n = 0;
-                        for (int j = 0; j < num_window; j++)
-                        for (int k = j+1; k < num_window; k++)
-                        {
-                            float dx = window[j].x - window[k].x;
-                            float dy = window[j].y - window[k].y;
-                            float len = sqrtf(dx*dx + dy*dy);
-                            if (len == 0.0f)
-                                continue;
-                            float nx = -dy/len;
-                            float ny = dx/len;
-                            int n = 0;
-                            for (int l = 0; l < num_window; l++)
-                            {
-                                float e = (window[l].x-window[k].x)*nx + (window[l].y-window[k].y)*ny;
-                                if (fabsf(e) < 0.02f)
-                                    n++;
-                            }
-                            if (n > best_n)
-                            {
-                                float dt = window[j].t - window[k].t;
-                                best_x0 = window[k].x;
-                                best_y0 = window[k].y;
-                                best_dx = dx/dt;
-                                best_dy = dy/dt;
-                                best_n = n;
-                            }
-                        }
-
-                        glLines(1.0f);
-                        glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
-                        glVertex2f(best_x0, best_y0);
-                        glVertex2f(best_x0+2.0f*best_dx, best_y0+2.0f*best_dy);
-                        glEnd();
-
-                        vdbNote(best_x0, best_y0, "%.2f", sqrtf(best_dx*best_dx + best_dy*best_dy));
-                    }
-                    #endif
-
-                    #if 1
-                    {
-                        float dx_sum = 0.0f;
-                        float dy_sum = 0.0f;
-                        int sum_n = 0;
-                        for (int k = 1; k < num_window && k < 60; k++)
-                        {
-                            float dx = window[0].x - window[k].x;
-                            float dy = window[0].y - window[k].y;
-                            float dt = window[0].t - window[k].t;
-                            dx_sum += dx/dt;
-                            dy_sum += dy/dt;
-                            sum_n++;
-                        }
-                        float dx = dx_sum/sum_n;
-                        float dy = dy_sum/sum_n;
-
-                        glLines(1.0f);
-                        glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
-                        glVertex2f(window[0].x, window[0].y);
-                        glVertex2f(window[0].x+dx, window[0].y+dy);
-                        glEnd();
-
-                        vdbNote(window[0].x, window[0].y, "%.2f", sqrtf(dx*dx + dy*dy));
-
-                    }
-                    #endif
-
+                    // Draw last seen position
                     glBegin(GL_TRIANGLES);
                     glColor4f(vdbPalette(i, 0.3f));
                     vdbFillCircle(targets[i].last_seen.x, targets[i].last_seen.y, 0.15f);
                     glEnd();
 
+                    // Draw history of detections
                     glLines(2.0f);
                     glColor4f(vdbPalette(i));
-                    for (int j = 0; j < num_window-1; j++)
+                    for (int j = 0; j < targets[i].num_window-1; j++)
                     {
-                        float x1 = window[j].x;
-                        float y1 = window[j].y;
-                        float x2 = window[j+1].x;
-                        float y2 = window[j+1].y;
+                        float x1 = targets[i].window[j].x;
+                        float y1 = targets[i].window[j].y;
+                        float x2 = targets[i].window[j+1].x;
+                        float y2 = targets[i].window[j+1].y;
                         glVertex2f(x1,y1);
                         glVertex2f(x2,y2);
                     }
-                    glEnd();
-                }
-
-                for (int i = 0; i < num_detections; i++)
-                {
-                    glLines(2.0f);
-                    glColor4f(1.0f,1.0f,0.2f,1.0f);
-                    vdbDrawCircle(detections[i].x, detections[i].y, 0.15f);
                     glEnd();
                 }
             }
