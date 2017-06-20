@@ -126,6 +126,11 @@ tracks_t track_targets(track_targets_opt_t opt)
     const float detection_rate_period = 0.2f; // Time interval used to compute detection rate (hits per second)
     const float frames_per_second = 60.0f;    // Framerate used to normalize detection rate (corresponds to max hits per second)
 
+    // requirements for a color detection to be valid
+    const float min_aspect_ratio = 0.2f;      // A detection must be sufficiently square (aspect ~ 1)
+    const float max_aspect_ratio = 4.0f;      //
+    const float min_fill_percentage = 0.5f;   // Percentage of filled pixels within 2D bounding box
+
     static target_t targets[max_targets];
     static int num_targets = 0;
     static int next_id = 0;
@@ -280,7 +285,7 @@ tracks_t track_targets(track_targets_opt_t opt)
             float std1 = sqrtf(eigx[i]);
             float std2 = sqrtf(eigy[i]);
             float aspect = std1/std2;
-            bool aspect_ok = aspect >= 0.2f && aspect <= 4.0f;
+            bool aspect_ok = aspect >= min_aspect_ratio && aspect <= max_aspect_ratio;
 
             float min_x = groups.group_min_x[i];
             float min_y = groups.group_min_y[i];
@@ -288,7 +293,7 @@ tracks_t track_targets(track_targets_opt_t opt)
             float max_y = groups.group_max_y[i];
             float area = (1.0f+max_x-min_x)*(1.0f+max_y-min_y);
             float filled = groups.group_n[i] / area;
-            bool area_ok = filled > 0.5f;
+            bool area_ok = filled > min_fill_percentage;
 
             if (count_ok && aspect_ok && area_ok && !merged[i])
             {
