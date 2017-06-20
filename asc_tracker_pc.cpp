@@ -319,6 +319,7 @@ int main(int, char **)
                     detection_t *window = targets[i].window;
                     int num_window = targets[i].num_window;
 
+                    #if 0
                     {
                         float best_x0 = 0.0f;
                         float best_y0 = 0.0f;
@@ -326,10 +327,10 @@ int main(int, char **)
                         float best_dy = 0.0f;
                         int best_n = 0;
                         for (int j = 0; j < num_window; j++)
-                        for (int k = j; k < num_window; k++)
+                        for (int k = j+1; k < num_window; k++)
                         {
-                            float dx = window[k].x - window[j].x;
-                            float dy = window[k].y - window[j].y;
+                            float dx = window[j].x - window[k].x;
+                            float dy = window[j].y - window[k].y;
                             float len = sqrtf(dx*dx + dy*dy);
                             if (len == 0.0f)
                                 continue;
@@ -338,16 +339,17 @@ int main(int, char **)
                             int n = 0;
                             for (int l = 0; l < num_window; l++)
                             {
-                                float e = (window[l].x-window[j].x)*nx + (window[l].y-window[j].y)*ny;
+                                float e = (window[l].x-window[k].x)*nx + (window[l].y-window[k].y)*ny;
                                 if (fabsf(e) < 0.02f)
                                     n++;
                             }
                             if (n > best_n)
                             {
-                                best_x0 = window[j].x;
-                                best_y0 = window[j].y;
-                                best_dx = dx/len;
-                                best_dy = dy/len;
+                                float dt = window[j].t - window[k].t;
+                                best_x0 = window[k].x;
+                                best_y0 = window[k].y;
+                                best_dx = dx/dt;
+                                best_dy = dy/dt;
                                 best_n = n;
                             }
                         }
@@ -355,9 +357,40 @@ int main(int, char **)
                         glLines(1.0f);
                         glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
                         glVertex2f(best_x0, best_y0);
-                        glVertex2f(best_x0+best_dx, best_y0+best_dy);
+                        glVertex2f(best_x0+2.0f*best_dx, best_y0+2.0f*best_dy);
                         glEnd();
+
+                        vdbNote(best_x0, best_y0, "%.2f", sqrtf(best_dx*best_dx + best_dy*best_dy));
                     }
+                    #endif
+
+                    #if 1
+                    {
+                        float dx_sum = 0.0f;
+                        float dy_sum = 0.0f;
+                        int sum_n = 0;
+                        for (int k = 1; k < num_window && k < 60; k++)
+                        {
+                            float dx = window[0].x - window[k].x;
+                            float dy = window[0].y - window[k].y;
+                            float dt = window[0].t - window[k].t;
+                            dx_sum += dx/dt;
+                            dy_sum += dy/dt;
+                            sum_n++;
+                        }
+                        float dx = dx_sum/sum_n;
+                        float dy = dy_sum/sum_n;
+
+                        glLines(1.0f);
+                        glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
+                        glVertex2f(window[0].x, window[0].y);
+                        glVertex2f(window[0].x+dx, window[0].y+dy);
+                        glEnd();
+
+                        vdbNote(window[0].x, window[0].y, "%.2f", sqrtf(dx*dx + dy*dy));
+
+                    }
+                    #endif
 
                     glBegin(GL_TRIANGLES);
                     glColor4f(vdbPalette(i, 0.3f));
@@ -386,6 +419,9 @@ int main(int, char **)
                     glEnd();
                 }
             }
+
+            if (vdbKeyDown(SPACE))
+                vdbStepOnce();
         }
         VDBE();
         #endif
