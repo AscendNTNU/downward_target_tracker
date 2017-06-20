@@ -118,13 +118,13 @@ float metric_distance(float u1, float v1, float u2, float v2,
 
 tracks_t track_targets(track_targets_opt_t opt)
 {
-    const float plate_z = 0.1f;          // Height of top-plate above ground
-    const float merge_threshold = 0.3f;  // Maximum distance in meters for two detections to be considered the same
-    const float removal_time = 10.5f;    // Required elapsed time without reobservation before a track is removed
-    const int minimum_count = 50;        // Minimum number of pixels inside connected component to be accepted
     const int max_targets = 1024;
-    const float detection_rate_period = 0.2f;
-    const float frames_per_second = 60.0f;
+    const float plate_z = 0.1f;               // Height of top-plate above ground
+    const float merge_threshold = 0.3f;       // Maximum distance in meters for two detections to be considered the same
+    const float removal_time = 10.5f;         // Required elapsed time without reobservation before a track is removed
+    const int minimum_count = 50;             // Minimum number of pixels inside connected component to be accepted
+    const float detection_rate_period = 0.2f; // Time interval used to compute detection rate (hits per second)
+    const float frames_per_second = 60.0f;    // Framerate used to normalize detection rate (corresponds to max hits per second)
 
     static target_t targets[max_targets];
     static int num_targets = 0;
