@@ -1,9 +1,7 @@
-void view_tracks(downward_target_tracker::info info,
-                 downward_target_tracker::tracks tracks,
-                 int selected_id)
+void view_tracks(downward_target_tracker::info info, int selected_id)
 {
     vdbOrtho(0.0f, info.image_x, info.image_y, 0.0f);
-    for (int i = 0; i < tracks.num_targets; i++)
+    for (int i = 0; i < info.num_targets; i++)
     {
         // last seen center and bounding box
         float u = info.last_seen_u[i];
@@ -19,7 +17,7 @@ void view_tracks(downward_target_tracker::info info,
         glEnd();
 
         glLines(2.0f);
-        if (selected_id == tracks.unique_id[i])
+        if (selected_id == info.unique_id[i])
             glColor4f(1.0f, 0.2f, 0.1f, 1.0f);
         else
             glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
@@ -29,6 +27,6 @@ void view_tracks(downward_target_tracker::info info,
         glVertex2f(u1, v2); glVertex2f(u1, v1);
         glEnd();
 
-        vdbNote(u, v, "ID: %d", tracks.unique_id[i]);
+        vdbNote(u, v, "ID: %d", info.unique_id[i]);
     }
 }

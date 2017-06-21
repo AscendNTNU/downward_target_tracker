@@ -110,7 +110,7 @@ int main(int argc, char **argv)
             vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
             vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
             vdbDrawTexture2D(0);
-            view_tracks(latest_info, latest_tracks, selected_id);
+            view_tracks(latest_info, selected_id);
 
             Begin("Select target");
             {

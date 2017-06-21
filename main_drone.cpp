@@ -272,9 +272,13 @@ int main(int argc, char **argv)
                 msg.dt_jpeg_to_rgb = dt_jpeg_to_rgb;
                 msg.dt_track_targets = dt_track_targets;
                 msg.dt_cycle = dt_cycle;
+
                 msg.camera_f = camera_f;
                 msg.camera_u0 = camera_u0;
                 msg.camera_v0 = camera_v0;
+                msg.camera_w = CAMERA_WIDTH;
+                msg.camera_h = CAMERA_HEIGHT;
+
                 msg.cam_imu_rx = cam_imu_rx;
                 msg.cam_imu_ry = cam_imu_ry;
                 msg.cam_imu_rz = cam_imu_rz;
@@ -288,9 +292,6 @@ int main(int argc, char **argv)
                 msg.g_b = g_b;
                 msg.g_n = g_n;
 
-                // not modifiable:
-                msg.camera_w = CAMERA_WIDTH;
-                msg.camera_h = CAMERA_HEIGHT;
                 msg.imu_rx = imu_rx;
                 msg.imu_ry = imu_ry;
                 msg.imu_rz = imu_rz;
@@ -301,16 +302,16 @@ int main(int argc, char **argv)
                 // debug info
                 msg.image_x = Ix;
                 msg.image_y = Iy;
-                // detections
-                msg.num_detections = tracks.num_detections;
-                for (int i = 0; i < tracks.num_detections; i++)
+                // tracks
+                msg.num_targets = tracks.num_targets;
+                for (int i = 0; i < tracks.num_targets; i++)
                 {
-                    msg.detection_u.push_back(tracks.detections[i].u);
-                    msg.detection_v.push_back(tracks.detections[i].v);
-                    msg.detection_u1.push_back(tracks.detections[i].u1);
-                    msg.detection_v1.push_back(tracks.detections[i].v1);
-                    msg.detection_u2.push_back(tracks.detections[i].u2);
-                    msg.detection_v2.push_back(tracks.detections[i].v2);
+                    msg.unique_id.push_back(tracks.targets[i].unique_id);
+                    msg.position_x.push_back(tracks.targets[i].last_seen.x);
+                    msg.position_y.push_back(tracks.targets[i].last_seen.y);
+                    msg.velocity_x.push_back(tracks.targets[i].velocity_x);
+                    msg.velocity_y.push_back(tracks.targets[i].velocity_y);
+                    msg.detection_rate.push_back(tracks.targets[i].detection_rate);
                 }
                 // last_seen
                 for (int i = 0; i < tracks.num_targets; i++)
@@ -324,6 +325,17 @@ int main(int argc, char **argv)
                     msg.last_seen_x.push_back(tracks.targets[i].last_seen.x);
                     msg.last_seen_y.push_back(tracks.targets[i].last_seen.y);
                     msg.last_seen_t.push_back(tracks.targets[i].last_seen.t);
+                }
+                // detections
+                msg.num_detections = tracks.num_detections;
+                for (int i = 0; i < tracks.num_detections; i++)
+                {
+                    msg.detection_u.push_back(tracks.detections[i].u);
+                    msg.detection_v.push_back(tracks.detections[i].v);
+                    msg.detection_u1.push_back(tracks.detections[i].u1);
+                    msg.detection_v1.push_back(tracks.detections[i].v1);
+                    msg.detection_u2.push_back(tracks.detections[i].u2);
+                    msg.detection_v2.push_back(tracks.detections[i].v2);
                 }
 
                 pub_info.publish(msg);
