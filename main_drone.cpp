@@ -1,51 +1,54 @@
 //
-// notes for myself
-//
-// R_cam^imu = Rz(cam_imu_rz)Ry(cam_imu_ry)Rx(cam_imu_rx) [camera to imu frame]
-// T_cam/imu^imu = (cam_imu_tx, cam_imu_ty, cam_imu_tz)   [camera relative imu in imu frame]
-
-//
-// below are compile-time settings
+// Compile-time settings
 //
 
-#define mock_image         1
-#define disable_ros        0
+#define mock_image         0
+#define disable_ros        1
 
 #if mock_image==0
 #define USBCAM_DEBUG       1
-#define device_name        "/dev/video1"
-#define camera_width       800
-#define camera_height      600
-#define camera_buffers     3
-#define camera_levels      2 // Downscale factor (0=none, 1=half, 2=quarter)
-#define camera_f_init      434.0f
-#define camera_u0_init     375.0f
-#define camera_v0_init     275.0f
+#define DEVICE_NAME        "/dev/video1"
+#define CAMERA_WIDTH       800
+#define CAMERA_HEIGHT      600
+#define CAMERA_BUFFERS     3
+#define CAMERA_LEVELS      2 // Downscale factor (0=none, 1=half, 2=quarter)
+#define CAMERA_F_INIT      434.0f
+#define CAMERA_U0_INIT     375.0f
+#define CAMERA_V0_INIT     275.0f
 #else
 #include "mock_jpg.h"      // hint: run "xxd -i" on an image to generate a header-embedded binary
-#define camera_width       1280
-#define camera_height      720
-#define camera_levels      3
-#define camera_f_init      494.0f
-#define camera_u0_init     649.0f
-#define camera_v0_init     335.0f
+#define CAMERA_WIDTH       1280
+#define CAMERA_HEIGHT      720
+#define CAMERA_LEVELS      3
+#define CAMERA_F_INIT      494.0f
+#define CAMERA_U0_INIT     649.0f
+#define CAMERA_V0_INIT     335.0f
 #endif
 
-#define cam_imu_rx_init    0.0f
-#define cam_imu_ry_init    0.0f
-#define cam_imu_rz_init    0.0f
-#define cam_imu_tx_init    0.0f
-#define cam_imu_ty_init    0.0f
-#define cam_imu_tz_init    0.0f
-#define r_g_init           3.0f
-#define r_b_init           2.0f
-#define r_n_init           10.0f/3.0f
-#define g_r_init           1.6f
-#define g_b_init           1.5f
-#define g_n_init           10.0f/3.0f
+// Camera rotation offset (R_cam^imu)
+// R_cam^imu = Rz(cam_imu_rz)Ry(cam_imu_ry)Rx(cam_imu_rx) [camera to imu frame]
+#define CAM_IMU_RX_INIT    0.0f
+#define CAM_IMU_RY_INIT    0.0f
+#define CAM_IMU_RZ_INIT    0.0f
+
+// Camera position offset (T_cam/imu^imu)
+// T_cam/imu^imu = (cam_imu_tx, cam_imu_ty, cam_imu_tz)   [camera relative imu in imu frame]
+#define CAM_IMU_TX_INIT    0.0f
+#define CAM_IMU_TY_INIT    0.0f
+#define CAM_IMU_TZ_INIT    0.0f
+
+// 'red' classification thresholds
+#define R_G_INIT           3.0f       // how much stronger red must be over green
+#define R_B_INIT           2.0f       // how much stronger red must be over blue
+#define R_N_INIT           10.0f/3.0f // how strong average (r+g+b)/3 must be
+
+// 'green' classification thresholds
+#define G_R_INIT           1.6f       // how much stronger red must be over green
+#define G_B_INIT           1.5f       // how much stronger red must be over blue
+#define G_N_INIT           10.0f/3.0f // how strong average (r+g+b)/3 must be
 
 //
-// below is lots of code
+// Implementation
 //
 
 #include <signal.h>
@@ -59,36 +62,35 @@
 #include <downward_target_tracker/info.h>
 #include <downward_target_tracker/tracks.h>
 #endif
-#include "vdb_release.h"
 #include "asc_usbcam.h"
 #include "asc_tracker.h"
 
 //
 // OPTIONS
 //
-float camera_f = camera_f_init;
-float camera_u0 = camera_u0_init;
-float camera_v0 = camera_v0_init;
-float cam_imu_rx = cam_imu_rx_init; // R_cam^imu
-float cam_imu_ry = cam_imu_ry_init;
-float cam_imu_rz = cam_imu_rz_init;
-float cam_imu_tx = cam_imu_tx_init; // T_cam/imu^imu
-float cam_imu_ty = cam_imu_ty_init;
-float cam_imu_tz = cam_imu_tz_init;
-float r_g = r_g_init;
-float r_b = r_b_init;
-float r_n = r_n_init;
-float g_r = g_r_init;
-float g_b = g_b_init;
-float g_n = g_n_init;
+float camera_f = CAMERA_F_INIT;
+float camera_u0 = CAMERA_U0_INIT;
+float camera_v0 = CAMERA_V0_INIT;
+float cam_imu_rx = CAM_IMU_RX_INIT;
+float cam_imu_ry = CAM_IMU_RY_INIT;
+float cam_imu_rz = CAM_IMU_RZ_INIT;
+float cam_imu_tx = CAM_IMU_TX_INIT;
+float cam_imu_ty = CAM_IMU_TY_INIT;
+float cam_imu_tz = CAM_IMU_TZ_INIT;
+float r_g = R_G_INIT;
+float r_b = R_B_INIT;
+float r_n = R_N_INIT;
+float g_r = G_R_INIT;
+float g_b = G_B_INIT;
+float g_n = G_N_INIT;
 
 //
 // LATEST MESSAGES
 //
-float imu_rx = 0.0f; // R_imu^world
+float imu_rx = 0.0f;
 float imu_ry = 0.0f;
 float imu_rz = 0.0f;
-float imu_tx = 0.0f; // T_imu/world^world
+float imu_tx = 0.0f;
 float imu_ty = 0.0f;
 float imu_tz = 1.0f;
 
@@ -157,18 +159,18 @@ int main(int argc, char **argv)
     #if mock_image==0
     {
         usbcam_opt_t opt = {0};
-        opt.device_name = device_name;
+        opt.device_name = DEVICE_NAME;
         opt.pixel_format = V4L2_PIX_FMT_MJPEG;
-        opt.width = camera_width;
-        opt.height = camera_height;
-        opt.buffers = camera_buffers;
+        opt.width = CAMERA_WIDTH;
+        opt.height = CAMERA_HEIGHT;
+        opt.buffers = CAMERA_BUFFERS;
         usbcam_init(opt);
     }
     #endif
 
-    const int Ix = camera_width>>camera_levels;
-    const int Iy = camera_height>>camera_levels;
-    static unsigned char I[camera_width*camera_height*3];
+    const int Ix = CAMERA_WIDTH>>CAMERA_LEVELS;
+    const int Iy = CAMERA_HEIGHT>>CAMERA_LEVELS;
+    static unsigned char I[CAMERA_WIDTH*CAMERA_HEIGHT*3];
     uint64_t t_begin = getnsec();
     for (int frame = 0;; frame++)
     {
@@ -222,9 +224,9 @@ int main(int argc, char **argv)
         vec3 cam_imu_pos = m_vec3(cam_imu_tx, cam_imu_ty, cam_imu_tz);
         mat3 rot = imu_rot*cam_imu_rot;
         vec3 pos = imu_pos + imu_rot*cam_imu_pos;
-        float f = camera_f*Ix/camera_width;
-        float u0 = camera_u0*Ix/camera_width;
-        float v0 = camera_v0*Ix/camera_width;
+        float f = camera_f*Ix/CAMERA_WIDTH;
+        float u0 = camera_u0*Ix/CAMERA_WIDTH;
+        float v0 = camera_v0*Ix/CAMERA_WIDTH;
         tracks_t tracks = {0};
         float dt_track_targets = 0.0f;
         {
@@ -244,188 +246,11 @@ int main(int argc, char **argv)
             opt.Iy = Iy;
             opt.rot = rot;
             opt.pos = pos;
-            opt.gps = true;
             opt.timestamp = (getnsec()-t_begin)/1e9;
             tracks = track_targets(opt);
             uint64_t t2 = getnsec();
             dt_track_targets = (t2-t1)/1e9;
         }
-
-        // DEBUG STUFF
-        #if disable_ros==1
-        {
-            float dt_vdb = 0.0f;
-            uint64_t t1 = getnsec();
-
-            // COLOR SEGMENTATION TEST
-            #if 0
-            if (vdb_begin())
-            {
-                cc_groups groups = tracks.groups;
-                int *points = tracks.points;
-                int num_points = tracks.num_points;
-
-                int max_n = 0;
-                for (int i = 0; i < groups.count; i++)
-                {
-                    if (groups.group_n[i] > max_n)
-                        max_n = groups.group_n[i];
-                }
-                vdb_setNicePoints(0);
-                vdb_imageRGB8(I, Ix, Iy);
-
-                vdb_xrange(0.0f, Ix);
-                vdb_yrange(0.0f, Iy);
-
-                vdb_translucent();
-                vdb_color_white(2);
-                vdb_fillRect(0.0f, 0.0f, Ix, Iy);
-
-                vdb_opaque();
-                vdb_color_red(1);
-                for (int i = 0; i < num_points; i++)
-                {
-                    int p = points[i];
-                    int x = p % Ix;
-                    int y = p / Ix;
-                    int l = groups.label[p];
-                    int n = groups.group_n[l];
-
-                    if (n > 0.025f*max_n)
-                    {
-                        vdb_fillRect(x, y, 1.0f, 1.0f);
-                    }
-                }
-
-                vdb_color_black(2);
-                for (int i = 0; i < groups.count; i++)
-                {
-                    if (groups.group_n[i] > 0.025f*max_n)
-                    {
-                        float min_x = groups.group_min_x[i];
-                        float min_y = groups.group_min_y[i];
-                        float max_x = groups.group_max_x[i];
-                        float max_y = groups.group_max_y[i];
-                        vdb_line(min_x, min_y, max_x, min_y);
-                        vdb_line(max_x, min_y, max_x, max_y);
-                        vdb_line(max_x, max_y, min_x, max_y);
-                        vdb_line(min_x, max_y, min_x, min_y);
-                    }
-                }
-
-                {
-                    vdb_slider1f("r_g", &r_g, 0.0f, 5.0f);
-                    vdb_slider1f("r_b", &r_b, 0.0f, 5.0f);
-                    vdb_slider1f("r_n", &r_n, 0.0f, 5.0f);
-                    vdb_slider1f("g_r", &g_r, 0.0f, 5.0f);
-                    vdb_slider1f("g_b", &g_b, 0.0f, 5.0f);
-                    vdb_slider1f("g_n", &g_n, 0.0f, 5.0f);
-                }
-
-                vdb_end();
-            }
-            #endif
-
-            // TARGET TRACKING TEST
-            #if 1
-            if (vdb_begin())
-            {
-                int num_targets = tracks.num_targets;
-                target_t *targets = tracks.targets;
-
-                static int selected_id = -1;
-
-                vdb_setNicePoints(1);
-                vdb_imageRGB8(I, Ix, Iy);
-
-                vdb_xrange(0.0f, (float)Ix);
-                vdb_yrange(0.0f, (float)Iy);
-
-                for (int i = 0; i < num_targets; i++)
-                {
-                    float u1 = targets[i].last_seen.u1;
-                    float v1 = targets[i].last_seen.v1;
-                    float u2 = targets[i].last_seen.u2;
-                    float v2 = targets[i].last_seen.v2;
-                    float u = targets[i].u_hat;
-                    float v = targets[i].v_hat;
-
-                    float mx,my;
-                    if (vdb_mouse_click(&mx, &my))
-                    {
-                        if (mx >= u1 && mx <= u2 && my >= v1 && my <= v2)
-                        {
-                            selected_id = targets[i].unique_id;
-                        }
-                    }
-
-                    if (targets[i].unique_id == selected_id)
-                        vdb_color_red(2);
-                    else
-                        vdb_color_white(0);
-
-                    vdb_line(u1,v1, u2,v1);
-                    vdb_line(u2,v1, u2,v2);
-                    vdb_line(u2,v2, u1,v2);
-                    vdb_line(u1,v2, u1,v1);
-                    vdb_point(u, v);
-                }
-                vdb_end();
-            }
-            #endif
-
-            // CALIBRATION TEST
-            #if 0
-            if (vdb_begin())
-            {
-                vdb_xrange(-4.0f, +4.0f);
-                vdb_yrange(-2.0f, +2.0f);
-                for (int y = 1; y < Iy-1; y += 2)
-                for (int x = 1; x < Ix-1; x += 2)
-                {
-                    vec2 uv = { x+0.5f, y+0.5f };
-                    vec3 dir = rot*camera_inverse_project(f,u0,v0, uv);
-                    vec2 p;
-                    if (m_intersect_xy_plane(dir, pos.z, &p))
-                    {
-                        vdb_color_rampf(I[3*(x + y*Ix)+0]/255.0f);
-                        vdb_point(p.x, p.y);
-                    }
-                }
-
-                vdb_color_red(1);
-                vdb_line(-4.0f, -2.0f, +4.0f, -2.0f);
-                vdb_line(-4.0f, -1.0f, +4.0f, -1.0f);
-                vdb_line(-4.0f, +0.0f, +4.0f, +0.0f);
-                vdb_line(-4.0f, +1.0f, +4.0f, +1.0f);
-                vdb_line(-4.0f, +2.0f, +4.0f, +2.0f);
-                vdb_line(-4.0f, -2.0f, -4.0f, +2.0f);
-                vdb_line(-3.0f, -2.0f, -3.0f, +2.0f);
-                vdb_line(-2.0f, -2.0f, -2.0f, +2.0f);
-                vdb_line(-1.0f, -2.0f, -1.0f, +2.0f);
-                vdb_line(-0.0f, -2.0f, -0.0f, +2.0f);
-                vdb_line(+1.0f, -2.0f, +1.0f, +2.0f);
-                vdb_line(+2.0f, -2.0f, +2.0f, +2.0f);
-                vdb_line(+3.0f, -2.0f, +3.0f, +2.0f);
-                vdb_line(+4.0f, -2.0f, +4.0f, +2.0f);
-
-                vdb_slider1f("cam_imu_rx", &cam_imu_rx, -0.3f, +0.3f);
-                vdb_slider1f("cam_imu_ry", &cam_imu_ry, -0.3f, +0.3f);
-                vdb_slider1f("cam_imu_rz", &cam_imu_rz, -3.1f, +3.1f);
-
-                vdb_slider1f("cam_imu_tx", &cam_imu_tx, -0.3f, +0.3f);
-                vdb_slider1f("cam_imu_ty", &cam_imu_ty, -0.3f, +0.3f);
-                vdb_slider1f("cam_imu_tz", &cam_imu_tz, -0.3f, +0.3f);
-
-                vdb_end();
-
-            }
-            #endif
-
-            uint64_t t2 = getnsec();
-            dt_vdb = (t2-t1)/1e9;
-        }
-        #endif
 
         // MEASURE TIME BETWEEN EACH OUTPUT
         float dt_cycle = 0.0f;
