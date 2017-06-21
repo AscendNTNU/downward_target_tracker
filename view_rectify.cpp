@@ -57,13 +57,15 @@ void view_rectify(unsigned char *I, int Ix, int Iy, float f_f, float u0_f, float
 // rot: R_cam^world
 // pos: T_cam/world^world
 {
-    ImGui::Begin("view_rectify");
+    if (!I)
+        return;
 
+    #if 0
     const int Rx = 400;
     const int Ry = 300;
     static unsigned char R[Rx*Ry*3];
 
-    static float yfov_p = 90.0f*3.14f/180.0f;
+    static float yfov_p = 160.0f*3.14f/180.0f;
     float f_p = Ry / tanf(yfov_p/2.0f);
     float u0_p = Rx/2.0f;
     float v0_p = Ry/2.0f;
@@ -162,6 +164,122 @@ void view_rectify(unsigned char *I, int Ix, int Iy, float f_f, float u0_f, float
     vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
     vdbSetTexture2D(0, R, Rx, Ry, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
     vdbDrawTexture2D(0);
+    #else
+
+    const int Rx = 100;
+    const int Ry = 100;
+    static vec2 texels[Rx*Ry];
+
+    static float yfov_p = 160.0f*3.14f/180.0f;
+    float f_p = Ry / tanf(yfov_p/2.0f);
+    float u0_p = Rx/2.0f;
+    float v0_p = Ry/2.0f;
+
+    // find center point in camera projected onto the ground
+    vec3 center_ground;
+    {
+        vec3 dir = rot*m_vec3(0.0f, 0.0f, -1.0f);
+        center_ground = pos + (-pos.z / dir.z)*dir;
+    }
+    vec3 pos_p = m_vec3(center_ground.x, center_ground.y, 1.0f);
+    mat3 irot = m_transpose(rot);
+
+    // render what we would have seen as if we had a pinhole camera
+    // looking down at the ground center point from pos_p
+    for (int v = 0; v < Ry; v++)
+    for (int u = 0; u < Rx; u++)
+    {
+        // find the ray going through pixel (u,v) in the ideal pinhole
+        vec3 dir;
+        {
+            float f = f_p;
+            float u0 = u0_p;
+            float v0 = v0_p;
+
+            float ff = f*f;
+            float du = (u - u0);
+            float dv = (v0 - v);
+            float rr = du*du + dv*dv;
+            if (rr < 0.00001f)
+            {
+                dir.x = 0.0f;
+                dir.y = 0.0f;
+                dir.z = -1.0f;
+            }
+            else
+            {
+                float r = sqrtf(rr);
+                float cosphi = du/r;
+                float sinphi = dv/r;
+                float costheta = 1.0f / sqrtf(1.0f + rr/ff);
+                float sintheta = (r/f) / sqrtf(1.0f + rr/ff);
+                dir.x = sintheta*cosphi;
+                dir.y = sintheta*sinphi;
+                dir.z = -costheta;
+            }
+        }
+
+        // intersect that ray with the ground
+        vec3 p = pos_p + (-pos_p.z / dir.z)*dir;
+
+        // transform the intersection point into the space of the fisheye camera
+        p = irot*(p - pos);
+
+        // project that point onto the fisheye camera image
+        float u_src, v_src;
+        {
+            float f = f_f;
+            float u0 = u0_f;
+            float v0 = v0_f;
+            float x = p.x;
+            float y = p.y;
+            float z = p.z;
+            float l = sqrtf(x*x+y*y);
+            if (l < 0.001f)
+            {
+                u_src = u0_f;
+                v_src = v0_f;
+            }
+            else
+            {
+                float t = atanf(-l/z);
+                float r = f*t;
+                u_src = u0_f + r*x/l;
+                v_src = v0_f - r*y/l;
+            }
+        }
+
+        texels[u + v*Rx].x = u_src/Ix;
+        texels[u + v*Rx].y = v_src/Iy;
+    }
+
+    vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
+    vdbOrtho(0, Rx, Ry, 0);
+    glEnable(GL_TEXTURE_2D);
+    vdbBindTexture2D(0);
+    {
+        float color[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
+    }
+    glBegin(GL_TRIANGLES);
+    for (int v = 0; v < Ry-1; v++)
+    for (int u = 0; u < Rx-1; u++)
+    {
+        float s1 = texels[u + v*Rx].x;
+        float t1 = texels[u + v*Rx].y;
+        float s2 = texels[u+1 + v*Rx].x;
+        float t2 = texels[u + (v+1)*Rx].y;
+        glColor4f(1,1,1,1); glTexCoord2f(s1,t1); glVertex2f(u,v);
+        glColor4f(1,1,1,1); glTexCoord2f(s2,t1); glVertex2f(u+1,v);
+        glColor4f(1,1,1,1); glTexCoord2f(s2,t2); glVertex2f(u+1,v+1);
+        glColor4f(1,1,1,1); glTexCoord2f(s2,t2); glVertex2f(u+1,v+1);
+        glColor4f(1,1,1,1); glTexCoord2f(s1,t2); glVertex2f(u,v+1);
+        glColor4f(1,1,1,1); glTexCoord2f(s1,t1); glVertex2f(u,v);
+    }
+    glEnd();
+    glDisable(GL_TEXTURE_2D);
+
+    #endif
 
     {
         vdbOrtho(0.0f, Rx, Ry, 0.0f);
@@ -186,6 +304,7 @@ void view_rectify(unsigned char *I, int Ix, int Iy, float f_f, float u0_f, float
         glEnd();
     }
 
-    ImGui::SliderFloat("Desired vertical FOV", &yfov_p, 0.0f, 3.0f);
+    ImGui::Begin("README");
+    ImGui::SliderFloat("Zoom in/out", &yfov_p, 0.0f, 3.0f);
     ImGui::End();
 }
