@@ -21,5 +21,6 @@ generate_messages(
 catkin_package(CATKIN_DEPENDS message_runtime)
 add_definitions("-O3")
 include_directories()
-add_executable(downward_target_tracker asc_tracker_odroid.cpp)
-target_link_libraries(downward_target_tracker ${catkin_LIBRARIES} turbojpeg v4l2)
+add_executable(tracker main_drone.cpp)
+target_link_libraries(tracker ${catkin_LIBRARIES} turbojpeg v4l2)
+# add_executable(debugger main_debugger.cpp)

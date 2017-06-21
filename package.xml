@@ -2,12 +2,12 @@
 
 <package format="2">
   <name>downward_target_tracker</name>
-  <license>TODO</license>
+  <license>Public domain</license>
   <version>0.0.0</version>
   <description>
     Downward target tracker
   </description>
-  <maintainer email="matias.christensen@ascendntnu.no">Matias Christensen</maintainer>
+  <maintainer email="simen.haugo@ascendntnu.no">Simen Haugo</maintainer>
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>std_msgs</build_depend>

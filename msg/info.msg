@@ -37,3 +37,31 @@ float32 imu_rz
 float32 imu_tx
 float32 imu_ty
 float32 imu_tz
+
+#
+# debug info for tracks
+#
+
+# image coordinates are specified inside this resolution
+int32 image_x
+int32 image_y
+
+# last seen detection for target[i]
+float32[] last_seen_u
+float32[] last_seen_v
+float32[] last_seen_u1
+float32[] last_seen_v1
+float32[] last_seen_u2
+float32[] last_seen_v2
+float32[] last_seen_x
+float32[] last_seen_y
+float32[] last_seen_t
+
+# all raw detections
+int32     num_detections
+float32[] detection_u
+float32[] detection_v
+float32[] detection_u1
+float32[] detection_v1
+float32[] detection_u2
+float32[] detection_v2
