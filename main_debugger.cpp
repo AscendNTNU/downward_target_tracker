@@ -231,21 +231,33 @@ int main(int argc, char **argv)
             static float g_n = 0.0f;
             if (locked)
             {
+                Text("Camera intrinsics");
+                Separator();
                 camera_f = latest_info.camera_f; Text("camera_f: %f", camera_f);
                 camera_u0 = latest_info.camera_u0; Text("camera_u0: %f", camera_u0);
                 camera_v0 = latest_info.camera_v0; Text("camera_v0: %f", camera_v0);
+                Separator();
+                Text("Camera extrinsics");
+                Separator();
                 cam_imu_rx = latest_info.cam_imu_rx; Text("cam_imu_rx: %f", cam_imu_rx);
                 cam_imu_ry = latest_info.cam_imu_ry; Text("cam_imu_ry: %f", cam_imu_ry);
                 cam_imu_rz = latest_info.cam_imu_rz; Text("cam_imu_rz: %f", cam_imu_rz);
                 cam_imu_tx = latest_info.cam_imu_tx; Text("cam_imu_tx: %f", cam_imu_tx);
                 cam_imu_ty = latest_info.cam_imu_ty; Text("cam_imu_ty: %f", cam_imu_ty);
                 cam_imu_tz = latest_info.cam_imu_tz; Text("cam_imu_tz: %f", cam_imu_tz);
+                Separator();
+                Text("Red thresholds");
+                Separator();
                 r_g = latest_info.r_g; Text("r_g: %f", r_g);
                 r_b = latest_info.r_b; Text("r_b: %f", r_b);
                 r_n = latest_info.r_n; Text("r_n: %f", r_n);
+                Separator();
+                Text("Green thresholds");
+                Separator();
                 g_r = latest_info.g_r; Text("g_r: %f", g_r);
                 g_b = latest_info.g_b; Text("g_b: %f", g_b);
                 g_n = latest_info.g_n; Text("g_n: %f", g_n);
+                Separator();
             }
             else
             {

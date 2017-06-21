@@ -60,9 +60,9 @@ void view_rectify(unsigned char *I, int Ix, int Iy, float f_f, float u0_f, float
     if (!I)
         return;
 
-    #if 0
-    const int Rx = 400;
-    const int Ry = 300;
+    #if 1
+    const int Rx = 800;
+    const int Ry = 600;
     static unsigned char R[Rx*Ry*3];
 
     static float yfov_p = 160.0f*3.14f/180.0f;
@@ -166,8 +166,8 @@ void view_rectify(unsigned char *I, int Ix, int Iy, float f_f, float u0_f, float
     vdbDrawTexture2D(0);
     #else
 
-    const int Rx = 100;
-    const int Ry = 100;
+    const int Rx = 256;
+    const int Ry = 256;
     static vec2 texels[Rx*Ry];
 
     static float yfov_p = 160.0f*3.14f/180.0f;
@@ -250,11 +250,11 @@ void view_rectify(unsigned char *I, int Ix, int Iy, float f_f, float u0_f, float
         }
 
         texels[u + v*Rx].x = u_src/Ix;
-        texels[u + v*Rx].y = v_src/Iy;
+        texels[u + v*Rx].y = 1.0f - v_src/Iy;
     }
 
     vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
-    vdbOrtho(0, Rx, Ry, 0);
+    vdbOrtho(0, Rx, 0, Ry);
     glEnable(GL_TEXTURE_2D);
     vdbBindTexture2D(0);
     {
