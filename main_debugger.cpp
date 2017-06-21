@@ -8,6 +8,7 @@
 #include "so_math.h"
 #include "view_rectify.cpp"
 #include "view_tracks.cpp"
+#include "view_color.cpp"
 
 struct latest_image_t
 {
@@ -85,14 +86,14 @@ int main(int argc, char **argv)
 
     VDBB("downward_target_debug");
     {
-        const int mode_see_image = 0;
-        const int mode_see_rectified = 1;
-        const int mode_see_tracks = 2;
-        static int mode = mode_see_image;
+        const int mode_see_tracks = 0;
+        const int mode_camera_calibration = 1;
+        const int mode_color_calibration = 2;
+        static int mode = mode_see_tracks;
 
-        RadioButton("Image", &mode, mode_see_image);
-        RadioButton("Rectified", &mode, mode_see_rectified);
-        RadioButton("Tracks", &mode, mode_see_tracks);
+        RadioButton("Default view", &mode, mode_see_tracks);
+        RadioButton("Calibrate camera", &mode, mode_camera_calibration);
+        RadioButton("Calibrate color", &mode, mode_color_calibration);
 
         if (latest_image.I)
         {
@@ -102,13 +103,30 @@ int main(int argc, char **argv)
             vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
         }
 
-        if (mode == mode_see_image)
+        if (mode == mode_see_tracks)
         {
             vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
             vdbDrawTexture2D(0);
+            view_tracks(latest_info, latest_tracks, selected_id);
         }
 
-        if (mode == mode_see_rectified)
+        if (mode == mode_color_calibration)
+        {
+            unsigned char *I = latest_image.I;
+            int Ix = latest_image.Ix;
+            int Iy = latest_image.Iy;
+            float r_g = latest_info.r_g;
+            float r_b = latest_info.r_b;
+            float r_n = latest_info.r_n;
+            float g_r = latest_info.g_r;
+            float g_b = latest_info.g_b;
+            float g_n = latest_info.g_n;
+            vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
+            vdbDrawTexture2D(0);
+            view_color(I, Ix, Iy, r_g, r_b, r_n, g_r, g_b, g_n);
+        }
+
+        if (mode == mode_camera_calibration)
         {
             float f = latest_info.camera_f*latest_image.Ix/latest_info.camera_w;
             float u0 = latest_info.camera_u0*latest_image.Ix/latest_info.camera_w;
@@ -136,13 +154,6 @@ int main(int argc, char **argv)
             mat3 cam_rot = imu_rot*cam_imu_rot;
             vec3 cam_pos = imu_pos + imu_rot*cam_imu_pos;
             view_rectify(I, Ix, Iy, f, u0, v0, cam_rot, cam_pos);
-        }
-
-        if (mode == mode_see_tracks)
-        {
-            vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
-            vdbDrawTexture2D(0);
-            view_tracks(latest_info, latest_tracks, selected_id);
         }
 
         Begin("Select target");
