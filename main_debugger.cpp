@@ -342,7 +342,7 @@ int main(int argc, char **argv)
         RadioButton("Default view", &mode, mode_see_tracks); SameLine();
         RadioButton("Calibrate camera", &mode, mode_camera_calibration); SameLine();
         RadioButton("Calibrate color", &mode, mode_color_calibration); SameLine();
-        if (SmallButton("Snapshot"))
+        if (SmallButton("Take a snapshot"))
         {
             static int suffix = 0;
             if (latest_image.jpg_data)
