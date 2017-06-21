@@ -12,6 +12,8 @@
 
 struct latest_image_t
 {
+    unsigned char *jpg_data;
+    unsigned int jpg_size;
     unsigned char *I;
     int Ix;
     int Iy;
@@ -43,6 +45,16 @@ void callback_image(downward_target_tracker::image msg)
         printf("%s\n", tjGetErrorStr());
         return;
     }
+
+    if (latest_image.jpg_data)
+    {
+        free(latest_image.jpg_data);
+        latest_image.jpg_data = 0;
+    }
+
+    latest_image.jpg_data = (unsigned char*)malloc(jpg_size);
+    memcpy(latest_image.jpg_data, jpg_data, jpg_size);
+    latest_image.jpg_size = jpg_size;
 
     if (latest_image.I)
     {
@@ -82,7 +94,6 @@ int main(int argc, char **argv)
     ros::Subscriber sub_tracks = node.subscribe("/downward_target_tracker/tracks", 1, callback_tracks);
 
     int selected_id = -1;
-    bool should_transmit = false;
 
     VDBB("downward_target_debug");
     {
@@ -327,7 +338,52 @@ int main(int argc, char **argv)
         BeginMainMenuBar();
         RadioButton("Default view", &mode, mode_see_tracks); SameLine();
         RadioButton("Calibrate camera", &mode, mode_camera_calibration); SameLine();
-        RadioButton("Calibrate color", &mode, mode_color_calibration);
+        RadioButton("Calibrate color", &mode, mode_color_calibration); SameLine();
+        if (SmallButton("Snapshot"))
+        {
+            static int suffix = 0;
+            if (latest_image.jpg_data)
+            {
+                char filename[1024];
+                sprintf(filename, "snapshot%04d.jpg", suffix);
+                FILE *f = fopen(filename, "wb+");
+                fwrite(latest_image.jpg_data, latest_image.jpg_size, 1, f);
+                fclose(f);
+            }
+            {
+                downward_target_tracker::info msg = latest_info;
+                char filename[1024];
+                sprintf(filename, "snapshot%04d.txt", suffix);
+                FILE *f = fopen(filename, "w+");
+                fprintf(f, "camera_f = %f\n", msg.camera_f);
+                fprintf(f, "camera_u0 = %f\n", msg.camera_u0);
+                fprintf(f, "camera_v0 = %f\n", msg.camera_v0);
+                fprintf(f, "cam_imu_rx = %f\n", msg.cam_imu_rx);
+                fprintf(f, "cam_imu_ry = %f\n", msg.cam_imu_ry);
+                fprintf(f, "cam_imu_rz = %f\n", msg.cam_imu_rz);
+                fprintf(f, "cam_imu_tx = %f\n", msg.cam_imu_tx);
+                fprintf(f, "cam_imu_ty = %f\n", msg.cam_imu_ty);
+                fprintf(f, "cam_imu_tz = %f\n", msg.cam_imu_tz);
+                fprintf(f, "r_g = %f\n", msg.r_g);
+                fprintf(f, "r_b = %f\n", msg.r_b);
+                fprintf(f, "r_n = %f\n", msg.r_n);
+                fprintf(f, "g_r = %f\n", msg.g_r);
+                fprintf(f, "g_b = %f\n", msg.g_b);
+                fprintf(f, "g_n = %f\n", msg.g_n);
+                fprintf(f, "camera_w = %d\n", msg.camera_w);
+                fprintf(f, "camera_h = %d\n", msg.camera_h);
+                fprintf(f, "imu_rx = %f\n", msg.imu_rx);
+                fprintf(f, "imu_ry = %f\n", msg.imu_ry);
+                fprintf(f, "imu_rz = %f\n", msg.imu_rz);
+                fprintf(f, "imu_tx = %f\n", msg.imu_tx);
+                fprintf(f, "imu_ty = %f\n", msg.imu_ty);
+                fprintf(f, "imu_tz = %f\n", msg.imu_tz);
+                fprintf(f, "image_x = %d\n", msg.image_x);
+                fprintf(f, "image_y = %d\n", msg.image_y);
+                fclose(f);
+            }
+            suffix++;
+        }
         EndMainMenuBar();
 
         ros::spinOnce();

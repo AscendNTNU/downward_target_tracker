@@ -61,8 +61,8 @@ void view_rectify(unsigned char *I, int Ix, int Iy, float f_f, float u0_f, float
         return;
 
     #if 1
-    const int Rx = 800;
-    const int Ry = 600;
+    const int Rx = 400;
+    const int Ry = 300;
     static unsigned char R[Rx*Ry*3];
 
     static float yfov_p = 160.0f*3.14f/180.0f;
