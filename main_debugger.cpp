@@ -6,8 +6,8 @@
 #include <downward_target_tracker/tracks.h>
 #include <turbojpeg.h>
 #include "so_math.h"
-// #include "view_rectify.cpp"
-// #include "view_tracks.cpp"
+#include "view_rectify.cpp"
+#include "view_tracks.cpp"
 
 struct latest_image_t
 {
@@ -108,7 +108,6 @@ int main(int argc, char **argv)
             vdbDrawTexture2D(0);
         }
 
-        #if 0
         if (mode == mode_see_rectified)
         {
             float f = latest_info.camera_f*latest_image.Ix/latest_info.camera_w;
@@ -143,7 +142,7 @@ int main(int argc, char **argv)
         {
             vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
             vdbDrawTexture2D(0);
-            view_tracks(latest_tracks, selected_id);
+            view_tracks(latest_info, latest_tracks, selected_id);
         }
 
         Begin("Select target");
@@ -169,15 +168,13 @@ int main(int argc, char **argv)
 
             for (int i = 0; i < latest_tracks.num_targets; i++)
             {
-                Columns(7, "latest_tracks");
+                Columns(5, "latest_tracks");
                 Separator();
-                Text("ID"); NextColumn();
-                Text("x"); NextColumn();
-                Text("y"); NextColumn();
-                Text("dx"); NextColumn();
-                Text("dy"); NextColumn();
+                Text("ID");        NextColumn();
+                Text("Pos");       NextColumn();
+                Text("Vel");       NextColumn();
                 Text("Last seen"); NextColumn();
-                Text("Confidence"); NextColumn();
+                Text("Hitrate");   NextColumn();
                 Separator();
                 for (int i = 0; i < latest_tracks.num_targets; i++)
                 {
@@ -186,26 +183,23 @@ int main(int argc, char **argv)
                     if (Selectable(label, selected_id == latest_tracks.unique_id[i], ImGuiSelectableFlags_SpanAllColumns))
                         selected_id = latest_tracks.unique_id[i];
                     NextColumn();
-                    Text("%.2f", latest_tracks.x_hat[i]); NextColumn();
-                    Text("%.2f", latest_tracks.y_hat[i]); NextColumn();
-                    Text("%.2f", latest_tracks.dx_hat[i]); NextColumn();
-                    Text("%.2f", latest_tracks.dy_hat[i]); NextColumn();
-                    Text("%.2f", latest_tracks.t[i]); NextColumn();
-                    Text("%.2f", latest_tracks.confidence[i]/20.0f); NextColumn();
+                    Text("%.2f %.2f", latest_tracks.position_x[i], latest_tracks.position_y[i]); NextColumn();
+                    Text("%.2f %.2f", latest_tracks.velocity_x[i], latest_tracks.velocity_y[i]); NextColumn();
+                    Text("%.2f",      latest_info.last_seen_t[i]);                               NextColumn();
+                    Text("%.2f",      latest_tracks.detection_rate[i]);                          NextColumn();
                 }
                 Columns(1);
                 Separator();
             }
         }
         End();
-        #endif
 
         if (CollapsingHeader("Timing"))
         {
-            Text("cycle: %.2f", 1000.0f*latest_info.dt_cycle);
-            Text("frame: %.2f", 1000.0f*latest_info.dt_frame);
-            Text("jpeg_to_rgb: %.2f", 1000.0f*latest_info.dt_jpeg_to_rgb);
-            Text("track_targets: %.2f", 1000.0f*latest_info.dt_track_targets);
+            Text("processing time: %.2f ms", 1000.0f*latest_info.dt_cycle);
+            Text("frame timestamps: %.2f ms", 1000.0f*latest_info.dt_frame);
+            Text("jpeg_to_rgb: %.2f ms", 1000.0f*latest_info.dt_jpeg_to_rgb);
+            Text("track_targets: %.2f ms", 1000.0f*latest_info.dt_track_targets);
         }
 
         if (CollapsingHeader("Options"))

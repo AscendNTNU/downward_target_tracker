@@ -312,7 +312,6 @@ int main(int argc, char **argv)
                 msg.imu_tx = imu_tx;
                 msg.imu_ty = imu_ty;
                 msg.imu_tz = imu_tz;
-                pub_info.publish(msg);
 
                 // debug info
                 msg.image_x = Ix;
@@ -341,6 +340,8 @@ int main(int argc, char **argv)
                     msg.last_seen_y.push_back(tracks.targets[i].last_seen.y);
                     msg.last_seen_t.push_back(tracks.targets[i].last_seen.t);
                 }
+
+                pub_info.publish(msg);
             }
 
             // PUBLISH JPEG
