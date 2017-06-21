@@ -1,5 +1,7 @@
-#define DUMMY_IMAGE        1
-#define IMU_POSE_TOPIC     "/mavros/vision_pose/pose"
+#define DUMMY_IMAGE            1
+#define IMU_POSE_TOPIC         "/mavros/vision_pose/pose"
+#define INFO_PUBLISH_INTERVAL  (0.0f) // min. required seconds elapsed. set to zero to publish info (bounding boxes and detections) as fast as possible
+#define IMAGE_PUBLISH_INTERVAL (0.0f) // min. required seconds elapsed. set to zero to publish images as fast as possible
 
 // Camera rotation offset (R_cam^imu = Rz(cam_imu_rz)Ry(cam_imu_ry)Rx(cam_imu_rx)) [camera to imu frame]
 #define CAM_IMU_RX_INIT    0.0f
@@ -265,8 +267,13 @@ int main(int argc, char **argv)
                 pub_tracks.publish(msg);
             }
 
+            static uint64_t t_last_info = getnsec();
+
             // PUBLISH INFO
+            if ((getnsec() - t_last_info)/1e9 > INFO_PUBLISH_INTERVAL)
             {
+                t_last_info = getnsec();
+
                 downward_target_tracker::info msg;
                 msg.dt_frame = dt_frame;
                 msg.dt_jpeg_to_rgb = dt_jpeg_to_rgb;
@@ -341,8 +348,13 @@ int main(int argc, char **argv)
                 pub_info.publish(msg);
             }
 
+            static uint64_t t_last_image = getnsec();
+
             // PUBLISH JPEG
+            if ((getnsec() - t_last_image)/1e9 > IMAGE_PUBLISH_INTERVAL)
             {
+                t_last_image = getnsec();
+
                 downward_target_tracker::image msg;
                 msg.jpg_data.resize(jpg_size);
                 memcpy(&msg.jpg_data[0], jpg_data, jpg_size);
