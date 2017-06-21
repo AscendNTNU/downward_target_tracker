@@ -1,11 +1,31 @@
+#define DUMMY_IMAGE        1
+#define IMU_POSE_TOPIC     "/mavros/vision_pose/pose"
+
+// Camera rotation offset (R_cam^imu = Rz(cam_imu_rz)Ry(cam_imu_ry)Rx(cam_imu_rx)) [camera to imu frame]
+#define CAM_IMU_RX_INIT    0.0f
+#define CAM_IMU_RY_INIT    0.0f
+#define CAM_IMU_RZ_INIT    0.0f
+
+// Camera position offset (T_cam/imu^imu = {cam_imu_tx, cam_imu_ty, cam_imu_tz}) [camera relative imu in imu frame]
+#define CAM_IMU_TX_INIT    0.0f
+#define CAM_IMU_TY_INIT    0.0f
+#define CAM_IMU_TZ_INIT    0.0f
+
+// Red classification thresholds
+#define R_G_INIT           3.0f       // minimum red/green ratio
+#define R_B_INIT           2.0f       // minimum red/blue ratio
+#define R_N_INIT           10.0f/3.0f // minimum average brightness (r+g+b)/3
+
+// Green classification thresholds
+#define G_R_INIT           1.6f       // minimum green/red ratio
+#define G_B_INIT           1.5f       // minimum green/blue ratio
+#define G_N_INIT           10.0f/3.0f // minimum average brightness (r+g+b)/3
+
 //
-// Compile-time settings
+// Implementation
 //
 
-#define mock_image         1
-#define disable_ros        0
-
-#if mock_image==0
+#if DUMMY_IMAGE==0
 #define USBCAM_DEBUG       1
 #define DEVICE_NAME        "/dev/video1"
 #define CAMERA_WIDTH       800
@@ -25,49 +45,19 @@
 #define CAMERA_V0_INIT     335.0f
 #endif
 
-// Camera rotation offset (R_cam^imu)
-// R_cam^imu = Rz(cam_imu_rz)Ry(cam_imu_ry)Rx(cam_imu_rx) [camera to imu frame]
-#define CAM_IMU_RX_INIT    0.0f
-#define CAM_IMU_RY_INIT    0.0f
-#define CAM_IMU_RZ_INIT    0.0f
-
-// Camera position offset (T_cam/imu^imu)
-// T_cam/imu^imu = (cam_imu_tx, cam_imu_ty, cam_imu_tz)   [camera relative imu in imu frame]
-#define CAM_IMU_TX_INIT    0.0f
-#define CAM_IMU_TY_INIT    0.0f
-#define CAM_IMU_TZ_INIT    0.0f
-
-// 'red' classification thresholds
-#define R_G_INIT           3.0f       // how much stronger red must be over green
-#define R_B_INIT           2.0f       // how much stronger red must be over blue
-#define R_N_INIT           10.0f/3.0f // how strong average (r+g+b)/3 must be
-
-// 'green' classification thresholds
-#define G_R_INIT           1.6f       // how much stronger red must be over green
-#define G_B_INIT           1.5f       // how much stronger red must be over blue
-#define G_N_INIT           10.0f/3.0f // how strong average (r+g+b)/3 must be
-
-//
-// Implementation
-//
-
 #include <signal.h>
 #include <assert.h>
 #include <stdint.h>
 #include <time.h>
-#if disable_ros==0
 #include <ros/ros.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <std_msgs/Float32.h>
 #include <downward_target_tracker/image.h>
 #include <downward_target_tracker/info.h>
 #include <downward_target_tracker/tracks.h>
-#endif
 #include "asc_usbcam.h"
 #include "asc_tracker.h"
 
-//
-// OPTIONS
-//
 float camera_f = CAMERA_F_INIT;
 float camera_u0 = CAMERA_U0_INIT;
 float camera_v0 = CAMERA_V0_INIT;
@@ -84,9 +74,6 @@ float g_r = G_R_INIT;
 float g_b = G_B_INIT;
 float g_n = G_N_INIT;
 
-//
-// LATEST MESSAGES
-//
 float imu_rx = 0.0f;
 float imu_ry = 0.0f;
 float imu_rz = 0.0f;
@@ -94,10 +81,6 @@ float imu_tx = 0.0f;
 float imu_ty = 0.0f;
 float imu_tz = 1.0f;
 
-//
-// CALLBACKS
-//
-#if disable_ros==0
 void callback_camera_f(std_msgs::Float32 msg) { camera_f = msg.data; }
 void callback_camera_u0(std_msgs::Float32 msg) { camera_u0 = msg.data; }
 void callback_camera_v0(std_msgs::Float32 msg) { camera_v0 = msg.data; }
@@ -113,7 +96,13 @@ void callback_r_n(std_msgs::Float32 msg) { r_n = msg.data; }
 void callback_g_r(std_msgs::Float32 msg) { g_r = msg.data; }
 void callback_g_b(std_msgs::Float32 msg) { g_b = msg.data; }
 void callback_g_n(std_msgs::Float32 msg) { g_n = msg.data; }
-#endif
+void callback_imu(geometry_msgs::PoseStamped msg)
+{
+    m_quat_to_ypr(msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w, &imu_rz, &imu_ry, &imu_rx);
+    imu_tx = msg.pose.position.x;
+    imu_ty = msg.pose.position.y;
+    imu_tz = msg.pose.position.z;
+}
 
 uint64_t getnsec()
 {
@@ -131,7 +120,6 @@ void ctrlc(int)
 
 int main(int argc, char **argv)
 {
-    #if disable_ros==0
     ros::init(argc, argv, "downward_target_tracker");
     ros::NodeHandle node;
     ros::Publisher pub_image = node.advertise<downward_target_tracker::image>("downward_target_tracker/image", 1);
@@ -152,11 +140,11 @@ int main(int argc, char **argv)
     ros::Subscriber sub_g_r = node.subscribe("/downward_target_debug/g_r", 1, callback_g_r);
     ros::Subscriber sub_g_b = node.subscribe("/downward_target_debug/g_b", 1, callback_g_b);
     ros::Subscriber sub_g_n = node.subscribe("/downward_target_debug/g_n", 1, callback_g_n);
-    #endif
+    ros::Subscriber sub_imu = node.subscribe(IMU_POSE_TOPIC, 1, callback_imu);
 
     signal(SIGINT, ctrlc);
 
-    #if mock_image==0
+    #if DUMMY_IMAGE==0
     {
         usbcam_opt_t opt = {0};
         opt.device_name = DEVICE_NAME;
@@ -179,7 +167,7 @@ int main(int argc, char **argv)
         unsigned int jpg_size = 0;
         timeval timestamp = {0};
         {
-            #if mock_image==1
+            #if DUMMY_IMAGE==1
             jpg_data = mock_jpg;
             jpg_size = mock_jpg_len;
             usleep(16*1000);
@@ -213,9 +201,7 @@ int main(int argc, char **argv)
         }
 
         // GET LATEST MESSAGES BEFORE PROCESSING IMAGE
-        #if disable_ros==0
         ros::spinOnce();
-        #endif
 
         // RUN ONE ITERATION OF TARGET DETECTION AND TRACKING
         mat3 imu_rot = m_rotz(imu_rz)*m_roty(imu_ry)*m_rotx(imu_rx);
@@ -262,7 +248,6 @@ int main(int argc, char **argv)
         }
 
         // PUBLISH STUFF
-        #if disable_ros==0
         {
             // PUBLISH TARGET TRACKS
             {
@@ -352,9 +337,8 @@ int main(int argc, char **argv)
                 pub_image.publish(msg);
             }
         }
-        #endif
 
-        #if mock_image==0
+        #if DUMMY_IMAGE==0
         usbcam_unlock();
         #endif
     }
