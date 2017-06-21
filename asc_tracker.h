@@ -105,6 +105,26 @@ vec3 camera_inverse_project(float f, float u0, float v0, vec2 uv)
     return dir;
 }
 
+vec2 camera_project(float f, float u0, float v0, vec3 p)
+//  f  (input): Equidistant fisheye camera model parameter (r = f x theta)
+// u0  (input): Center of fisheye projection in x measured from left of image
+// v0  (input): Center of fisheye projection in y measured from top of image
+// p   (input): Camera-space coordinate (OpenGL convention)
+// uv (output): Pixel coordinate measured from top-left of image (DirectX convention)
+{
+    float l = sqrtf(p.x*p.x+p.y*p.y);
+    if (l < 0.001f)
+    {
+        return m_vec2(u0, v0);
+    }
+    else
+    {
+        float t = atanf(-l/p.z);
+        float r = f*t;
+        return m_vec2(u0 + r*p.x/l, v0 - r*p.y/l);
+    }
+}
+
 float metric_distance(float u1, float v1, float u2, float v2,
                       float f, float u0, float v0, mat3 rot, float h)
 {
