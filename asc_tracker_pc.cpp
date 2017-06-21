@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <assert.h>
-#include <vdb.h>
+#include "vdb/vdb.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "asc_tracker.h"
@@ -201,6 +201,52 @@ int main(int, char **)
                 vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
                 vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
                 vdbDrawTexture2D(0);
+
+                // draw grid
+                {
+                    int xw0 = (int)(pos.x);
+                    int yw0 = (int)(pos.y);
+                    vdbOrtho(0,Ix,Iy,0);
+                    glLines(4.0f);
+                    glColor4f(1.0f,1.0f,0.3f,1.0f);
+                    for (int xw = xw0-5; xw <= xw0+5; xw++)
+                    {
+                        float u1,v1;
+                        for (int i = 0; i < 128; i++)
+                        {
+                            float yw = yw0 - 5 + 10*i/128.0f;
+                            vec3 p = { xw, yw, 0 };
+                            vec3 q = m_transpose(rot)*(p - pos);
+                            float x = q.x;
+                            float y = q.y;
+                            float z = q.z;
+                            float u,v;
+                            {
+                                float l = sqrtf(x*x+y*y);
+                                if (l < 0.001f)
+                                {
+                                    u = u0;
+                                    v = v0;
+                                }
+                                else
+                                {
+                                    float t = atanf(-l/z);
+                                    float r = f*t;
+                                    u = u0 + r*x/l;
+                                    v = v0 - r*y/l;
+                                }
+                            }
+                            if (i > 0)
+                            {
+                                glVertex2f(u1,v1);
+                                glVertex2f(u,v);
+                            }
+                            u1 = u;
+                            v1 = v;
+                        }
+                    }
+                    glEnd();
+                }
 
                 // draw connected components
                 {
