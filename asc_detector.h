@@ -1,11 +1,15 @@
-#ifndef cc_assert
 #include <assert.h>
-#define cc_assert assert
+
+#ifndef detector_max_width
+#define detector_max_width 1920
 #endif
 
-#define CC_MAX_WIDTH (1920)
-#define CC_MAX_HEIGHT (1080)
-#define CC_MAX_POINTS (CC_MAX_WIDTH*CC_MAX_HEIGHT)
+#ifndef detector_max_height
+#define detector_max_height 1080
+#endif
+
+#define detector_max_points (detector_max_width*detector_max_height)
+#define detector_max_groups (detector_max_points)
 
 struct cc_groups
 {
@@ -27,18 +31,18 @@ cc_groups cc_connected_components(
     int *points,
     int num_points)
 {
-    cc_assert(width <= CC_MAX_WIDTH);
-    cc_assert(height <= CC_MAX_HEIGHT);
+    assert(width <= detector_max_width);
+    assert(height <= detector_max_height);
 
-    static int   label[CC_MAX_POINTS];
-    static float group_x[CC_MAX_POINTS];
-    static float group_y[CC_MAX_POINTS];
-    static float group_min_x[CC_MAX_POINTS];
-    static float group_min_y[CC_MAX_POINTS];
-    static float group_max_x[CC_MAX_POINTS];
-    static float group_max_y[CC_MAX_POINTS];
-    static int   group_n[CC_MAX_POINTS];
-    for (int i = 0; i < CC_MAX_POINTS; i++)
+    static int   label[detector_max_points];
+    static float group_x[detector_max_points];
+    static float group_y[detector_max_points];
+    static float group_min_x[detector_max_points];
+    static float group_min_y[detector_max_points];
+    static float group_max_x[detector_max_points];
+    static float group_max_y[detector_max_points];
+    static int   group_n[detector_max_points];
+    for (int i = 0; i < detector_max_points; i++)
     {
         label[i] = -1;
     }
@@ -67,7 +71,7 @@ cc_groups cc_connected_components(
             float max_y = 0.0f;
             int sum_n = 0;
 
-            static int queue[CC_MAX_POINTS];
+            static int queue[detector_max_points];
             queue[0] = root;
             int queue_count = 1;
             while (queue_count > 0)
@@ -102,7 +106,7 @@ cc_groups cc_connected_components(
                     if (binary[q] > 0 && g.label[q] == -1)
                     {
                         queue[queue_count++] = q;
-                        cc_assert(queue_count <= CC_MAX_POINTS);
+                        assert(queue_count <= detector_max_points);
                     }
                 }
             }
@@ -133,8 +137,8 @@ struct cc_options
 cc_groups cc_find_top_plates(unsigned char *rgb, int width, int height, cc_options opt,
                              int **opt_points = 0, int *opt_num_points = 0)
 {
-    static int points[CC_MAX_POINTS];
-    static unsigned char binary[CC_MAX_POINTS];
+    static int points[detector_max_points];
+    static unsigned char binary[detector_max_points];
 
     int num_points = 0;
     for (int y = 1; y < height-1; y++)

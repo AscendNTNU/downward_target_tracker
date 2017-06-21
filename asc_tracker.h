@@ -1,5 +1,5 @@
 #include "so_math.h"
-#include "asc_connected_components.h"
+#include "asc_detector.h"
 const int detection_window_count = 60;
 
 struct detection_t
@@ -154,7 +154,7 @@ tracks_t track_targets(track_targets_opt_t opt)
     float delta_z = pos.z - plate_z; // Height of camera above target plate plane
 
     // Detect targets in input image
-    static detection_t detections[CC_MAX_POINTS];
+    static detection_t detections[detector_max_groups];
     int num_detections = 0;
     int *color_points;
     int color_num_points;
@@ -181,7 +181,7 @@ tracks_t track_targets(track_targets_opt_t opt)
 
         // I merge adjacent groups based on ground plane distance
         // This array is used for book-keeping
-        static bool merged[CC_MAX_POINTS];
+        static bool merged[detector_max_groups];
         for (int i = 0; i < groups.count; i++)
             merged[i] = false;
 
@@ -243,12 +243,12 @@ tracks_t track_targets(track_targets_opt_t opt)
         }
 
         // Compute eigenvalues (used to check aspect ratio)
-        static float eigx[CC_MAX_POINTS];
-        static float eigy[CC_MAX_POINTS];
+        static float eigx[detector_max_groups];
+        static float eigy[detector_max_groups];
         {
-            static float xx[CC_MAX_POINTS];
-            static float xy[CC_MAX_POINTS];
-            static float yy[CC_MAX_POINTS];
+            static float xx[detector_max_groups];
+            static float xy[detector_max_groups];
+            static float yy[detector_max_groups];
             for (int i = 0; i < groups.count; i++)
             {
                 xx[i] = 0.0f;
@@ -342,7 +342,7 @@ tracks_t track_targets(track_targets_opt_t opt)
         }
     }
 
-    static bool found_match[CC_MAX_POINTS];
+    static bool found_match[detector_max_groups];
     for (int i = 0; i < num_detections; i++)
         found_match[i] = false;
 
