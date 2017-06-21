@@ -91,26 +91,65 @@ int main(int argc, char **argv)
         const int mode_color_calibration = 2;
         static int mode = mode_see_tracks;
 
-        RadioButton("Default view", &mode, mode_see_tracks);
-        RadioButton("Calibrate camera", &mode, mode_camera_calibration);
-        RadioButton("Calibrate color", &mode, mode_color_calibration);
-
-        if (latest_image.I)
+        if (latest_image.I && mode == mode_see_tracks)
         {
             unsigned char *I = latest_image.I;
             int Ix = latest_image.Ix;
             int Iy = latest_image.Iy;
-            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
-        }
-
-        if (mode == mode_see_tracks)
-        {
             vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
+            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
             vdbDrawTexture2D(0);
             view_tracks(latest_info, latest_tracks, selected_id);
+
+            Begin("Select target");
+            {
+                for (int i = 0; i < latest_tracks.num_targets; i++)
+                {
+                    Columns(4, "latest_tracks");
+                    Separator();
+                    Text("ID");        NextColumn();
+                    Text("Pos (xy)");  NextColumn();
+                    Text("Vel (xy)");  NextColumn();
+                    Text("Hitrate");   NextColumn();
+                    Separator();
+                    for (int i = 0; i < latest_tracks.num_targets; i++)
+                    {
+                        char label[32];
+                        sprintf(label, "%d", latest_tracks.unique_id[i]);
+                        if (Selectable(label, selected_id == latest_tracks.unique_id[i], ImGuiSelectableFlags_SpanAllColumns))
+                        {
+                            if (selected_id == latest_tracks.unique_id[i])
+                                selected_id = -1;
+                            else
+                                selected_id = latest_tracks.unique_id[i];
+                        }
+                        NextColumn();
+
+                        ImVec4 color = ImVec4(1.0f,1.0f,1.0f,1.0f);
+                        if (selected_id == latest_tracks.unique_id[i])
+                            color = ImVec4(1.0f, 0.3f, 0.1f, 1.0f);
+
+                        TextColored(color, "%.2f %.2f", latest_tracks.position_x[i], latest_tracks.position_y[i]); NextColumn();
+                        TextColored(color, "%.2f %.2f", latest_tracks.velocity_x[i], latest_tracks.velocity_y[i]); NextColumn();
+                        TextColored(color, "%.2f",      latest_tracks.detection_rate[i]);                          NextColumn();
+                    }
+                    Columns(1);
+                    Separator();
+                }
+
+                bool selected_id_exists = false;
+                for (int i = 0; i < latest_tracks.num_targets; i++)
+                {
+                    if (latest_tracks.unique_id[i] == selected_id)
+                        selected_id_exists = true;
+                }
+                if (!selected_id_exists && selected_id != -1)
+                    Text("Target (%d) was lost", selected_id);
+            }
+            End();
         }
 
-        if (mode == mode_color_calibration)
+        if (latest_image.I && mode == mode_color_calibration)
         {
             unsigned char *I = latest_image.I;
             int Ix = latest_image.Ix;
@@ -122,11 +161,12 @@ int main(int argc, char **argv)
             float g_b = latest_info.g_b;
             float g_n = latest_info.g_n;
             vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
+            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
             vdbDrawTexture2D(0);
             view_color(I, Ix, Iy, r_g, r_b, r_n, g_r, g_b, g_n);
         }
 
-        if (mode == mode_camera_calibration)
+        if (latest_image.I && mode == mode_camera_calibration)
         {
             float f = latest_info.camera_f*latest_image.Ix/latest_info.camera_w;
             float u0 = latest_info.camera_u0*latest_image.Ix/latest_info.camera_w;
@@ -156,64 +196,21 @@ int main(int argc, char **argv)
             view_rectify(I, Ix, Iy, f, u0, v0, cam_rot, cam_pos);
         }
 
-        Begin("Select target");
+        Begin("Timing");
         {
-            bool selected_id_exists = false;
-            for (int i = 0; i < latest_tracks.num_targets; i++)
-            {
-                if (latest_tracks.unique_id[i] == selected_id)
-                    selected_id_exists = true;
-            }
+            Columns(2, "columns_timing");
+            Text("Output rate");  NextColumn(); Text("%.2f Hz", 1.0f/latest_info.dt_cycle);            NextColumn(); Separator();
+            Text("Frame rate");   NextColumn(); Text("%.2f Hz", 1.0f/latest_info.dt_frame);            NextColumn(); Separator();
+            Text("MJPEG to RGB"); NextColumn(); Text("%.2f ms", 1000.0f*latest_info.dt_jpeg_to_rgb);   NextColumn(); Separator();
+            Text("Tracker");      NextColumn(); Text("%.2f ms", 1000.0f*latest_info.dt_track_targets); NextColumn(); Separator();
+            Columns(1);
 
-            if (selected_id_exists)
-                Text("Selected ID: %d", selected_id);
-            else
-                Text("Selected ID: %d (LOST)", selected_id);
-
-            if (should_transmit)
-                TextColored(ImVec4(1.0f, 0.3f, 0.1f, 1.0f), "Transmitting %d", selected_id);
-            else
-                TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Not transmitting");
-
-            Checkbox("Transmit ID?", &should_transmit);
-
-            for (int i = 0; i < latest_tracks.num_targets; i++)
-            {
-                Columns(5, "latest_tracks");
-                Separator();
-                Text("ID");        NextColumn();
-                Text("Pos");       NextColumn();
-                Text("Vel");       NextColumn();
-                Text("Last seen"); NextColumn();
-                Text("Hitrate");   NextColumn();
-                Separator();
-                for (int i = 0; i < latest_tracks.num_targets; i++)
-                {
-                    char label[32];
-                    sprintf(label, "%d", latest_tracks.unique_id[i]);
-                    if (Selectable(label, selected_id == latest_tracks.unique_id[i], ImGuiSelectableFlags_SpanAllColumns))
-                        selected_id = latest_tracks.unique_id[i];
-                    NextColumn();
-                    Text("%.2f %.2f", latest_tracks.position_x[i], latest_tracks.position_y[i]); NextColumn();
-                    Text("%.2f %.2f", latest_tracks.velocity_x[i], latest_tracks.velocity_y[i]); NextColumn();
-                    Text("%.2f",      latest_info.last_seen_t[i]);                               NextColumn();
-                    Text("%.2f",      latest_tracks.detection_rate[i]);                          NextColumn();
-                }
-                Columns(1);
-                Separator();
-            }
+            if (latest_info.dt_cycle > 1.0f/60.0f)
+                TextColored(ImVec4(1.0f,0.3f,0.1f,1.0f), "Output rate is less than 60 Hz\nSend Simen a message on Slack.");
         }
         End();
 
-        if (CollapsingHeader("Timing"))
-        {
-            Text("processing time: %.2f ms", 1000.0f*latest_info.dt_cycle);
-            Text("frame timestamps: %.2f ms", 1000.0f*latest_info.dt_frame);
-            Text("jpeg_to_rgb: %.2f ms", 1000.0f*latest_info.dt_jpeg_to_rgb);
-            Text("track_targets: %.2f ms", 1000.0f*latest_info.dt_track_targets);
-        }
-
-        if (CollapsingHeader("Options"))
+        Begin("Parameters");
         {
             static bool locked = true;
             Checkbox("Locked", &locked);
@@ -252,21 +249,33 @@ int main(int argc, char **argv)
             }
             else
             {
-                DragFloat("camera_f", &camera_f);
-                DragFloat("camera_u0", &camera_u0);
-                DragFloat("camera_v0", &camera_v0);
-                DragFloat("cam_imu_rx", &cam_imu_rx);
-                DragFloat("cam_imu_ry", &cam_imu_ry);
-                DragFloat("cam_imu_rz", &cam_imu_rz);
-                DragFloat("cam_imu_tx", &cam_imu_tx);
-                DragFloat("cam_imu_ty", &cam_imu_ty);
-                DragFloat("cam_imu_tz", &cam_imu_tz);
-                DragFloat("r_g", &r_g);
-                DragFloat("r_b", &r_b);
-                DragFloat("r_n", &r_n);
-                DragFloat("g_r", &g_r);
-                DragFloat("g_b", &g_b);
-                DragFloat("g_n", &g_n);
+                if (CollapsingHeader("Camera intrinsics"))
+                {
+                    DragFloat("camera_f", &camera_f);
+                    DragFloat("camera_u0", &camera_u0);
+                    DragFloat("camera_v0", &camera_v0);
+                }
+                if (CollapsingHeader("Camera extrinsics"))
+                {
+                    DragFloat("cam_imu_rx", &cam_imu_rx);
+                    DragFloat("cam_imu_ry", &cam_imu_ry);
+                    DragFloat("cam_imu_rz", &cam_imu_rz);
+                    DragFloat("cam_imu_tx", &cam_imu_tx);
+                    DragFloat("cam_imu_ty", &cam_imu_ty);
+                    DragFloat("cam_imu_tz", &cam_imu_tz);
+                }
+                if (CollapsingHeader("Red thresholds"))
+                {
+                    DragFloat("red over green (r_g)", &r_g);
+                    DragFloat("red over blue (r_b)", &r_b);
+                    DragFloat("minimum brightness (r_n)", &r_n);
+                }
+                if (CollapsingHeader("Green thresholds"))
+                {
+                    DragFloat("green over red (g_r)", &g_r);
+                    DragFloat("green over blue (g_b)", &g_b);
+                    DragFloat("minimum brightness (g_n)", &g_n);
+                }
 
                 static ros::Publisher pub_camera_f = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_f", 1);
                 static ros::Publisher pub_camera_u0 = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_u0", 1);
@@ -301,6 +310,13 @@ int main(int argc, char **argv)
                 { std_msgs::Float32 msg; msg.data = g_n; pub_g_n.publish(msg); }
             }
         }
+        End();
+
+        BeginMainMenuBar();
+        RadioButton("Default view", &mode, mode_see_tracks); SameLine();
+        RadioButton("Calibrate camera", &mode, mode_camera_calibration); SameLine();
+        RadioButton("Calibrate color", &mode, mode_color_calibration);
+        EndMainMenuBar();
 
         ros::spinOnce();
     }
