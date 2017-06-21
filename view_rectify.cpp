@@ -281,6 +281,7 @@ void view_rectify(unsigned char *I, int Ix, int Iy, float f_f, float u0_f, float
 
     #endif
 
+    #if 0
     {
         vdbOrtho(0.0f, Rx, Ry, 0.0f);
         glLines(2.0f);
@@ -303,8 +304,12 @@ void view_rectify(unsigned char *I, int Ix, int Iy, float f_f, float u0_f, float
         glColor4f(0.1f, 1.0f, 0.2f, 1.0f); glVertex2f(0.05f, 0.05f); glVertex2f(0.05f, 0.1f);
         glEnd();
     }
+    #endif
 
     ImGui::Begin("README");
+    ImGui::Text("Adjust parameters until\n"
+                "a) lines look straight (intrinsics)\n"
+                "b) ground is not pitched or rolled (extrinsics)");
     ImGui::SliderFloat("Zoom in/out", &yfov_p, 0.0f, 3.0f);
     ImGui::End();
 }

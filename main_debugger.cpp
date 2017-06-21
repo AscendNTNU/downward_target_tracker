@@ -221,119 +221,122 @@ int main(int argc, char **argv)
         }
         End();
 
-        Begin("Parameters");
+        if (mode == mode_color_calibration || mode == mode_camera_calibration)
         {
-            static bool locked = true;
-            Checkbox("Locked", &locked);
-            static float camera_f = 0.0f;
-            static float camera_u0 = 0.0f;
-            static float camera_v0 = 0.0f;
-            static float cam_imu_rx = 0.0f;
-            static float cam_imu_ry = 0.0f;
-            static float cam_imu_rz = 0.0f;
-            static float cam_imu_tx = 0.0f;
-            static float cam_imu_ty = 0.0f;
-            static float cam_imu_tz = 0.0f;
-            static float r_g = 0.0f;
-            static float r_b = 0.0f;
-            static float r_n = 0.0f;
-            static float g_r = 0.0f;
-            static float g_b = 0.0f;
-            static float g_n = 0.0f;
-            if (locked)
+            Begin("Parameters");
             {
-                Text("Camera intrinsics");
-                Separator();
-                camera_f = latest_info.camera_f; Text("camera_f: %f", camera_f);
-                camera_u0 = latest_info.camera_u0; Text("camera_u0: %f", camera_u0);
-                camera_v0 = latest_info.camera_v0; Text("camera_v0: %f", camera_v0);
-                Separator();
-                Text("Camera extrinsics");
-                Separator();
-                cam_imu_rx = latest_info.cam_imu_rx; Text("cam_imu_rx: %f", cam_imu_rx);
-                cam_imu_ry = latest_info.cam_imu_ry; Text("cam_imu_ry: %f", cam_imu_ry);
-                cam_imu_rz = latest_info.cam_imu_rz; Text("cam_imu_rz: %f", cam_imu_rz);
-                cam_imu_tx = latest_info.cam_imu_tx; Text("cam_imu_tx: %f", cam_imu_tx);
-                cam_imu_ty = latest_info.cam_imu_ty; Text("cam_imu_ty: %f", cam_imu_ty);
-                cam_imu_tz = latest_info.cam_imu_tz; Text("cam_imu_tz: %f", cam_imu_tz);
-                Separator();
-                Text("Red thresholds");
-                Separator();
-                r_g = latest_info.r_g; Text("r_g: %f", r_g);
-                r_b = latest_info.r_b; Text("r_b: %f", r_b);
-                r_n = latest_info.r_n; Text("r_n: %f", r_n);
-                Separator();
-                Text("Green thresholds");
-                Separator();
-                g_r = latest_info.g_r; Text("g_r: %f", g_r);
-                g_b = latest_info.g_b; Text("g_b: %f", g_b);
-                g_n = latest_info.g_n; Text("g_n: %f", g_n);
-                Separator();
-            }
-            else
-            {
-                if (CollapsingHeader("Camera intrinsics"))
+                static bool locked = true;
+                Checkbox("Locked", &locked);
+                static float camera_f = 0.0f;
+                static float camera_u0 = 0.0f;
+                static float camera_v0 = 0.0f;
+                static float cam_imu_rx = 0.0f;
+                static float cam_imu_ry = 0.0f;
+                static float cam_imu_rz = 0.0f;
+                static float cam_imu_tx = 0.0f;
+                static float cam_imu_ty = 0.0f;
+                static float cam_imu_tz = 0.0f;
+                static float r_g = 0.0f;
+                static float r_b = 0.0f;
+                static float r_n = 0.0f;
+                static float g_r = 0.0f;
+                static float g_b = 0.0f;
+                static float g_n = 0.0f;
+                if (locked)
                 {
-                    DragFloat("camera_f", &camera_f);
-                    DragFloat("camera_u0", &camera_u0);
-                    DragFloat("camera_v0", &camera_v0);
+                    Text("Camera intrinsics");
+                    Separator();
+                    camera_f = latest_info.camera_f; Text("camera_f: %f", camera_f);
+                    camera_u0 = latest_info.camera_u0; Text("camera_u0: %f", camera_u0);
+                    camera_v0 = latest_info.camera_v0; Text("camera_v0: %f", camera_v0);
+                    Separator();
+                    Text("Camera extrinsics");
+                    Separator();
+                    cam_imu_rx = latest_info.cam_imu_rx; Text("cam_imu_rx: %f", cam_imu_rx);
+                    cam_imu_ry = latest_info.cam_imu_ry; Text("cam_imu_ry: %f", cam_imu_ry);
+                    cam_imu_rz = latest_info.cam_imu_rz; Text("cam_imu_rz: %f", cam_imu_rz);
+                    cam_imu_tx = latest_info.cam_imu_tx; Text("cam_imu_tx: %f", cam_imu_tx);
+                    cam_imu_ty = latest_info.cam_imu_ty; Text("cam_imu_ty: %f", cam_imu_ty);
+                    cam_imu_tz = latest_info.cam_imu_tz; Text("cam_imu_tz: %f", cam_imu_tz);
+                    Separator();
+                    Text("Red thresholds");
+                    Separator();
+                    r_g = latest_info.r_g; Text("r_g: %f", r_g);
+                    r_b = latest_info.r_b; Text("r_b: %f", r_b);
+                    r_n = latest_info.r_n; Text("r_n: %f", r_n);
+                    Separator();
+                    Text("Green thresholds");
+                    Separator();
+                    g_r = latest_info.g_r; Text("g_r: %f", g_r);
+                    g_b = latest_info.g_b; Text("g_b: %f", g_b);
+                    g_n = latest_info.g_n; Text("g_n: %f", g_n);
+                    Separator();
                 }
-                if (CollapsingHeader("Camera extrinsics"))
+                else
                 {
-                    DragFloat("cam_imu_rx", &cam_imu_rx);
-                    DragFloat("cam_imu_ry", &cam_imu_ry);
-                    DragFloat("cam_imu_rz", &cam_imu_rz);
-                    DragFloat("cam_imu_tx", &cam_imu_tx);
-                    DragFloat("cam_imu_ty", &cam_imu_ty);
-                    DragFloat("cam_imu_tz", &cam_imu_tz);
-                }
-                if (CollapsingHeader("Red thresholds"))
-                {
-                    DragFloat("red over green (r_g)", &r_g);
-                    DragFloat("red over blue (r_b)", &r_b);
-                    DragFloat("minimum brightness (r_n)", &r_n);
-                }
-                if (CollapsingHeader("Green thresholds"))
-                {
-                    DragFloat("green over red (g_r)", &g_r);
-                    DragFloat("green over blue (g_b)", &g_b);
-                    DragFloat("minimum brightness (g_n)", &g_n);
-                }
+                    if (CollapsingHeader("Camera intrinsics"))
+                    {
+                        DragFloat("camera_f", &camera_f);
+                        DragFloat("camera_u0", &camera_u0);
+                        DragFloat("camera_v0", &camera_v0);
+                    }
+                    if (CollapsingHeader("Camera extrinsics"))
+                    {
+                        DragFloat("cam_imu_rx", &cam_imu_rx);
+                        DragFloat("cam_imu_ry", &cam_imu_ry);
+                        DragFloat("cam_imu_rz", &cam_imu_rz);
+                        DragFloat("cam_imu_tx", &cam_imu_tx);
+                        DragFloat("cam_imu_ty", &cam_imu_ty);
+                        DragFloat("cam_imu_tz", &cam_imu_tz);
+                    }
+                    if (CollapsingHeader("Red thresholds"))
+                    {
+                        DragFloat("red over green (r_g)", &r_g);
+                        DragFloat("red over blue (r_b)", &r_b);
+                        DragFloat("minimum brightness (r_n)", &r_n);
+                    }
+                    if (CollapsingHeader("Green thresholds"))
+                    {
+                        DragFloat("green over red (g_r)", &g_r);
+                        DragFloat("green over blue (g_b)", &g_b);
+                        DragFloat("minimum brightness (g_n)", &g_n);
+                    }
 
-                static ros::Publisher pub_camera_f = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_f", 1);
-                static ros::Publisher pub_camera_u0 = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_u0", 1);
-                static ros::Publisher pub_camera_v0 = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_v0", 1);
-                static ros::Publisher pub_cam_imu_rx = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_rx", 1);
-                static ros::Publisher pub_cam_imu_ry = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_ry", 1);
-                static ros::Publisher pub_cam_imu_rz = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_rz", 1);
-                static ros::Publisher pub_cam_imu_tx = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_tx", 1);
-                static ros::Publisher pub_cam_imu_ty = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_ty", 1);
-                static ros::Publisher pub_cam_imu_tz = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_tz", 1);
-                static ros::Publisher pub_r_g = node.advertise<std_msgs::Float32>("/downward_target_debug/r_g", 1);
-                static ros::Publisher pub_r_b = node.advertise<std_msgs::Float32>("/downward_target_debug/r_b", 1);
-                static ros::Publisher pub_r_n = node.advertise<std_msgs::Float32>("/downward_target_debug/r_n", 1);
-                static ros::Publisher pub_g_r = node.advertise<std_msgs::Float32>("/downward_target_debug/g_r", 1);
-                static ros::Publisher pub_g_b = node.advertise<std_msgs::Float32>("/downward_target_debug/g_b", 1);
-                static ros::Publisher pub_g_n = node.advertise<std_msgs::Float32>("/downward_target_debug/g_n", 1);
+                    static ros::Publisher pub_camera_f = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_f", 1);
+                    static ros::Publisher pub_camera_u0 = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_u0", 1);
+                    static ros::Publisher pub_camera_v0 = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_v0", 1);
+                    static ros::Publisher pub_cam_imu_rx = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_rx", 1);
+                    static ros::Publisher pub_cam_imu_ry = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_ry", 1);
+                    static ros::Publisher pub_cam_imu_rz = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_rz", 1);
+                    static ros::Publisher pub_cam_imu_tx = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_tx", 1);
+                    static ros::Publisher pub_cam_imu_ty = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_ty", 1);
+                    static ros::Publisher pub_cam_imu_tz = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_tz", 1);
+                    static ros::Publisher pub_r_g = node.advertise<std_msgs::Float32>("/downward_target_debug/r_g", 1);
+                    static ros::Publisher pub_r_b = node.advertise<std_msgs::Float32>("/downward_target_debug/r_b", 1);
+                    static ros::Publisher pub_r_n = node.advertise<std_msgs::Float32>("/downward_target_debug/r_n", 1);
+                    static ros::Publisher pub_g_r = node.advertise<std_msgs::Float32>("/downward_target_debug/g_r", 1);
+                    static ros::Publisher pub_g_b = node.advertise<std_msgs::Float32>("/downward_target_debug/g_b", 1);
+                    static ros::Publisher pub_g_n = node.advertise<std_msgs::Float32>("/downward_target_debug/g_n", 1);
 
-                { std_msgs::Float32 msg; msg.data = camera_f; pub_camera_f.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = camera_u0; pub_camera_u0.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = camera_v0; pub_camera_v0.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = cam_imu_rx; pub_cam_imu_rx.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = cam_imu_ry; pub_cam_imu_ry.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = cam_imu_rz; pub_cam_imu_rz.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = cam_imu_tx; pub_cam_imu_tx.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = cam_imu_ty; pub_cam_imu_ty.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = cam_imu_tz; pub_cam_imu_tz.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = r_g; pub_r_g.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = r_b; pub_r_b.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = r_n; pub_r_n.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = g_r; pub_g_r.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = g_b; pub_g_b.publish(msg); }
-                { std_msgs::Float32 msg; msg.data = g_n; pub_g_n.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = camera_f; pub_camera_f.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = camera_u0; pub_camera_u0.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = camera_v0; pub_camera_v0.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = cam_imu_rx; pub_cam_imu_rx.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = cam_imu_ry; pub_cam_imu_ry.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = cam_imu_rz; pub_cam_imu_rz.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = cam_imu_tx; pub_cam_imu_tx.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = cam_imu_ty; pub_cam_imu_ty.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = cam_imu_tz; pub_cam_imu_tz.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = r_g; pub_r_g.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = r_b; pub_r_b.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = r_n; pub_r_n.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = g_r; pub_g_r.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = g_b; pub_g_b.publish(msg); }
+                    { std_msgs::Float32 msg; msg.data = g_n; pub_g_n.publish(msg); }
+                }
             }
+            End();
         }
-        End();
 
         BeginMainMenuBar();
         RadioButton("Default view", &mode, mode_see_tracks); SameLine();
