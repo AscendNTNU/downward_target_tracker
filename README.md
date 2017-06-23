@@ -51,9 +51,9 @@ for (int i = 0; i < msg.num_targets)
 }
 ```
 
-### Make sure everything isn't broken
+### Make sure things are working
 
-Compile and run the tracker.
+Compile and run the tracker (on the drone).
 ```
 $ rosrun downward_target_tracker tracker
 ```

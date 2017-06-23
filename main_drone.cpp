@@ -1,8 +1,8 @@
 #define DUMMY_IMAGE            1
 #define DEVICE_NAME            "/dev/video42"
 #define IMU_POSE_TOPIC         "/mavros/vision_pose/pose"
-#define INFO_PUBLISH_INTERVAL  (1.0f) // min. required seconds elapsed. set to zero to publish info (bounding boxes and detections) as fast as possible
-#define IMAGE_PUBLISH_INTERVAL (1.0f) // min. required seconds elapsed. set to zero to publish images as fast as possible
+#define INFO_PUBLISH_INTERVAL  0.0f // minimum required seconds between publications (set to zero to publish every frame)
+#define IMAGE_PUBLISH_INTERVAL 0.0f // minimum required seconds between publications (set to zero to publish every frame)
 
 // Camera rotation offset (R_cam^imu = Rz(cam_imu_rz)Ry(cam_imu_ry)Rx(cam_imu_rx)) [camera to imu frame]
 #define CAM_IMU_RX_INIT    0.0f
