@@ -52,16 +52,29 @@ int main(int, char **)
     {
         int Ix,Iy,Ic;
         unsigned char *I = stbi_load("C:/Temp/video800x600/video0156.jpg", &Ix, &Iy, &Ic, 3);
-        float rx = 0.0f;
-        float ry = 0.0f;
-        float rz = 0.0f;
-        float tx = 0.0f;
-        float ty = 0.0f;
-        float tz = 0.2f;
+        float cam_imu_rx = 0.0f;
+        float cam_imu_ry = 0.0f;
+        float cam_imu_rz = 0.0f;
+        float cam_imu_tx = 0.0f;
+        float cam_imu_ty = 0.0f;
+        float cam_imu_tz = 0.2f;
         float f = 434.0f;
         float u0 = 375.0f;
         float v0 = 275.0f;
 
+        float imu_rx = 0.0f;
+        float imu_ry = 0.0f;
+        float imu_rz = 0.0f;
+        float imu_tx = 0.0f;
+        float imu_ty = 0.0f;
+        float imu_tz = 0.2f;
+
+        int grid_x = 9;
+        int grid_y = 6;
+        float grid_w = 2.4f/100.0f;
+        bool use_mavros_pose = true;
+
+        #if 0
         const int num_points_x = 20;
         const int num_points_y = 20;
         const int num_points = num_points_x*num_points_y;
@@ -85,6 +98,7 @@ int main(int, char **)
         const int select_pixel = 1;
         int mode = select_point;
         int selected_point = -1;
+        #endif
 
         VDBB("Intrinsic calibration");
         {
@@ -92,10 +106,14 @@ int main(int, char **)
             vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR, GL_LINEAR);
             vdbDrawTexture2D(0);
 
-            mat3 R = m_rotz(rz)*m_roty(ry)*m_rotx(rx);
-            vec3 T = m_vec3(tx, ty, tz);
+            mat3 imu_rot = m_rotz(imu_rz)*m_roty(imu_ry)*m_rotx(imu_rx);
+            vec3 imu_pos = m_vec3(imu_tx, imu_ty, imu_tz);
+            mat3 cam_imu_rot = m_rotz(cam_imu_rz)*m_roty(cam_imu_ry)*m_rotx(cam_imu_rx);
+            vec3 cam_imu_pos = m_vec3(cam_imu_tx, cam_imu_ty, cam_imu_tz);
+            mat3 R = imu_rot*cam_imu_rot;
+            vec3 T = imu_pos + imu_rot*cam_imu_pos;
 
-            #if 1
+            #if 0
             bool left_click    = (!ImGui::GetIO().WantCaptureMouse && vdb__globals.input.left.pressed);
             bool left_down     = (!ImGui::GetIO().WantCaptureMouse && vdb__globals.input.left.down);
             bool left_released = (!ImGui::GetIO().WantCaptureMouse && vdb__globals.input.left.released);
@@ -178,51 +196,79 @@ int main(int, char **)
             }
             #endif
 
-            #if 0
+            #if 1
             vdbOrtho(0.0f, Ix, Iy, 0.0f);
             glLines(2.0f);
             glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
-            for (int i = 0; i < 20; i++)
-            for (int t = 0; t < 128; t++)
-            {
-                {
-                    float x1 = -1.0f + 2.0f*(t+0)/128.0f;
-                    float x2 = -1.0f + 2.0f*(t+1)/128.0f;
-                    float y = -1.0f + 2.0f*i/20.0f;
-                    vec3 p1 = m_transpose(R)*(m_vec3(x1, y, 0.0f) - T);
-                    vec3 p2 = m_transpose(R)*(m_vec3(x2, y, 0.0f) - T);
-                    vec2 s1 = camera_project(f, u0, v0, p1);
-                    vec2 s2 = camera_project(f, u0, v0, p2);
-                    glVertex2f(s1.x, s1.y);
-                    glVertex2f(s2.x, s2.y);
-                }
 
+            for (int xi = 0; xi <= grid_x; xi++)
+            {
+                float x = xi*grid_w;
+                for (int i = 0; i < 64; i++)
                 {
-                    float y1 = -1.0f + 2.0f*(t+0)/128.0f;
-                    float y2 = -1.0f + 2.0f*(t+1)/128.0f;
-                    float x = -1.0f + 2.0f*i/20.0f;
-                    vec3 p1 = m_transpose(R)*(m_vec3(x, y1, 0.0f) - T);
-                    vec3 p2 = m_transpose(R)*(m_vec3(x, y2, 0.0f) - T);
-                    vec2 s1 = camera_project(f, u0, v0, p1);
-                    vec2 s2 = camera_project(f, u0, v0, p2);
+                    float y1 = (i+0)*grid_y*grid_w/64.0f;
+                    float y2 = (i+1)*grid_y*grid_w/64.0f;
+                    vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y1, 0) - T));
+                    vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y2, 0) - T));
                     glVertex2f(s1.x, s1.y);
                     glVertex2f(s2.x, s2.y);
                 }
             }
+
+            for (int yi = 0; yi <= grid_y; yi++)
+            {
+                float y = yi*grid_w;
+                for (int i = 0; i < 64; i++)
+                {
+                    float x1 = (i+0)*grid_x*grid_w/64.0f;
+                    float x2 = (i+1)*grid_x*grid_w/64.0f;
+                    vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x1, y, 0) - T));
+                    vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x2, y, 0) - T));
+                    glVertex2f(s1.x, s1.y);
+                    glVertex2f(s2.x, s2.y);
+                }
+            }
+
             glEnd();
             #endif
 
-            SliderFloat("tx", &tx, -0.1f, +0.1f);
-            SliderFloat("ty", &ty, -0.1f, +0.1f);
-            SliderFloat("tz", &tz, 0.1f, +2.0f);
+            if (CollapsingHeader("Calibration pattern"))
+            {
+                grid_w *= 100.0f; DragFloat("cell width (cm)", &grid_w); grid_w /= 100.0f;
+                DragInt("cell count x", &grid_x);
+                DragInt("cell count y", &grid_y);
+            }
 
-            SliderFloat("rx", &rx, -0.1f, +0.1f);
-            SliderFloat("ry", &ry, -0.1f, +0.1f);
-            SliderFloat("rz", &rz, -0.1f, +0.1f);
+            if (CollapsingHeader("Camera relative IMU"))
+            {
+                cam_imu_tx *= 100.0f; SliderFloat("tx (cm)", &cam_imu_tx, -10.0f, +10.0f); cam_imu_tx /= 100.0f;
+                cam_imu_ty *= 100.0f; SliderFloat("ty (cm)", &cam_imu_ty, -10.0f, +10.0f); cam_imu_ty /= 100.0f;
+                cam_imu_tz *= 100.0f; SliderFloat("tz (cm)", &cam_imu_tz, -10.0f, +10.0f); cam_imu_tz /= 100.0f;
+                cam_imu_rx *= 180.0f/3.14f; SliderFloat("rx (deg)", &cam_imu_rx, -10.00f, +10.00f); cam_imu_rx *= 3.14f/180.0f;
+                cam_imu_ry *= 180.0f/3.14f; SliderFloat("ry (deg)", &cam_imu_ry, -10.00f, +10.00f); cam_imu_ry *= 3.14f/180.0f;
+                cam_imu_rz *= 180.0f/3.14f; SliderFloat("rz (deg)", &cam_imu_rz, -180.0f, +180.0f); cam_imu_rz *= 3.14f/180.0f;
+            }
 
-            DragFloat("f", &f);
-            DragFloat("u0", &u0);
-            DragFloat("v0", &v0);
+            if (CollapsingHeader("IMU relative pattern"))
+            {
+                Checkbox("Use published MAVROS pose", &use_mavros_pose);
+                if (!use_mavros_pose)
+                {
+                    imu_tx *= 100.0f; SliderFloat("tx (cm)##imu", &imu_tx, -100.0f, +100.0f); imu_tx /= 100.0f;
+                    imu_ty *= 100.0f; SliderFloat("ty (cm)##imu", &imu_ty, -100.0f, +100.0f); imu_ty /= 100.0f;
+                    imu_tz *= 100.0f; SliderFloat("tz (cm)##imu", &imu_tz,    1.0f, +100.0f); imu_tz /= 100.0f;
+                    imu_rx *= 180.0f/3.14f; SliderFloat("rx (deg)##imu", &imu_rx, -60.00f, +60.00f); imu_rx *= 3.14f/180.0f;
+                    imu_ry *= 180.0f/3.14f; SliderFloat("ry (deg)##imu", &imu_ry, -60.00f, +60.00f); imu_ry *= 3.14f/180.0f;
+                    imu_rz *= 180.0f/3.14f; SliderFloat("rz (deg)##imu", &imu_rz, -180.0f, +180.0f); imu_rz *= 3.14f/180.0f;
+                }
+            }
+
+            if (CollapsingHeader("Fisheye parameters"))
+            {
+                DragFloat("f", &f);
+                DragFloat("u0", &u0);
+                DragFloat("v0", &v0);
+            }
         }
         VDBE();
     }
