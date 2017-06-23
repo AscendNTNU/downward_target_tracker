@@ -1,5 +1,5 @@
 #define DUMMY_IMAGE            1
-#define DEVICE_NAME            "/dev/video42"
+#define DEVICE_NAME            "/dev/video1"
 #define IMU_POSE_TOPIC         "/mavros/vision_pose/pose"
 #define INFO_PUBLISH_INTERVAL  0.0f // minimum required seconds between publications (set to zero to publish every frame)
 #define IMAGE_PUBLISH_INTERVAL 0.0f // minimum required seconds between publications (set to zero to publish every frame)

@@ -1,6 +1,7 @@
 #include "vdb/vdb.h"
 #include <ros/ros.h>
 #include <std_msgs/Float32.h>
+#include <std_msgs/Int32.h>
 #include <downward_target_tracker/image.h>
 #include <downward_target_tracker/info.h>
 #include <downward_target_tracker/tracks.h>
@@ -92,7 +93,7 @@ int main(int argc, char **argv)
     ros::Subscriber sub_image  = node.subscribe("/downward_target_tracker/image", 1, callback_image);
     ros::Subscriber sub_info   = node.subscribe("/downward_target_tracker/info", 1, callback_info);
     ros::Subscriber sub_tracks = node.subscribe("/downward_target_tracker/tracks", 1, callback_tracks);
-    // ros::Publisher pub_selected = node.advertise
+    ros::Publisher pub_selected = node.advertise<std_msgs::Int32>("/downward_target_debug/selected", 1);
 
     int selected_id = -1;
 
@@ -258,15 +259,15 @@ int main(int argc, char **argv)
                 }
                 if (CollapsingHeader("Red thresholds"))
                 {
-                    DragFloat("red over green (r_g)", &r_g);
-                    DragFloat("red over blue (r_b)", &r_b);
-                    DragFloat("minimum brightness (r_n)", &r_n);
+                    SliderFloat("red over green (r_g)", &r_g, 1.0f, 10.0f);
+                    SliderFloat("red over blue (r_b)", &r_b, 1.0f, 10.0f);
+                    SliderFloat("minimum brightness (r_n)", &r_n, 0.0f, 255.0f);
                 }
                 if (CollapsingHeader("Green thresholds"))
                 {
-                    DragFloat("green over red (g_r)", &g_r);
-                    DragFloat("green over blue (g_b)", &g_b);
-                    DragFloat("minimum brightness (g_n)", &g_n);
+                    SliderFloat("green over red (g_r)", &g_r, 1.0f, 10.0f);
+                    SliderFloat("green over blue (g_b)", &g_b, 1.0f, 10.0f);
+                    SliderFloat("minimum brightness (g_n)", &g_n, 0.0f, 255.0f);
                 }
 
                 static ros::Publisher pub_camera_f = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_f", 1);
@@ -353,7 +354,16 @@ int main(int argc, char **argv)
             }
             suffix++;
         }
+        SameLine();
+        if (selected_id >= 0)
+            Text("Publishing %d", selected_id);
         EndMainMenuBar();
+
+        {
+            std_msgs::Int32 msg;
+            msg.data = selected_id;
+            pub_selected.publish(msg);
+        }
 
         ros::spinOnce();
     }
