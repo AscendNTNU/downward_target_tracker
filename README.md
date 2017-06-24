@@ -53,21 +53,6 @@ for (int i = 0; i < msg.num_targets)
 
 ### Make sure everything isn't broken
 
-Open ```main_drone.cpp``` and look at the top of the file. Change the parameters if you need to:
-* **DUMMY_IMAGE**: 0 - use camera, 1 - use a static image (embedded in source code)
-* **DEVICE_NAME**: Downward camera path
-* **IMU_POSE_TOPIC**: Topic on which the drone pose (relative grid) is published
-* **INFO_PUBLISH_INTERVAL**: Change this to limit how often debug visualization info is sent
-* **IMAGE_PUBLISH_INTERVAL**: Change this to limit how often camera image (compressed) is sent
-* **CAM_IMU_R..._INIT**: These define the rotation from camera coordinates to imu coordinates
-* **CAM_IMU_T..._INIT**: These define the camera center relative imu center, in imu coordinates
-* **R_..._INIT**: Color thresholds for 'red' classification
-* **G_..._INIT**: Color thresholds for 'green' classification
-* **CAMERA_WIDTH,HEIGHT**: Requested video resolution from usb camera
-* **CAMERA_BUFFERS**: Change this if video feed is choppy (see ```asc_usbcam.h```).
-* **CAMERA_LEVELS**: Don't change?
-* **CAMERA_F,U0,V0_INIT**: Fisheye projection parameters. Change if you change video resolution.
-
 Compile and run the tracker.
 ```
 $ rosrun downward_target_tracker tracker
@@ -78,17 +63,13 @@ Run the debugger (on your computer).
 $ rosrun downward_target_tracker debugger
 ```
 
-#### Testing if detector and tracker works
-
-If you are
+Then, with the main tab open in the debugger, if you are
 
 * looking at a target (red or green plate)
-* and you have the main tab open in the debugger,
-* and you are either standing ONE METER above the ground,
+* and you are either standing ONE METER above the ground at zero pitch and roll,
 * or you are publishing the drone pose,
-* and the pitch and roll are both zero in either case
 
-then you should see a non-empty list of targets, and a bounding box around the target. If you click at one of the entries, it will be highlighted (red color), and its unique id will be published at ```downward_target_debug/selected```.
+you should see a non-empty list of targets, and a bounding box around the target. Clicking one of the entries will highlight it in red, and its ID will be published at ```downward_target_debug/selected```.
 
 If not, we need to calibrate intrinsics, extrinsics (camera mounting point), or color thresholds.
 
@@ -99,7 +80,7 @@ If you need help, click the "Take a snapshot" button and send the files (snapsho
 1. Keep a red and green target plate in view.
 2. Click the "calibrate color" tab in debugger.
 3. Take snapshot and send to me, or adjust 'red' and 'green' thresholds until enough pixels are highlighted on both plates with as few outliers.
-4. Save the thresholds by updating ```R_G_INIT```, ```R_B_INIT```, ... etc.
+4. Save the thresholds (see below).
 
 #### Calibrate camera intrinsics
 
@@ -107,16 +88,35 @@ With the "calibrate camera" tab open:
 
 1. Point the camera at a [checkerboard](http://docs.opencv.org/2.4/_downloads/pattern.png)
 2. Take a snapshot and send to me; or keep the camera at a known rotation and translation from the checkerboard and try to adjust f, u0 and v0.
-3. Save parameters by updating ```CAMERA_F_INIT```, ... etc.
+3. Save parameters (see below).
 
 #### Calibrate camera extrinsics
 
 These define how the camera is rotated and translated relative to the IMU coordinate frame.
 
-If the only difference between them is a rotation about z, then you can set that directly with ```CAM_IMU_R_Z_INIT```.
+If the only difference between them is a rotation about z, then you can set that directly with ```CAM_IMU_R_Z_INIT``` (see below).
 
 Verify that things look correct by opening "calibrate camera" tab.
 
 1. Look at a grid pattern.
 2. Align drone axes with grid axes.
 3. Tilt the drone in either x or y axis, and verify that the visualized grid pattern matches with real-life.
+
+#### Parameters
+Open ```main_drone.cpp``` and look at the top of the file. Change the parameters if you need to:
+
+Parameter   | What
+------------|-----
+DUMMY_IMAGE | 0 will use USB camera; 1 will use a static image embedded in source code
+DEVICE_NAME | i.e. /dev/video1
+IMU_POSE_TOPIC | Topic on which drone pose relative grid is published
+INFO_PUBLISH_INTERVAL | Change this to limit how often debug visualization info is sent
+IMAGE_PUBLISH_INTERVAL | Change this to limit how often compressed camera image is sent (default is every frame)
+CAM_IMU_RX/Y/Z_INIT | Euler angles defining rotation from camera coordinates to imu coordinates
+CAM_IMU_TX/Y/Z_INIT | Camera center relative imu center in imu coordinates
+R_G/B/N_INIT | Color thresholds for 'red' classification (minimum red/green ratio, minimum red/blue ratio, and minimum average brightness)
+G_R/B/N_INIT | Color thresholds for 'green' classification (minimum green/red ratio, minimum green/blue ratio, and minimum average brightness)
+CAMERA_WIDTH/HEIGHT | Request video resolution from USB camera
+CAMERA_BUFFERS | This might need to be changed if output rate (see debugger) is less than 60 Hz
+CAMERA_LEVELS | Don't change?
+CAMERA_F/U0/V0_INIT | Fisheye projection parameters, depends on video resolution
