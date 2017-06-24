@@ -7,9 +7,6 @@
 #include <downward_target_tracker/tracks.h>
 #include <turbojpeg.h>
 #include "so_math.h"
-#include "view_rectify.cpp"
-#include "view_tracks.cpp"
-#include "view_color.cpp"
 
 struct latest_image_t
 {
@@ -19,6 +16,10 @@ struct latest_image_t
     int Ix;
     int Iy;
 };
+
+#include "view_rectify.cpp"
+#include "view_tracks.cpp"
+#include "view_color.cpp"
 
 latest_image_t latest_image = {0};
 downward_target_tracker::info latest_info;
