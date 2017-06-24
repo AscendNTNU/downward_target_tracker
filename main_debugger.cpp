@@ -205,6 +205,7 @@ int main(int argc, char **argv)
                 static float g_r = latest_info.g_r;
                 static float g_b = latest_info.g_b;
                 static float g_n = latest_info.g_n;
+                Text("Hold ALT key to adjust slowly");
                 if (CollapsingHeader("Camera intrinsics"))
                 {
                     DragFloat("camera_f", &camera_f);
@@ -213,12 +214,14 @@ int main(int argc, char **argv)
                 }
                 if (CollapsingHeader("Camera extrinsics"))
                 {
-                    DragFloat("cam_imu_rx", &cam_imu_rx);
-                    DragFloat("cam_imu_ry", &cam_imu_ry);
-                    DragFloat("cam_imu_rz", &cam_imu_rz);
-                    DragFloat("cam_imu_tx", &cam_imu_tx);
-                    DragFloat("cam_imu_ty", &cam_imu_ty);
-                    DragFloat("cam_imu_tz", &cam_imu_tz);
+                    Text("Euler angles defining rotation from camera coordinates to imu coordinates");
+                    cam_imu_rx *= 180.0f/3.14f; DragFloat("cam_imu_rx (deg)", &cam_imu_rx); cam_imu_rx *= 3.14f/180.0f;
+                    cam_imu_ry *= 180.0f/3.14f; DragFloat("cam_imu_ry (deg)", &cam_imu_ry); cam_imu_ry *= 3.14f/180.0f;
+                    cam_imu_rz *= 180.0f/3.14f; DragFloat("cam_imu_rz (deg)", &cam_imu_rz); cam_imu_rz *= 3.14f/180.0f;
+                    Text("Camera center relative imu center in imu coordinates");
+                    cam_imu_tx *= 100.0f; DragFloat("cam_imu_tx (cm)", &cam_imu_tx); cam_imu_tx /= 100.0f;
+                    cam_imu_ty *= 100.0f; DragFloat("cam_imu_ty (cm)", &cam_imu_ty); cam_imu_ty /= 100.0f;
+                    cam_imu_tz *= 100.0f; DragFloat("cam_imu_tz (cm)", &cam_imu_tz); cam_imu_tz /= 100.0f;
                 }
                 if (CollapsingHeader("Red thresholds"))
                 {

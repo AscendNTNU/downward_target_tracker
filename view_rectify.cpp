@@ -1,51 +1,5 @@
 #include <math.h>
 
-void bilinear(unsigned char *src, int w, int h, float x, float y, unsigned char *r, unsigned char *g, unsigned char *b)
-{
-    int x0 = (int)floorf(x);
-    int x1 = (int)ceilf(x);
-    int y0 = (int)floorf(y);
-    int y1 = (int)ceilf(y);
-    if (x0 < 0) x0 = 0;
-    if (x0 > w-1) x0 = w-1;
-    if (x1 < 0) x1 = 0;
-    if (x1 > w-1) x1 = w-1;
-    if (y0 < 0) y0 = 0;
-    if (y0 > h-1) y0 = h-1;
-    if (y1 < 0) y1 = 0;
-    if (y1 > h-1) y1 = h-1;
-
-    unsigned char r00 = src[(y0*w+x0)*3+0];
-    unsigned char r10 = src[(y0*w+x1)*3+0];
-    unsigned char r01 = src[(y1*w+x0)*3+0];
-    unsigned char r11 = src[(y1*w+x1)*3+0];
-
-    unsigned char g00 = src[(y0*w+x0)*3+1];
-    unsigned char g10 = src[(y0*w+x1)*3+1];
-    unsigned char g01 = src[(y1*w+x0)*3+1];
-    unsigned char g11 = src[(y1*w+x1)*3+1];
-
-    unsigned char b00 = src[(y0*w+x0)*3+2];
-    unsigned char b10 = src[(y0*w+x1)*3+2];
-    unsigned char b01 = src[(y1*w+x0)*3+2];
-    unsigned char b11 = src[(y1*w+x1)*3+2];
-
-    float dx = x-x0;
-    float dy = y-y0;
-
-    unsigned char r0 = r00 + (r10-r00)*dx;
-    unsigned char r1 = r01 + (r11-r01)*dx;
-    *r = r0 + (r1-r0)*dy;
-
-    unsigned char g0 = g00 + (g10-g00)*dx;
-    unsigned char g1 = g01 + (g11-g01)*dx;
-    *g = g0 + (g1-g0)*dy;
-
-    unsigned char b0 = b00 + (b10-b00)*dx;
-    unsigned char b1 = b01 + (b11-b01)*dx;
-    *b = b0 + (b1-b0)*dy;
-}
-
 void project_pinhole(float f, float u0, float v0, vec3 p)
 {
     float u = u0 - f*p.x/p.z;
@@ -53,263 +7,103 @@ void project_pinhole(float f, float u0, float v0, vec3 p)
     glVertex2f(u, v);
 }
 
-void view_rectify(unsigned char *I, int Ix, int Iy, float f_f, float u0_f, float v0_f, mat3 rot, vec3 pos)
-// rot: R_cam^world
-// pos: T_cam/world^world
+void view_rectify(latest_image_t latest_image, downward_target_tracker::info latest_info)
 {
-    if (!I)
+    using namespace ImGui;
+    if (!latest_image.I)
         return;
 
-    #if 1
-    const int Rx = 400;
-    const int Ry = 300;
-    static unsigned char R[Rx*Ry*3];
+    float f = latest_info.camera_f*latest_image.Ix/latest_info.camera_w;
+    float u0 = latest_info.camera_u0*latest_image.Ix/latest_info.camera_w;
+    float v0 = latest_info.camera_v0*latest_image.Ix/latest_info.camera_w;
+    float cam_imu_rx = latest_info.cam_imu_rx;
+    float cam_imu_ry = latest_info.cam_imu_ry;
+    float cam_imu_rz = latest_info.cam_imu_rz;
+    float cam_imu_tx = latest_info.cam_imu_tx;
+    float cam_imu_ty = latest_info.cam_imu_ty;
+    float cam_imu_tz = latest_info.cam_imu_tz;
 
-    static float yfov_p = 160.0f*3.14f/180.0f;
-    float f_p = Ry / tanf(yfov_p/2.0f);
-    float u0_p = Rx/2.0f;
-    float v0_p = Ry/2.0f;
+    unsigned char *I = latest_image.I;
+    int Ix = latest_image.Ix;
+    int Iy = latest_image.Iy;
 
-    // find center point in camera projected onto the ground
-    vec3 center_ground;
-    {
-        vec3 dir = rot*m_vec3(0.0f, 0.0f, -1.0f);
-        center_ground = pos + (-pos.z / dir.z)*dir;
-    }
-    vec3 pos_p = m_vec3(center_ground.x, center_ground.y, 1.0f);
-    mat3 irot = m_transpose(rot);
+    static bool use_mavros_imu_rx = true;  static float imu_rx = 0.0f;
+    static bool use_mavros_imu_ry = true;  static float imu_ry = 0.0f;
+    static bool use_mavros_imu_rz = true;  static float imu_rz = 0.0f;
+    static bool use_mavros_imu_tx = true;  static float imu_tx = 0.0f;
+    static bool use_mavros_imu_ty = true;  static float imu_ty = 0.0f;
+    static bool use_mavros_imu_tz = false; static float imu_tz = 1.0f;
+    if (use_mavros_imu_rx) imu_rx = latest_info.imu_rx;
+    if (use_mavros_imu_ry) imu_ry = latest_info.imu_ry;
+    if (use_mavros_imu_rz) imu_rz = latest_info.imu_rz;
+    if (use_mavros_imu_tx) imu_tx = latest_info.imu_tx;
+    if (use_mavros_imu_ty) imu_ty = latest_info.imu_ty;
+    if (use_mavros_imu_tz) imu_tz = latest_info.imu_tz;
 
-    // render what we would have seen as if we had a pinhole camera
-    // looking down at the ground center point from pos_p
-    for (int v = 0; v < Ry; v++)
-    for (int u = 0; u < Rx; u++)
-    {
-        // find the ray going through pixel (u,v) in the ideal pinhole
-        vec3 dir;
-        {
-            float f = f_p;
-            float u0 = u0_p;
-            float v0 = v0_p;
+    static int grid_x = 9;
+    static int grid_y = 6;
+    static float grid_w = 1.0f;
 
-            float ff = f*f;
-            float du = (u - u0);
-            float dv = (v0 - v);
-            float rr = du*du + dv*dv;
-            if (rr < 0.00001f)
-            {
-                dir.x = 0.0f;
-                dir.y = 0.0f;
-                dir.z = -1.0f;
-            }
-            else
-            {
-                float r = sqrtf(rr);
-                float cosphi = du/r;
-                float sinphi = dv/r;
-                float costheta = 1.0f / sqrtf(1.0f + rr/ff);
-                float sintheta = (r/f) / sqrtf(1.0f + rr/ff);
-                dir.x = sintheta*cosphi;
-                dir.y = sintheta*sinphi;
-                dir.z = -costheta;
-            }
-        }
-
-        // intersect that ray with the ground
-        vec3 p = pos_p + (-pos_p.z / dir.z)*dir;
-
-        // transform the intersection point into the space of the fisheye camera
-        p = irot*(p - pos);
-
-        // project that point onto the fisheye camera image
-        float u_src, v_src;
-        {
-            float f = f_f;
-            float u0 = u0_f;
-            float v0 = v0_f;
-            float x = p.x;
-            float y = p.y;
-            float z = p.z;
-            float l = sqrtf(x*x+y*y);
-            if (l < 0.001f)
-            {
-                u_src = u0_f;
-                v_src = v0_f;
-            }
-            else
-            {
-                float t = atanf(-l/z);
-                float r = f*t;
-                u_src = u0_f + r*x/l;
-                v_src = v0_f - r*y/l;
-            }
-        }
-
-        // lookup the color in the image, if inside, set to black otherwise
-        if (u_src >= 0.0f && u_src <= Ix && v_src >= 0.0f && v_src <= Iy)
-        {
-            unsigned char cr,cg,cb;
-            bilinear(I, Ix, Iy, u_src, v_src, &cr, &cg, &cb);
-            R[(u + v*Rx)*3 + 0] = cr;
-            R[(u + v*Rx)*3 + 1] = cg;
-            R[(u + v*Rx)*3 + 2] = cb;
-        }
-        else
-        {
-            R[(u + v*Rx)*3 + 0] = 0;
-            R[(u + v*Rx)*3 + 1] = 0;
-            R[(u + v*Rx)*3 + 2] = 0;
-        }
-    }
+    mat3 imu_rot = m_rotz(imu_rz)*m_roty(imu_ry)*m_rotx(imu_rx);
+    vec3 imu_pos = m_vec3(imu_tx, imu_ty, imu_tz);
+    mat3 cam_imu_rot = m_rotz(cam_imu_rz)*m_roty(cam_imu_ry)*m_rotx(cam_imu_rx);
+    vec3 cam_imu_pos = m_vec3(cam_imu_tx, cam_imu_ty, cam_imu_tz);
+    mat3 R = imu_rot*cam_imu_rot;
+    vec3 T = imu_pos + imu_rot*cam_imu_pos;
 
     vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
-    vdbSetTexture2D(0, R, Rx, Ry, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
+    vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR, GL_LINEAR);
     vdbDrawTexture2D(0);
-    #else
 
-    const int Rx = 256;
-    const int Ry = 256;
-    static vec2 texels[Rx*Ry];
+    vdbOrtho(0.0f, Ix, Iy, 0.0f);
+    glLines(2.0f);
+    glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
 
-    static float yfov_p = 160.0f*3.14f/180.0f;
-    float f_p = Ry / tanf(yfov_p/2.0f);
-    float u0_p = Rx/2.0f;
-    float v0_p = Ry/2.0f;
-
-    // find center point in camera projected onto the ground
-    vec3 center_ground;
+    for (int xi = 0; xi <= grid_x; xi++)
     {
-        vec3 dir = rot*m_vec3(0.0f, 0.0f, -1.0f);
-        center_ground = pos + (-pos.z / dir.z)*dir;
-    }
-    vec3 pos_p = m_vec3(center_ground.x, center_ground.y, 1.0f);
-    mat3 irot = m_transpose(rot);
-
-    // render what we would have seen as if we had a pinhole camera
-    // looking down at the ground center point from pos_p
-    for (int v = 0; v < Ry; v++)
-    for (int u = 0; u < Rx; u++)
-    {
-        // find the ray going through pixel (u,v) in the ideal pinhole
-        vec3 dir;
+        float x = xi*grid_w;
+        for (int i = 0; i < 64; i++)
         {
-            float f = f_p;
-            float u0 = u0_p;
-            float v0 = v0_p;
-
-            float ff = f*f;
-            float du = (u - u0);
-            float dv = (v0 - v);
-            float rr = du*du + dv*dv;
-            if (rr < 0.00001f)
-            {
-                dir.x = 0.0f;
-                dir.y = 0.0f;
-                dir.z = -1.0f;
-            }
-            else
-            {
-                float r = sqrtf(rr);
-                float cosphi = du/r;
-                float sinphi = dv/r;
-                float costheta = 1.0f / sqrtf(1.0f + rr/ff);
-                float sintheta = (r/f) / sqrtf(1.0f + rr/ff);
-                dir.x = sintheta*cosphi;
-                dir.y = sintheta*sinphi;
-                dir.z = -costheta;
-            }
+            float y1 = (i+0)*grid_y*grid_w/64.0f;
+            float y2 = (i+1)*grid_y*grid_w/64.0f;
+            vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y1, 0) - T));
+            vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y2, 0) - T));
+            glVertex2f(s1.x, s1.y);
+            glVertex2f(s2.x, s2.y);
         }
+    }
 
-        // intersect that ray with the ground
-        vec3 p = pos_p + (-pos_p.z / dir.z)*dir;
-
-        // transform the intersection point into the space of the fisheye camera
-        p = irot*(p - pos);
-
-        // project that point onto the fisheye camera image
-        float u_src, v_src;
+    for (int yi = 0; yi <= grid_y; yi++)
+    {
+        float y = yi*grid_w;
+        for (int i = 0; i < 64; i++)
         {
-            float f = f_f;
-            float u0 = u0_f;
-            float v0 = v0_f;
-            float x = p.x;
-            float y = p.y;
-            float z = p.z;
-            float l = sqrtf(x*x+y*y);
-            if (l < 0.001f)
-            {
-                u_src = u0_f;
-                v_src = v0_f;
-            }
-            else
-            {
-                float t = atanf(-l/z);
-                float r = f*t;
-                u_src = u0_f + r*x/l;
-                v_src = v0_f - r*y/l;
-            }
+            float x1 = (i+0)*grid_x*grid_w/64.0f;
+            float x2 = (i+1)*grid_x*grid_w/64.0f;
+            vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x1, y, 0) - T));
+            vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x2, y, 0) - T));
+            glVertex2f(s1.x, s1.y);
+            glVertex2f(s2.x, s2.y);
         }
-
-        texels[u + v*Rx].x = u_src/Ix;
-        texels[u + v*Rx].y = 1.0f - v_src/Iy;
     }
 
-    vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
-    vdbOrtho(0, Rx, 0, Ry);
-    glEnable(GL_TEXTURE_2D);
-    vdbBindTexture2D(0);
-    {
-        float color[] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
-    }
-    glBegin(GL_TRIANGLES);
-    for (int v = 0; v < Ry-1; v++)
-    for (int u = 0; u < Rx-1; u++)
-    {
-        float s1 = texels[u + v*Rx].x;
-        float t1 = texels[u + v*Rx].y;
-        float s2 = texels[u+1 + v*Rx].x;
-        float t2 = texels[u + (v+1)*Rx].y;
-        glColor4f(1,1,1,1); glTexCoord2f(s1,t1); glVertex2f(u,v);
-        glColor4f(1,1,1,1); glTexCoord2f(s2,t1); glVertex2f(u+1,v);
-        glColor4f(1,1,1,1); glTexCoord2f(s2,t2); glVertex2f(u+1,v+1);
-        glColor4f(1,1,1,1); glTexCoord2f(s2,t2); glVertex2f(u+1,v+1);
-        glColor4f(1,1,1,1); glTexCoord2f(s1,t2); glVertex2f(u,v+1);
-        glColor4f(1,1,1,1); glTexCoord2f(s1,t1); glVertex2f(u,v);
-    }
     glEnd();
-    glDisable(GL_TEXTURE_2D);
 
-    #endif
 
-    #if 0
-    {
-        vdbOrtho(0.0f, Rx, Ry, 0.0f);
-        glLines(2.0f);
-        glColor4f(1.0f, 0.2f, 0.1f, 1.0f);
-        vec3 p11 = m_vec3(-0.5f, -0.5f, -pos_p.z);
-        vec3 p21 = m_vec3(+0.5f, -0.5f, -pos_p.z);
-        vec3 p22 = m_vec3(+0.5f, +0.5f, -pos_p.z);
-        vec3 p12 = m_vec3(-0.5f, +0.5f, -pos_p.z);
-        project_pinhole(f_p,u0_p,v0_p, p11); project_pinhole(f_p,u0_p,v0_p, p21);
-        project_pinhole(f_p,u0_p,v0_p, p21); project_pinhole(f_p,u0_p,v0_p, p22);
-        project_pinhole(f_p,u0_p,v0_p, p22); project_pinhole(f_p,u0_p,v0_p, p12);
-        project_pinhole(f_p,u0_p,v0_p, p12); project_pinhole(f_p,u0_p,v0_p, p11);
-        glEnd();
-    }
-
-    {
-        vdbOrtho(0.0, 1.0f, 0.0f, 1.0f);
-        glLines(2.0f);
-        glColor4f(1.0f, 0.2f, 0.1f, 1.0f); glVertex2f(0.05f, 0.05f); glVertex2f(0.1f, 0.05f);
-        glColor4f(0.1f, 1.0f, 0.2f, 1.0f); glVertex2f(0.05f, 0.05f); glVertex2f(0.05f, 0.1f);
-        glEnd();
-    }
-    #endif
-
-    ImGui::Begin("README");
-    ImGui::Text("Adjust parameters until\n"
-                "a) lines look straight (intrinsics)\n"
-                "b) ground is not pitched or rolled (extrinsics)");
-    ImGui::SliderFloat("Zoom in/out", &yfov_p, 0.0f, 3.0f);
-    ImGui::End();
+    Begin("Calibration");
+    Text("Calibration pattern:");
+    grid_w *= 100.0f; DragFloat("cell width (cm)", &grid_w); grid_w /= 100.0f;
+    DragInt("cell count x", &grid_x);
+    DragInt("cell count y", &grid_y);
+    Separator();
+    Text("Drone origin relative grid origin in grid coordinates");
+    imu_tx *= 100.0f; SliderFloat("tx (cm)##imu", &imu_tx, -100.0f, +100.0f); imu_tx /= 100.0f; SameLine(); Checkbox("##imu_tx", &use_mavros_imu_tx);
+    imu_ty *= 100.0f; SliderFloat("ty (cm)##imu", &imu_ty, -100.0f, +100.0f); imu_ty /= 100.0f; SameLine(); Checkbox("##imu_ty", &use_mavros_imu_ty);
+    imu_tz *= 100.0f; SliderFloat("tz (cm)##imu", &imu_tz,    1.0f, +100.0f); imu_tz /= 100.0f; SameLine(); Checkbox("##imu_tz", &use_mavros_imu_tz);
+    Text("Drone frame relative grid frame");
+    imu_rx *= 180.0f/3.14f; SliderFloat("rx (deg)##imu", &imu_rx, -60.00f, +60.00f); imu_rx *= 3.14f/180.0f; SameLine(); Checkbox("##imu_rx", &use_mavros_imu_rx);
+    imu_ry *= 180.0f/3.14f; SliderFloat("ry (deg)##imu", &imu_ry, -60.00f, +60.00f); imu_ry *= 3.14f/180.0f; SameLine(); Checkbox("##imu_ry", &use_mavros_imu_ry);
+    imu_rz *= 180.0f/3.14f; SliderFloat("rz (deg)##imu", &imu_rz, -180.0f, +180.0f); imu_rz *= 3.14f/180.0f; SameLine(); Checkbox("##imu_rz", &use_mavros_imu_rz);
+    Text("Untick the checkbox to manually control a value");
+    End();
 }

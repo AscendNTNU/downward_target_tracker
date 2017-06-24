@@ -140,16 +140,19 @@ int main(int, char **)
 
             if (CollapsingHeader("IMU relative pattern"))
             {
-                Checkbox("Use published MAVROS pose", &use_mavros_pose);
-                if (!use_mavros_pose)
-                {
-                    imu_tx *= 100.0f; SliderFloat("tx (cm)##imu", &imu_tx, -100.0f, +100.0f); imu_tx /= 100.0f;
-                    imu_ty *= 100.0f; SliderFloat("ty (cm)##imu", &imu_ty, -100.0f, +100.0f); imu_ty /= 100.0f;
-                    imu_tz *= 100.0f; SliderFloat("tz (cm)##imu", &imu_tz,    1.0f, +100.0f); imu_tz /= 100.0f;
-                    imu_rx *= 180.0f/3.14f; SliderFloat("rx (deg)##imu", &imu_rx, -60.00f, +60.00f); imu_rx *= 3.14f/180.0f;
-                    imu_ry *= 180.0f/3.14f; SliderFloat("ry (deg)##imu", &imu_ry, -60.00f, +60.00f); imu_ry *= 3.14f/180.0f;
-                    imu_rz *= 180.0f/3.14f; SliderFloat("rz (deg)##imu", &imu_rz, -180.0f, +180.0f); imu_rz *= 3.14f/180.0f;
-                }
+                Text("Untick the checkbox to manually control a value");
+                static bool use_mavros_imu_tx = true;
+                static bool use_mavros_imu_ty = true;
+                static bool use_mavros_imu_tz = true;
+                static bool use_mavros_imu_rx = true;
+                static bool use_mavros_imu_ry = true;
+                static bool use_mavros_imu_rz = true;
+                imu_tx *= 100.0f; SliderFloat("tx (cm)##imu", &imu_tx, -100.0f, +100.0f); imu_tx /= 100.0f; SameLine(); Checkbox("##imu_tx", &use_mavros_imu_tx);
+                imu_ty *= 100.0f; SliderFloat("ty (cm)##imu", &imu_ty, -100.0f, +100.0f); imu_ty /= 100.0f; SameLine(); Checkbox("##imu_ty", &use_mavros_imu_ty);
+                imu_tz *= 100.0f; SliderFloat("tz (cm)##imu", &imu_tz,    1.0f, +100.0f); imu_tz /= 100.0f; SameLine(); Checkbox("##imu_tz", &use_mavros_imu_tz);
+                imu_rx *= 180.0f/3.14f; SliderFloat("rx (deg)##imu", &imu_rx, -60.00f, +60.00f); imu_rx *= 3.14f/180.0f; SameLine(); Checkbox("##imu_rx", &use_mavros_imu_rx);
+                imu_ry *= 180.0f/3.14f; SliderFloat("ry (deg)##imu", &imu_ry, -60.00f, +60.00f); imu_ry *= 3.14f/180.0f; SameLine(); Checkbox("##imu_ry", &use_mavros_imu_ry);
+                imu_rz *= 180.0f/3.14f; SliderFloat("rz (deg)##imu", &imu_rz, -180.0f, +180.0f); imu_rz *= 3.14f/180.0f; SameLine(); Checkbox("##imu_rz", &use_mavros_imu_rz);
             }
 
             if (CollapsingHeader("Fisheye parameters"))
