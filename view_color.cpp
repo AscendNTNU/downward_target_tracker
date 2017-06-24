@@ -1,9 +1,20 @@
 #include "asc_detector.h"
 
-void view_color(unsigned char *I, int Ix, int Iy,
-                float r_g, float r_b, float r_n,
-                float g_r, float g_b, float g_n)
+void view_color(latest_image_t latest_image, downward_target_tracker::info latest_info)
 {
+    unsigned char *I = latest_image.I;
+    int Ix = latest_image.Ix;
+    int Iy = latest_image.Iy;
+    float r_g = latest_info.r_g;
+    float r_b = latest_info.r_b;
+    float r_n = latest_info.r_n;
+    float g_r = latest_info.g_r;
+    float g_b = latest_info.g_b;
+    float g_n = latest_info.g_n;
+    vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
+    vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
+    vdbDrawTexture2D(0);
+
     // Find connected components belonging of top plate sections
     int *points;
     int num_points;

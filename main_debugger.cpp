@@ -178,49 +178,12 @@ int main(int argc, char **argv)
 
         if (latest_image.I && mode == mode_color_calibration)
         {
-            unsigned char *I = latest_image.I;
-            int Ix = latest_image.Ix;
-            int Iy = latest_image.Iy;
-            float r_g = latest_info.r_g;
-            float r_b = latest_info.r_b;
-            float r_n = latest_info.r_n;
-            float g_r = latest_info.g_r;
-            float g_b = latest_info.g_b;
-            float g_n = latest_info.g_n;
-            vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
-            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
-            vdbDrawTexture2D(0);
-            view_color(I, Ix, Iy, r_g, r_b, r_n, g_r, g_b, g_n);
+            view_color(latest_image, latest_info);
         }
 
         if (latest_image.I && mode == mode_camera_calibration)
         {
-            float f = latest_info.camera_f*latest_image.Ix/latest_info.camera_w;
-            float u0 = latest_info.camera_u0*latest_image.Ix/latest_info.camera_w;
-            float v0 = latest_info.camera_v0*latest_image.Ix/latest_info.camera_w;
-            unsigned char *I = latest_image.I;
-            int Ix = latest_image.Ix;
-            int Iy = latest_image.Iy;
-            float cam_imu_rx = latest_info.cam_imu_rx;
-            float cam_imu_ry = latest_info.cam_imu_ry;
-            float cam_imu_rz = latest_info.cam_imu_rz;
-            float cam_imu_tx = latest_info.cam_imu_tx;
-            float cam_imu_ty = latest_info.cam_imu_ty;
-            float cam_imu_tz = latest_info.cam_imu_tz;
-            float imu_rx = latest_info.imu_rx;
-            float imu_ry = latest_info.imu_ry;
-            float imu_rz = latest_info.imu_rz;
-            float imu_tx = latest_info.imu_tx;
-            float imu_ty = latest_info.imu_ty;
-            float imu_tz = latest_info.imu_tz;
-
-            mat3 imu_rot = m_rotz(imu_rz)*m_roty(imu_ry)*m_rotx(imu_rx);
-            vec3 imu_pos = m_vec3(imu_tx, imu_ty, imu_tz);
-            mat3 cam_imu_rot = m_rotz(cam_imu_rz)*m_roty(cam_imu_ry)*m_rotx(cam_imu_rx);
-            vec3 cam_imu_pos = m_vec3(cam_imu_tx, cam_imu_ty, cam_imu_tz);
-            mat3 cam_rot = imu_rot*cam_imu_rot;
-            vec3 cam_pos = imu_pos + imu_rot*cam_imu_pos;
-            view_rectify(I, Ix, Iy, f, u0, v0, cam_rot, cam_pos);
+            view_rectify(latest_image, latest_info);
         }
 
         if (latest_image.I && (mode == mode_color_calibration || mode == mode_camera_calibration))

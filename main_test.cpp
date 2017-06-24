@@ -51,7 +51,7 @@ int main(int, char **)
 {
     {
         int Ix,Iy,Ic;
-        unsigned char *I = stbi_load("C:/Temp/video800x600/video0156.jpg", &Ix, &Iy, &Ic, 3);
+        unsigned char *I = stbi_load("C:/Temp/video800x600/video0299.jpg", &Ix, &Iy, &Ic, 3);
         float cam_imu_rx = 0.0f;
         float cam_imu_ry = 0.0f;
         float cam_imu_rz = 0.0f;
@@ -74,32 +74,6 @@ int main(int, char **)
         float grid_w = 2.4f/100.0f;
         bool use_mavros_pose = true;
 
-        #if 0
-        const int num_points_x = 20;
-        const int num_points_y = 20;
-        const int num_points = num_points_x*num_points_y;
-        int num_pixels = 0;
-        vec3 points[num_points];
-        vec2 pixels[num_points];
-        bool matched[num_points] = {0};
-
-        for (int i = 0; i < num_points; i++)
-            matched[i] = false;
-
-        for (int xi = 0; xi < num_points_x; xi++)
-        for (int yi = 0; yi < num_points_y; yi++)
-        {
-            float x = -1.0f + 2.0f*xi/num_points_x;
-            float y = -1.0f + 2.0f*yi/num_points_y;
-            points[xi + yi*num_points_x] = m_vec3(x, y, 0.0f);
-        }
-
-        const int select_point = 0;
-        const int select_pixel = 1;
-        int mode = select_point;
-        int selected_point = -1;
-        #endif
-
         VDBB("Intrinsic calibration");
         {
             vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
@@ -113,90 +87,6 @@ int main(int, char **)
             mat3 R = imu_rot*cam_imu_rot;
             vec3 T = imu_pos + imu_rot*cam_imu_pos;
 
-            #if 0
-            bool left_click    = (!ImGui::GetIO().WantCaptureMouse && vdb__globals.input.left.pressed);
-            bool left_down     = (!ImGui::GetIO().WantCaptureMouse && vdb__globals.input.left.down);
-            bool left_released = (!ImGui::GetIO().WantCaptureMouse && vdb__globals.input.left.released);
-            if (mode == select_point)
-            {
-                vdbOrtho(0, Ix, Iy, 0);
-                glPoints(12.0f);
-                for (int i = 0; i < num_points; i++)
-                {
-                    vec2 s = camera_project(f, u0, v0, m_transpose(R)*(points[i]-T));
-                    if (vdbMap(s.x, s.y))
-                    {
-                        if (left_click)
-                        {
-                            selected_point = i;
-                            mode = select_pixel;
-                        }
-                        glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
-                    }
-                    else
-                    {
-                        glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
-                    }
-                    glVertex2f(s.x, s.y);
-                }
-                glEnd();
-
-                glLines(2.0f);
-                glColor4f(1.0f, 1.0f, 0.2f, 0.8f);
-                for (int i = 0; i < num_points; i++)
-                {
-                    if (matched[i])
-                    {
-                        vec2 s = camera_project(f, u0, v0, m_transpose(R)*(points[i]-T));
-                        glVertex2f(s.x, s.y);
-                        glVertex2f(pixels[i].x, pixels[i].y);
-                    }
-                }
-                glEnd();
-            }
-            else if (mode == select_pixel)
-            {
-                int i = selected_point;
-                vec2 s = camera_project(f, u0, v0, m_transpose(R)*(points[i]-T));
-                #define u_to_x(U) (-1.0f + 2.0f*(U)/Ix)
-                #define v_to_y(V) (-1.0f + 2.0f*(V)/Iy)
-                float x0 = u_to_x(s.x - 64.0f);
-                float x1 = u_to_x(s.x + 64.0f);
-                float y0 = v_to_y(s.y - 64.0f);
-                float y1 = v_to_y(s.y + 64.0f);
-                vdbOrtho(x0, x1, y1, y0);
-                vdbDrawTexture2D(0);
-
-                glPoints(8.0f);
-                glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
-                glVertex2f(u_to_x(s.x), v_to_y(s.y));
-                glEnd();
-
-                #define ndc_x_to_x(NDC_X) (x0 + (x1-x0)*(0.5f+0.5f*(NDC_X)))
-                #define ndc_y_to_y(NDC_Y) (y1 + (y0-y1)*(0.5f+0.5f*(NDC_Y)))
-                #define x_to_u(X) (0.5f*(X + 1.0f)*Ix)
-                #define y_to_v(Y) (0.5f*(Y + 1.0f)*Iy)
-                #define ndc_x_to_u(NDC_X) x_to_u(ndc_x_to_x(NDC_X))
-                #define ndc_y_to_v(NDC_Y) y_to_v(ndc_y_to_y(NDC_Y))
-                vec2 t;
-                t.x = ndc_x_to_u(vdb_input.mouse.u);
-                t.y = ndc_y_to_v(vdb_input.mouse.v);
-
-                glLines(2.0f);
-                glVertex2f(u_to_x(s.x), v_to_y(s.y));
-                glVertex2f(u_to_x(t.x), v_to_y(t.y));
-                glEnd();
-
-                if (left_click)
-                {
-                    matched[i] = true;
-                    pixels[i] = t;
-                    mode = select_point;
-                }
-            }
-            #endif
-
-            #if 1
             vdbOrtho(0.0f, Ix, Iy, 0.0f);
             glLines(2.0f);
             glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
@@ -230,7 +120,6 @@ int main(int, char **)
             }
 
             glEnd();
-            #endif
 
             if (CollapsingHeader("Calibration pattern"))
             {
