@@ -154,7 +154,7 @@ tracks_t track_targets(track_targets_opt_t opt)
     const int minimum_count = 50;             // Minimum number of pixels inside connected component to be accepted
     const float detection_rate_period = 0.2f; // Time interval used to compute detection rate (hits per second)
     const float frames_per_second = 60.0f;    // Framerate used to normalize detection rate (corresponds to max hits per second)
-    const int velocity_averaging_window = 60; // Number of past position measurements used to compute velocity
+    const int velocity_averaging_window = 30; // Number of past position measurements used to compute velocity
 
     // requirements for a color detection to be valid
     const float min_aspect_ratio = 0.2f;      // A detection must be sufficiently square (aspect ~ 1)
@@ -444,6 +444,61 @@ tracks_t track_targets(track_targets_opt_t opt)
         targets[i].detection_rate = detection_rate;
 
         // Update velocity
+        #if 0
+        {
+            detection_t *window = targets[i].window;
+            float dx_sum = 0.0f;
+            float dy_sum = 0.0f;
+            float t2_sum = 0.0f;
+            for (int k = 1; k < targets[i].num_window && k < velocity_averaging_window; k++)
+            {
+                float dx = window[0].x - window[k].x;
+                float dy = window[0].y - window[k].y;
+                float dt = window[0].t - window[k].t;
+                float ds = sqrtf(dx*dx + dy*dy) / dt;
+                dx_sum += dx*dt;
+                dy_sum += dy*dt;
+                t2_sum += dt*dt;
+            }
+            float dx = dx_sum/t2_sum;
+            float dy = dy_sum/t2_sum;
+            targets[i].velocity_x = dx;
+            targets[i].velocity_y = dy;
+        }
+        #endif
+
+        #if 1
+        {
+            detection_t *window = targets[i].window;
+            if (targets[i].num_window < velocity_averaging_window)
+            {
+                targets[i].velocity_x = 0.0f;
+                targets[i].velocity_y = 0.0f;
+            }
+            else
+            {
+                float dx_sum = 0.0f;
+                float dy_sum = 0.0f;
+                float t2_sum = 0.0f;
+                for (int k = 1; k < targets[i].num_window && k < velocity_averaging_window; k++)
+                {
+                    float dx = window[0].x - window[k].x;
+                    float dy = window[0].y - window[k].y;
+                    float dt = window[0].t - window[k].t;
+                    float ds = sqrtf(dx*dx + dy*dy) / dt;
+                    dx_sum += dx*dt;
+                    dy_sum += dy*dt;
+                    t2_sum += dt*dt;
+                }
+                float dx = dx_sum/t2_sum;
+                float dy = dy_sum/t2_sum;
+                targets[i].velocity_x = dx;
+                targets[i].velocity_y = dy;
+            }
+        }
+        #endif
+
+        #if 0
         {
             detection_t *window = targets[i].window;
             float dx_sum = 0.0f;
@@ -463,6 +518,7 @@ tracks_t track_targets(track_targets_opt_t opt)
             targets[i].velocity_x = dx;
             targets[i].velocity_y = dy;
         }
+        #endif
     }
 
     // Add new tracks
