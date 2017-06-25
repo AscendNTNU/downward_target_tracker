@@ -103,7 +103,7 @@ int main(int, char **)
     }
 
     int skip_count = 1;
-    for (int log_index = 1600; log_index < log_length; log_index+=skip_count)
+    for (int log_index = 1000; log_index < log_length; log_index+=skip_count)
     // for (int log_index = 0; log_index < log_length; log_index+=skip_count)
     {
         if (!poses_ok[video_i[log_index]])

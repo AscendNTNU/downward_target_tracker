@@ -2,7 +2,7 @@
 #include "asc_detector.h"
 const int detection_window_count = 60;
 const int past_velocity_count = 5*60; // 5 seconds * 60 fps = 300 frames
-const int velocity_averaging_window = 60; // Interval of detections used to compute velocity
+const int velocity_averaging_window = 30; // Interval of detections used to compute velocity
                                           // => need atleast this many detections before computing velocity
 
 struct detection_t
@@ -25,6 +25,7 @@ struct target_t
     float velocity_y;
 
     int num_past_velocity;
+    float velocity_e;
     float past_velocity_x[past_velocity_count];
     float past_velocity_y[past_velocity_count];
     float past_velocity_t[past_velocity_count];
@@ -158,10 +159,19 @@ float fit_zero(detection_t *window, int n)
     if (n == 0)
         return FLT_MAX;
     float e = 0.0f;
+    float cx = 0.0f;
+    float cy = 0.0f;
     for (int i = 0; i < n; i++)
     {
-        float dx = window[0].x - window[i].x;
-        float dy = window[0].y - window[i].y;
+        cx += window[i].x;
+        cy += window[i].y;
+    }
+    cx /= n;
+    cy /= n;
+    for (int i = 0; i < n; i++)
+    {
+        float dx = window[i].x - cx;
+        float dy = window[i].y - cy;
         e += dx*dx + dy*dy;
     }
     return e/n;
@@ -203,7 +213,6 @@ float fit_direction(detection_t *window, int n, float *out_vx, float *out_vy)
         float dy = window[i].y - (window[n-1].y + speed*vy*dt/vs);
         e += dx*dx + dy*dy;
     }
-    e += (vs - 0.33f)*(vs - 0.33f);
     return e/n;
 }
 
@@ -235,11 +244,13 @@ void update_target_with_detection(target_t *target, detection_t detection)
         const int m_zero_nz = 0;
         const int m_nz_zero = 1;
         const int m_all_nz = 2;
+        const int m_all_zero = 3;
         int m_best = m_zero_nz;
         int k_best = 0;
 
+        #if 1
         // IS ZERO. WAS NONZERO.
-        for (int k = 10; k < velocity_averaging_window-10; k++)
+        for (int k = 20; k < velocity_averaging_window-20; k++)
         {
             int nk = velocity_averaging_window-k;
             float vx,vy;
@@ -254,9 +265,11 @@ void update_target_with_detection(target_t *target, detection_t detection)
                 m_best = m_zero_nz;
             }
         }
+        #endif
 
+        #if 1
         // IS NONZERO. WAS ZERO.
-        for (int k = 10; k < velocity_averaging_window-10; k++)
+        for (int k = 20; k < velocity_averaging_window-20; k++)
         {
             int nk = velocity_averaging_window-k;
             float vx,vy;
@@ -272,7 +285,9 @@ void update_target_with_detection(target_t *target, detection_t detection)
                 k_best = k;
             }
         }
+        #endif
 
+        #if 1
         // ALL NONZERO.
         {
             float vx,vy;
@@ -283,6 +298,19 @@ void update_target_with_detection(target_t *target, detection_t detection)
                 vy_best = vy;
                 e_best = e;
                 m_best = m_all_nz;
+            }
+        }
+        #endif
+
+        // ALL ZERO
+        {
+            float e = fit_zero(window, velocity_averaging_window);
+            if (e < e_best)
+            {
+                vx_best = 0.0f;
+                vy_best = 0.0f;
+                e_best = e;
+                m_best = m_all_zero;
             }
         }
 
@@ -318,7 +346,23 @@ void update_target_with_detection(target_t *target, detection_t detection)
                     target->past_velocity_x[k] = vx_best;
                     target->past_velocity_y[k] = vy_best;
                 }
-                for (int k = k_best; k < past_velocity_count; k++)
+                for (int k = k_best; k < velocity_averaging_window; k++)
+                {
+                    target->past_velocity_x[k] = 0.0f;
+                    target->past_velocity_y[k] = 0.0f;
+                }
+            }
+            else if (m_best == m_all_nz) // ALL NONZERO
+            {
+                for (int k = 0; k < velocity_averaging_window; k++)
+                {
+                    target->past_velocity_x[k] = vx_best;
+                    target->past_velocity_y[k] = vy_best;
+                }
+            }
+            else if (m_best == m_all_zero) // ALL ZERO
+            {
+                for (int k = 0; k < velocity_averaging_window; k++)
                 {
                     target->past_velocity_x[k] = 0.0f;
                     target->past_velocity_y[k] = 0.0f;
@@ -326,8 +370,91 @@ void update_target_with_detection(target_t *target, detection_t detection)
             }
         }
 
+        target->velocity_e = e_best;
         target->velocity_x = vx_best;
         target->velocity_y = vy_best;
+
+        VDBB("Track");
+        {
+            float x = target->last_seen.x;
+            float y = target->last_seen.y;
+            float vx = target->velocity_x;
+            float vy = target->velocity_y;
+
+            Text("%f", e_best);
+            Text("all zero: %f", fit_zero(window, velocity_averaging_window));
+
+            vdbClear(0.73, 0.73, 0.73, 1.0);
+
+            {
+                float aspect = (float)vdb_input.width/vdb_input.height;
+                float cx = (int)(x/4.0f)*4.0f;
+                float cy = (int)(y/4.0f)*4.0f;
+                vdbOrtho(cx-1.5f*aspect, cx+1.5f*aspect, cy-1.5f, cy+1.5f);
+                glLines(1.0f);
+                glColor4f(0,0,0,1);
+                vdbGridXY(cx-4, cx+4, cy-4, cy+4, 8);
+                glEnd();
+            }
+
+            glLines(2.0f);
+            glColor4f(0,0,0,1);
+            glVertex2f(x, y);
+            glVertex2f(x+vx, y+vy);
+            glEnd();
+
+            glBegin(GL_TRIANGLES);
+            glColor4f(0,0,0,0.5);
+            vdbFillCircle(x, y, 0.15f);
+            glEnd();
+
+            glLines(2.0f);
+            glColor4f(0,0,0,1);
+            for (int j = 0; j < target->num_window-1; j++)
+            {
+                float x1 = window[j].x;
+                float y1 = window[j].y;
+                float x2 = window[j+1].x;
+                float y2 = window[j+1].y;
+                glVertex2f(x1,y1);
+                glVertex2f(x2,y2);
+            }
+            glEnd();
+
+            glPoints(2.0f);
+            for (int j = 0; j < target->num_window-1; j++)
+            {
+                int n = target->num_window;
+                float dt = window[j].t - window[n-1].t;
+                float vs = sqrtf(vx*vx + vy*vy);
+                float x = window[n-1].x + 0.33f*vx*dt/vs;
+                float y = window[n-1].y + 0.33f*vy*dt/vs;
+                glVertex2f(x,y);
+            }
+            glEnd();
+
+            // Begin("Histories");
+            // for (int i = 0; i < num_targets; i++)
+            // {
+            //     float past_speed[past_velocity_count];
+            //     for (int k = 0; k < targets[i].num_past_velocity; k++)
+            //     {
+            //         float vx = targets[i].past_velocity_x[k];
+            //         float vy = targets[i].past_velocity_y[k];
+            //         past_speed[k] = sqrtf(vx*vx + vy*vy);
+            //     }
+            //     char id[1024];
+            //     sprintf(id, "##speed_%d", i);
+            //     Text("%f", targets[i].velocity_e);
+            //     if (targets[i].num_past_velocity > 0)
+            //         PlotLines(id, past_speed, targets[i].num_past_velocity, 0, NULL, 0.0f, 0.35f, ImVec2(0,150));
+            // }
+            // End();
+
+            if (vdbKeyDown(SPACE))
+                vdbStepOnce();
+        }
+        VDBE();
     }
     #endif
 
