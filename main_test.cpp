@@ -384,6 +384,7 @@ int main(int, char **)
                     }
                     {
                         static float past_speed[past_velocity_count];
+                        float *past_times = targets[i].past_velocity_t;
                         for (int j = 0; j < past_velocity_count; j++)
                         {
                             float vx = targets[i].past_velocity_x[j];
@@ -393,7 +394,10 @@ int main(int, char **)
                         char label[1024];
                         sprintf(label, "##plot_target_%d", targets[i].unique_id);
                         if (targets[i].num_past_velocity > 0)
-                        PlotLines(label, past_speed, targets[i].num_past_velocity, 0, NULL, 0.0f, 0.4f, ImVec2(0,80));
+                        {
+                            PlotLines(label, past_speed, targets[i].num_past_velocity, 0, NULL, 0.0f, 0.4f, ImVec2(0,50));
+                            PlotLines(label, past_times, targets[i].num_past_velocity, 0, NULL, FLT_MAX, FLT_MAX, ImVec2(0,50));
+                        }
                     }
                     End();
                 }
