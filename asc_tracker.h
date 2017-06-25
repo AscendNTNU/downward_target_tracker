@@ -1,6 +1,6 @@
 #include "so_math.h"
 #include "asc_detector.h"
-const int detection_window_count = 60;
+const int detection_window_count = 5*60; // 5 seconds * 60 fps = 300 frames
 
 struct detection_t
 {
@@ -208,6 +208,8 @@ tracks_t track_targets(track_targets_opt_t opt)
     const int minimum_count = 50;             // Minimum number of pixels inside connected component to be accepted
     const float detection_rate_period = 0.2f; // Time interval used to compute detection rate (hits per second)
     const float frames_per_second = 60.0f;    // Framerate used to normalize detection rate (corresponds to max hits per second)
+    const int velocity_averaging_window = 60; // Interval of detections used to compute velocity
+                                              // => need atleast this many detections before computing velocity
 
     // requirements for a color detection to be valid
     const float min_aspect_ratio = 0.2f;      // A detection must be sufficiently square (aspect ~ 1)
@@ -523,7 +525,7 @@ tracks_t track_targets(track_targets_opt_t opt)
         #if 1
         {
             detection_t *window = targets[i].window;
-            if (targets[i].num_window < detection_window_count)
+            if (targets[i].num_window < velocity_averaging_window)
             {
                 targets[i].velocity_x = 0.0f;
                 targets[i].velocity_y = 0.0f;
@@ -535,9 +537,9 @@ tracks_t track_targets(track_targets_opt_t opt)
                 float vy_best = 0.0f;
 
                 // is zero, was non-zero
-                for (int k = 10; k < detection_window_count-10; k++)
+                for (int k = 10; k < velocity_averaging_window-10; k++)
                 {
-                    int nk = detection_window_count-k;
+                    int nk = velocity_averaging_window-k;
                     float vx,vy;
                     float e1 = fit_zero(window, k);
                     float e2 = fit_direction(window+k, nk, &vx, &vy);
@@ -551,9 +553,9 @@ tracks_t track_targets(track_targets_opt_t opt)
                 }
 
                 // is non-zero, was zero
-                for (int k = 10; k < detection_window_count-10; k++)
+                for (int k = 10; k < velocity_averaging_window-10; k++)
                 {
-                    int nk = detection_window_count-k;
+                    int nk = velocity_averaging_window-k;
                     float vx,vy;
                     float e1 = fit_direction(window, k, &vx, &vy);
                     float e2 = fit_zero(window+k, nk);
@@ -569,7 +571,7 @@ tracks_t track_targets(track_targets_opt_t opt)
                 // all non-zero
                 {
                     float vx,vy;
-                    float e = fit_direction(window, detection_window_count, &vx, &vy);
+                    float e = fit_direction(window, velocity_averaging_window, &vx, &vy);
                     if (e < e_best)
                     {
                         vx_best = vx;
