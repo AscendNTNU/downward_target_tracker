@@ -2,6 +2,8 @@
 #include "asc_detector.h"
 const int detection_window_count = 60;
 const int velocity_window_count = 5*60; // 5 seconds * 60 fps = 300 frames
+const int velocity_averaging_window = 60; // Interval of detections used to compute velocity
+                                          // => need atleast this many detections before computing velocity
 
 struct detection_t
 {
@@ -207,6 +209,158 @@ float fit_direction(detection_t *window, int n, float *out_vx, float *out_vy)
 
 #define rshift(X, COUNT) { for (int LOOPVAR = (COUNT)-1; LOOPVAR > 0; LOOPVAR--) { (X)[LOOPVAR] = (X)[LOOPVAR-1]; } }
 
+void update_target_with_detection(target_t *target, detection_t detection)
+{
+    target->last_seen = detection;
+
+    // Update window of detections with latest detection
+    rshift(target->window, detection_window_count);
+    target->window[0] = detection;
+    if (target->num_window < detection_window_count)
+        target->num_window++;
+
+    // Update velocity
+    #if 1
+    detection_t *window = target->window;
+    if (target->num_window < velocity_averaging_window)
+    {
+        target->velocity_x = 0.0f;
+        target->velocity_y = 0.0f;
+    }
+    else
+    {
+        float e_best = FLT_MAX;
+        float vx_best = 0.0f;
+        float vy_best = 0.0f;
+        const int m_zero_nz = 0;
+        const int m_nz_zero = 1;
+        const int m_all_nz = 2;
+        int m_best = m_zero_nz;
+        int k_best = 0;
+
+        // is zero, was non-zero
+        for (int k = 10; k < velocity_averaging_window-10; k++)
+        {
+            int nk = velocity_averaging_window-k;
+            float vx,vy;
+            float e1 = fit_zero(window, k);
+            float e2 = fit_direction(window+k, nk, &vx, &vy);
+            float e = e1 + e2;
+            if (e < e_best)
+            {
+                vx_best = 0.0f;
+                vy_best = 0.0f;
+                e_best = e;
+                m_best = m_zero_nz;
+            }
+        }
+
+        // is non-zero, was zero
+        for (int k = 10; k < velocity_averaging_window-10; k++)
+        {
+            int nk = velocity_averaging_window-k;
+            float vx,vy;
+            float e1 = fit_direction(window, k, &vx, &vy);
+            float e2 = fit_zero(window+k, nk);
+            float e = e1 + e2;
+            if (e < e_best)
+            {
+                vx_best = vx;
+                vy_best = vy;
+                e_best = e;
+                m_best = m_nz_zero;
+                k_best = k;
+            }
+        }
+
+        // all non-zero
+        {
+            float vx,vy;
+            float e = fit_direction(window, velocity_averaging_window, &vx, &vy);
+            if (e < e_best)
+            {
+                vx_best = vx;
+                vy_best = vy;
+                e_best = e;
+                m_best = m_all_nz;
+            }
+        }
+
+        // update past velocities
+        {
+            if (target->num_past_velocity == 0)
+                target->num_past_velocity = velocity_averaging_window;
+
+            rshift(target->past_velocity_x, velocity_window_count);
+            rshift(target->past_velocity_y, velocity_window_count);
+            rshift(target->past_velocity_t, velocity_window_count);
+            if (target->num_past_velocity < velocity_window_count)
+                target->num_past_velocity++;
+
+            // write latest window into velocity history
+            if (m_best == m_zero_nz) // is zero, was non-zero
+            {
+                for (int k = 0; k < k_best; k++)
+                {
+                    target->past_velocity_x[k] = 0.0f;
+                    target->past_velocity_y[k] = 0.0f;
+                }
+                for (int k = k_best; k < velocity_averaging_window; k++)
+                {
+                    target->past_velocity_x[k] = vx_best;
+                    target->past_velocity_y[k] = vy_best;
+                }
+            }
+            else if (m_best == m_nz_zero) // is non-zero, was zero
+            {
+                for (int k = 0; k < k_best; k++)
+                {
+                    target->past_velocity_x[k] = vx_best;
+                    target->past_velocity_y[k] = vy_best;
+                }
+                for (int k = k_best; k < velocity_window_count; k++)
+                {
+                    target->past_velocity_x[k] = 0.0f;
+                    target->past_velocity_y[k] = 0.0f;
+                }
+            }
+        }
+
+        target->velocity_x = vx_best;
+        target->velocity_y = vy_best;
+    }
+    #endif
+
+    #if 0
+    detection_t *window = target->window;
+    if (target->num_window < velocity_averaging_window)
+    {
+        target->velocity_x = 0.0f;
+        target->velocity_y = 0.0f;
+    }
+    else
+    {
+        float dx_sum = 0.0f;
+        float dy_sum = 0.0f;
+        float t2_sum = 0.0f;
+        for (int k = 1; k < target->num_window && k < velocity_averaging_window; k++)
+        {
+            float dx = window[0].x - window[k].x;
+            float dy = window[0].y - window[k].y;
+            float dt = window[0].t - window[k].t;
+            float ds = sqrtf(dx*dx + dy*dy) / dt;
+            dx_sum += dx*dt;
+            dy_sum += dy*dt;
+            t2_sum += dt*dt;
+        }
+        float dx = dx_sum/t2_sum;
+        float dy = dy_sum/t2_sum;
+        target->velocity_x = dx;
+        target->velocity_y = dy;
+    }
+    #endif
+}
+
 tracks_t track_targets(track_targets_opt_t opt)
 {
     const int max_targets = 1024;
@@ -216,8 +370,6 @@ tracks_t track_targets(track_targets_opt_t opt)
     const int minimum_count = 50;             // Minimum number of pixels inside connected component to be accepted
     const float detection_rate_period = 0.2f; // Time interval used to compute detection rate (hits per second)
     const float frames_per_second = 60.0f;    // Framerate used to normalize detection rate (corresponds to max hits per second)
-    const int velocity_averaging_window = 60; // Interval of detections used to compute velocity
-                                              // => need atleast this many detections before computing velocity
 
     // requirements for a color detection to be valid
     const float min_aspect_ratio = 0.2f;      // A detection must be sufficiently square (aspect ~ 1)
@@ -474,13 +626,7 @@ tracks_t track_targets(track_targets_opt_t opt)
         // If the detection was sufficiently close we are reobserving the target
         if (reobserving)
         {
-            targets[i].last_seen = detection;
-
-            // Update window of detections with latest detection
-            rshift(targets[i].window, detection_window_count);
-            targets[i].window[0] = detection;
-            if (targets[i].num_window < detection_window_count)
-                targets[i].num_window++;
+            update_target_with_detection(&targets[i], detection);
         }
 
         // Update detection rate
@@ -495,198 +641,6 @@ tracks_t track_targets(track_targets_opt_t opt)
             detection_rate = (hits/detection_rate_period) / frames_per_second;
         }
         targets[i].detection_rate = detection_rate;
-
-        // Update velocity
-        #if 0
-        {
-            detection_t *window = targets[i].window;
-            float dx_sum = 0.0f;
-            float dy_sum = 0.0f;
-            float t2_sum = 0.0f;
-            for (int k = 1; k < targets[i].num_window && k < velocity_averaging_window; k++)
-            {
-                float dx = window[0].x - window[k].x;
-                float dy = window[0].y - window[k].y;
-                float dt = window[0].t - window[k].t;
-                float ds = sqrtf(dx*dx + dy*dy) / dt;
-                dx_sum += dx*dt;
-                dy_sum += dy*dt;
-                t2_sum += dt*dt;
-            }
-            float dx = dx_sum/t2_sum;
-            float dy = dy_sum/t2_sum;
-            targets[i].velocity_x = dx;
-            targets[i].velocity_y = dy;
-        }
-        #endif
-
-        #if 1
-        {
-            detection_t *window = targets[i].window;
-            if (targets[i].num_window < velocity_averaging_window)
-            {
-                targets[i].velocity_x = 0.0f;
-                targets[i].velocity_y = 0.0f;
-            }
-            else
-            {
-                float e_best = FLT_MAX;
-                float vx_best = 0.0f;
-                float vy_best = 0.0f;
-                const int m_zero_nz = 0;
-                const int m_nz_zero = 1;
-                const int m_all_nz = 2;
-                int m_best = m_zero_nz;
-                int k_best = 0;
-
-                // is zero, was non-zero
-                for (int k = 10; k < velocity_averaging_window-10; k++)
-                {
-                    int nk = velocity_averaging_window-k;
-                    float vx,vy;
-                    float e1 = fit_zero(window, k);
-                    float e2 = fit_direction(window+k, nk, &vx, &vy);
-                    float e = e1 + e2;
-                    if (e < e_best)
-                    {
-                        vx_best = 0.0f;
-                        vy_best = 0.0f;
-                        e_best = e;
-                        m_best = m_zero_nz;
-                    }
-                }
-
-                // is non-zero, was zero
-                for (int k = 10; k < velocity_averaging_window-10; k++)
-                {
-                    int nk = velocity_averaging_window-k;
-                    float vx,vy;
-                    float e1 = fit_direction(window, k, &vx, &vy);
-                    float e2 = fit_zero(window+k, nk);
-                    float e = e1 + e2;
-                    if (e < e_best)
-                    {
-                        vx_best = vx;
-                        vy_best = vy;
-                        e_best = e;
-                        m_best = m_nz_zero;
-                        k_best = k;
-                    }
-                }
-
-                // all non-zero
-                {
-                    float vx,vy;
-                    float e = fit_direction(window, velocity_averaging_window, &vx, &vy);
-                    if (e < e_best)
-                    {
-                        vx_best = vx;
-                        vy_best = vy;
-                        e_best = e;
-                        m_best = m_all_nz;
-                    }
-                }
-
-                #if 0
-                // update past velocities
-                {
-                    if (targets[i].num_past_velocity == 0)
-                        targets[i].num_past_velocity = velocity_averaging_window;
-
-                    rshift(targets[i].past_velocity_x, velocity_window_count);
-                    rshift(targets[i].past_velocity_y, velocity_window_count);
-                    rshift(targets[i].past_velocity_t, velocity_window_count);
-                    if (targets[i].num_past_velocity < velocity_window_count)
-                        targets[i].num_past_velocity++;
-
-                    // write latest window into velocity history
-                    if (m_best == m_zero_nz) // is zero, was non-zero
-                    {
-                        for (int k = 0; k < k_best; k++)
-                        {
-                            targets[i].past_velocity_x[k] = 0.0f;
-                            targets[i].past_velocity_y[k] = 0.0f;
-                        }
-                        for (int k = k_best; k < velocity_averaging_window; k++)
-                        {
-                            targets[i].past_velocity_x[k] = vx_best;
-                            targets[i].past_velocity_y[k] = vy_best;
-                        }
-                    }
-                    else if (m_best == m_nz_zero) // is non-zero, was zero
-                    {
-                        for (int k = 0; k < k_best; k++)
-                        {
-                            targets[i].past_velocity_x[k] = vx_best;
-                            targets[i].past_velocity_y[k] = vy_best;
-                        }
-                        for (int k = k_best; k < velocity_window_count; k++)
-                        {
-                            targets[i].past_velocity_x[k] = 0.0f;
-                            targets[i].past_velocity_y[k] = 0.0f;
-                        }
-                    }
-                }
-                #endif
-
-                targets[i].velocity_x = vx_best;
-                targets[i].velocity_y = vy_best;
-            }
-        }
-        #endif
-
-        #if 0
-        {
-            detection_t *window = targets[i].window;
-            if (targets[i].num_window < velocity_averaging_window)
-            {
-                targets[i].velocity_x = 0.0f;
-                targets[i].velocity_y = 0.0f;
-            }
-            else
-            {
-                float dx_sum = 0.0f;
-                float dy_sum = 0.0f;
-                float t2_sum = 0.0f;
-                for (int k = 1; k < targets[i].num_window && k < velocity_averaging_window; k++)
-                {
-                    float dx = window[0].x - window[k].x;
-                    float dy = window[0].y - window[k].y;
-                    float dt = window[0].t - window[k].t;
-                    float ds = sqrtf(dx*dx + dy*dy) / dt;
-                    dx_sum += dx*dt;
-                    dy_sum += dy*dt;
-                    t2_sum += dt*dt;
-                }
-                float dx = dx_sum/t2_sum;
-                float dy = dy_sum/t2_sum;
-                targets[i].velocity_x = dx;
-                targets[i].velocity_y = dy;
-            }
-        }
-        #endif
-
-        #if 0
-        {
-            detection_t *window = targets[i].window;
-            float dx_sum = 0.0f;
-            float dy_sum = 0.0f;
-            int sum_n = 0;
-            for (int k = 1; k < targets[i].num_window && k < velocity_averaging_window; k++)
-            {
-                float dx = window[0].x - window[k].x;
-                float dy = window[0].y - window[k].y;
-                float dt = window[0].t - window[k].t;
-                dx_sum += dx/dt;
-                dy_sum += dy/dt;
-                sum_n++;
-            }
-            float dx = dx_sum/sum_n;
-            float dy = dy_sum/sum_n;
-            targets[i].velocity_x = dx;
-            targets[i].velocity_y = dy;
-        }
-        #endif
     }
 
     // Add new tracks
