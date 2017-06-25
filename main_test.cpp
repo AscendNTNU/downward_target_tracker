@@ -492,6 +492,24 @@ int main(int, char **)
                     }
                     glEnd();
                 }
+
+                Begin("Histories");
+                for (int i = 0; i < num_targets; i++)
+                {
+                    float past_speed[past_velocity_count];
+                    for (int k = 0; k < targets[i].num_past_velocity; k++)
+                    {
+                        float vx = targets[i].past_velocity_x[k];
+                        float vy = targets[i].past_velocity_y[k];
+                        past_speed[k] = sqrtf(vx*vx + vy*vy);
+                    }
+                    char id[1024];
+                    sprintf(id, "##speed_%d", i);
+                    Text("%d", targets[i].num_past_velocity);
+                    if (targets[i].num_past_velocity > 0)
+                        PlotLines(id, past_speed, targets[i].num_past_velocity, 0, NULL, FLT_MAX, FLT_MAX, ImVec2(400,300));
+                }
+                End();
             }
 
             if (vdbKeyDown(SPACE))

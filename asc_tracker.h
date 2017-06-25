@@ -1,7 +1,7 @@
 #include "so_math.h"
 #include "asc_detector.h"
 const int detection_window_count = 60;
-const int velocity_window_count = 5*60; // 5 seconds * 60 fps = 300 frames
+const int past_velocity_count = 5*60; // 5 seconds * 60 fps = 300 frames
 const int velocity_averaging_window = 60; // Interval of detections used to compute velocity
                                           // => need atleast this many detections before computing velocity
 
@@ -25,9 +25,9 @@ struct target_t
     float velocity_y;
 
     int num_past_velocity;
-    float past_velocity_x[velocity_window_count];
-    float past_velocity_y[velocity_window_count];
-    float past_velocity_t[velocity_window_count];
+    float past_velocity_x[past_velocity_count];
+    float past_velocity_y[past_velocity_count];
+    float past_velocity_t[past_velocity_count];
 };
 
 struct tracks_t
@@ -238,7 +238,7 @@ void update_target_with_detection(target_t *target, detection_t detection)
         int m_best = m_zero_nz;
         int k_best = 0;
 
-        // is zero, was non-zero
+        // IS ZERO. WAS NONZERO.
         for (int k = 10; k < velocity_averaging_window-10; k++)
         {
             int nk = velocity_averaging_window-k;
@@ -255,7 +255,7 @@ void update_target_with_detection(target_t *target, detection_t detection)
             }
         }
 
-        // is non-zero, was zero
+        // IS NONZERO. WAS ZERO.
         for (int k = 10; k < velocity_averaging_window-10; k++)
         {
             int nk = velocity_averaging_window-k;
@@ -273,7 +273,7 @@ void update_target_with_detection(target_t *target, detection_t detection)
             }
         }
 
-        // all non-zero
+        // ALL NONZERO.
         {
             float vx,vy;
             float e = fit_direction(window, velocity_averaging_window, &vx, &vy);
@@ -286,19 +286,19 @@ void update_target_with_detection(target_t *target, detection_t detection)
             }
         }
 
-        // update past velocities
+        // UPDATE PAST VELOCITIES
         {
+            rshift(target->past_velocity_x, past_velocity_count);
+            rshift(target->past_velocity_y, past_velocity_count);
+            rshift(target->past_velocity_t, past_velocity_count);
+
             if (target->num_past_velocity == 0)
                 target->num_past_velocity = velocity_averaging_window;
-
-            rshift(target->past_velocity_x, velocity_window_count);
-            rshift(target->past_velocity_y, velocity_window_count);
-            rshift(target->past_velocity_t, velocity_window_count);
-            if (target->num_past_velocity < velocity_window_count)
+            else if (target->num_past_velocity < past_velocity_count)
                 target->num_past_velocity++;
 
             // write latest window into velocity history
-            if (m_best == m_zero_nz) // is zero, was non-zero
+            if (m_best == m_zero_nz) // IS ZERO. WAS NONZERO.
             {
                 for (int k = 0; k < k_best; k++)
                 {
@@ -311,14 +311,14 @@ void update_target_with_detection(target_t *target, detection_t detection)
                     target->past_velocity_y[k] = vy_best;
                 }
             }
-            else if (m_best == m_nz_zero) // is non-zero, was zero
+            else if (m_best == m_nz_zero) // IS NONZERO. WAS ZERO.
             {
                 for (int k = 0; k < k_best; k++)
                 {
                     target->past_velocity_x[k] = vx_best;
                     target->past_velocity_y[k] = vy_best;
                 }
-                for (int k = k_best; k < velocity_window_count; k++)
+                for (int k = k_best; k < past_velocity_count; k++)
                 {
                     target->past_velocity_x[k] = 0.0f;
                     target->past_velocity_y[k] = 0.0f;
@@ -657,6 +657,7 @@ tracks_t track_targets(track_targets_opt_t opt)
                 t.detection_rate = 0.0f;
                 t.velocity_x = 0.0f;
                 t.velocity_y = 0.0f;
+                t.num_past_velocity = 0;
                 targets[num_targets] = t;
                 num_targets++;
             }
