@@ -172,7 +172,7 @@ int main(int, char **)
         {
             const int mode_draw_image = 0;
             const int mode_draw_world = 1;
-            static int mode = mode_draw_image;
+            static int mode = mode_draw_world;
 
             SliderInt("skip_count", &skip_count, 1, 16);
             SliderInt("log_index", &log_index, 0, log_length-1);
@@ -376,6 +376,26 @@ int main(int, char **)
                         glVertex2f(x2,y2);
                     }
                     glEnd();
+
+                    {
+                        char label[1024];
+                        sprintf(label, "##target_%d", targets[i].unique_id);
+                        Begin(label);
+                    }
+                    {
+                        static float past_speed[past_velocity_count];
+                        for (int j = 0; j < past_velocity_count; j++)
+                        {
+                            float vx = targets[i].past_velocity_x[j];
+                            float vy = targets[i].past_velocity_y[j];
+                            past_speed[j] = sqrtf(vx*vx + vy*vy);
+                        }
+                        char label[1024];
+                        sprintf(label, "##plot_target_%d", targets[i].unique_id);
+                        if (targets[i].num_past_velocity > 0)
+                        PlotLines(label, past_speed, targets[i].num_past_velocity, 0, NULL, 0.0f, 0.4f, ImVec2(0,80));
+                    }
+                    End();
                 }
             }
 

@@ -25,7 +25,6 @@ struct target_t
     float velocity_y;
 
     int num_past_velocity;
-    float velocity_e;
     float past_velocity_x[past_velocity_count];
     float past_velocity_y[past_velocity_count];
     float past_velocity_t[past_velocity_count];
@@ -156,22 +155,72 @@ float metric_distance(float u1, float v1, float u2, float v2,
 
 vec2 fit_direction(detection_t *window, int n)
 {
-    float dx_sum = 0.0f;
-    float dy_sum = 0.0f;
-    float dt_sum = 0.0f;
-    for (int i = 0; i < n; i++)
+    float speed = 0.33f;
+    vec2 v = {0};
+    float e_033 = FLT_MAX;
     {
-        float dx = window[i].x - window[n-1].x;
-        float dy = window[i].y - window[n-1].y;
-        float dt = window[i].t - window[n-1].t;
-        dx_sum += dx*dt;
-        dy_sum += dy*dt;
-        dt_sum += dt*dt;
+        float dx_sum = 0.0f;
+        float dy_sum = 0.0f;
+        float dt_sum = 0.0f;
+        for (int i = 0; i < n; i++)
+        {
+            float dx = window[i].x - window[n-1].x;
+            float dy = window[i].y - window[n-1].y;
+            float dt = window[i].t - window[n-1].t;
+            dx_sum += dx*dt;
+            dy_sum += dy*dt;
+            dt_sum += dt*dt;
+        }
+        if (dt_sum > 0.0f)
+            v = m_vec2(dx_sum/dt_sum, dy_sum/dt_sum);
+        else
+            v = m_vec2(0,0);
+
+        float ds = m_length(v);
+        if (ds > 0.0f)
+        {
+            v *= speed/ds;
+            e_033 = 0.0f;
+            for (int i = 0; i < n; i++)
+            {
+                float dt = window[i].t - window[n-1].t;
+                float dx = window[i].x - (window[n-1].x + v.x*dt);
+                float dy = window[i].y - (window[n-1].y + v.y*dt);
+                e_033 += dx*dx + dy*dy;
+            }
+            e_033 /= n;
+        }
+        else
+        {
+            e_033 = FLT_MAX;
+        }
     }
-    if (dt_sum == 0.0f)
-        return m_vec2(0, 0);
+
+    float e_zero = FLT_MAX;
+    {
+        float cx = 0.0f;
+        float cy = 0.0f;
+        for (int i = 0; i < n; i++)
+        {
+            cx += window[i].x;
+            cy += window[i].y;
+        }
+        cx /= n;
+        cy /= n;
+        e_zero = 0.0f;
+        for (int i = 0; i < n; i++)
+        {
+            float dx = window[i].x-cx;
+            float dy = window[i].y-cy;
+            e_zero += dx*dx + dy*dy;
+        }
+        e_zero /= n;
+    }
+
+    if (e_zero < e_033)
+        return m_vec2(0,0);
     else
-        return m_vec2(dx_sum/dt_sum, dy_sum/dt_sum);
+        return v;
 }
 
 #define rshift(X, COUNT) { for (int LOOPVAR = (COUNT)-1; LOOPVAR > 0; LOOPVAR--) { (X)[LOOPVAR] = (X)[LOOPVAR-1]; } }
@@ -188,17 +237,22 @@ void update_target_with_detection(target_t *target, detection_t detection)
 
     // Update velocity
     detection_t *window = target->window;
-    if (target->num_window < velocity_averaging_window)
-    {
-        target->velocity_x = 0.0f;
-        target->velocity_y = 0.0f;
-    }
+    vec2 v;
+    if (target->num_window >= velocity_averaging_window)
+        v = fit_direction(window, velocity_averaging_window);
     else
-    {
-        vec2 v = fit_direction(window, velocity_averaging_window);
-        target->velocity_x = v.x;
-        target->velocity_y = v.y;
-    }
+        v = m_vec2(0,0);
+    target->velocity_x = v.x;
+    target->velocity_y = v.y;
+
+    rshift(target->past_velocity_x, past_velocity_count);
+    rshift(target->past_velocity_y, past_velocity_count);
+    rshift(target->past_velocity_t, past_velocity_count);
+    target->past_velocity_x[0] = v.x;
+    target->past_velocity_y[0] = v.y;
+    target->past_velocity_t[0] = detection.t;
+    if (target->num_past_velocity < past_velocity_count)
+        target->num_past_velocity++;
 }
 
 tracks_t track_targets(track_targets_opt_t opt)
