@@ -145,6 +145,60 @@ float metric_distance(float u1, float v1, float u2, float v2,
     }
 }
 
+float fit_zero(detection_t *window, int n)
+{
+    if (n == 0)
+        return FLT_MAX;
+    float e = 0.0f;
+    for (int i = 0; i < n; i++)
+    {
+        float dx = window[0].x - window[i].x;
+        float dy = window[0].y - window[i].y;
+        e += dx*dx + dy*dy;
+    }
+    return e/n;
+}
+
+float fit_direction(detection_t *window, int n, float *out_vx, float *out_vy)
+{
+    const float speed = 0.33f;
+
+    if (n == 0)
+        return FLT_MAX;
+
+    float dx_sum = 0.0f;
+    float dy_sum = 0.0f;
+    float dt_sum = 0.0f;
+    for (int i = 0; i < n; i++)
+    {
+        float dx = window[i].x - window[n-1].x;
+        float dy = window[i].y - window[n-1].y;
+        float dt = window[i].t - window[n-1].t;
+        dx_sum += dx*dt;
+        dy_sum += dy*dt;
+        dt_sum += dt*dt;
+    }
+    float vx = dx_sum/dt_sum;
+    float vy = dy_sum/dt_sum;
+    *out_vx = vx;
+    *out_vy = vy;
+
+    float vs = sqrtf(vx*vx + vy*vy);
+    if (vs == 0.0f)
+        return FLT_MAX;
+
+    float e = 0.0f;
+    for (int i = 0; i < n; i++)
+    {
+        float dt = window[i].t - window[n-1].t;
+        float dx = window[i].x - (window[n-1].x + speed*vx*dt/vs);
+        float dy = window[i].y - (window[n-1].y + speed*vy*dt/vs);
+        e += dx*dx + dy*dy;
+    }
+    e += (vs - 0.33f)*(vs - 0.33f);
+    return e/n;
+}
+
 tracks_t track_targets(track_targets_opt_t opt)
 {
     const int max_targets = 1024;
@@ -154,7 +208,6 @@ tracks_t track_targets(track_targets_opt_t opt)
     const int minimum_count = 50;             // Minimum number of pixels inside connected component to be accepted
     const float detection_rate_period = 0.2f; // Time interval used to compute detection rate (hits per second)
     const float frames_per_second = 60.0f;    // Framerate used to normalize detection rate (corresponds to max hits per second)
-    const int velocity_averaging_window = 30; // Number of past position measurements used to compute velocity
 
     // requirements for a color detection to be valid
     const float min_aspect_ratio = 0.2f;      // A detection must be sufficiently square (aspect ~ 1)
@@ -468,6 +521,71 @@ tracks_t track_targets(track_targets_opt_t opt)
         #endif
 
         #if 1
+        {
+            detection_t *window = targets[i].window;
+            if (targets[i].num_window < detection_window_count)
+            {
+                targets[i].velocity_x = 0.0f;
+                targets[i].velocity_y = 0.0f;
+            }
+            else
+            {
+                float e_best = FLT_MAX;
+                float vx_best = 0.0f;
+                float vy_best = 0.0f;
+
+                // is zero, was non-zero
+                for (int k = 10; k < detection_window_count-10; k++)
+                {
+                    int nk = detection_window_count-k;
+                    float vx,vy;
+                    float e1 = fit_zero(window, k);
+                    float e2 = fit_direction(window+k, nk, &vx, &vy);
+                    float e = e1 + e2;
+                    if (e < e_best)
+                    {
+                        vx_best = 0.0f;
+                        vy_best = 0.0f;
+                        e_best = e;
+                    }
+                }
+
+                // is non-zero, was zero
+                for (int k = 10; k < detection_window_count-10; k++)
+                {
+                    int nk = detection_window_count-k;
+                    float vx,vy;
+                    float e1 = fit_direction(window, k, &vx, &vy);
+                    float e2 = fit_zero(window+k, nk);
+                    float e = e1 + e2;
+                    if (e < e_best)
+                    {
+                        vx_best = vx;
+                        vy_best = vy;
+                        e_best = e;
+                    }
+                }
+
+                // all non-zero
+                {
+                    float vx,vy;
+                    float e = fit_direction(window, detection_window_count, &vx, &vy);
+                    if (e < e_best)
+                    {
+                        vx_best = vx;
+                        vy_best = vy;
+                        e_best = e;
+                    }
+                }
+
+
+                targets[i].velocity_x = vx_best;
+                targets[i].velocity_y = vy_best;
+            }
+        }
+        #endif
+
+        #if 0
         {
             detection_t *window = targets[i].window;
             if (targets[i].num_window < velocity_averaging_window)
