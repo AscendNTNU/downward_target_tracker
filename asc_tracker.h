@@ -2,7 +2,7 @@
 #include "asc_detector.h"
 const int detection_window_count = 60;
 const int past_velocity_count = 5*60; // 5 seconds * 60 fps = 300 frames
-const int velocity_averaging_window = 30; // Interval of detections used to compute velocity
+const int velocity_averaging_window = 20; // Interval of detections used to compute velocity
                                           // => need atleast this many detections before computing velocity
 
 struct detection_t
@@ -154,36 +154,8 @@ float metric_distance(float u1, float v1, float u2, float v2,
     }
 }
 
-float fit_zero(detection_t *window, int n)
+vec2 fit_direction(detection_t *window, int n)
 {
-    if (n == 0)
-        return FLT_MAX;
-    float e = 0.0f;
-    float cx = 0.0f;
-    float cy = 0.0f;
-    for (int i = 0; i < n; i++)
-    {
-        cx += window[i].x;
-        cy += window[i].y;
-    }
-    cx /= n;
-    cy /= n;
-    for (int i = 0; i < n; i++)
-    {
-        float dx = window[i].x - cx;
-        float dy = window[i].y - cy;
-        e += dx*dx + dy*dy;
-    }
-    return e/n;
-}
-
-float fit_direction(detection_t *window, int n, float *out_vx, float *out_vy)
-{
-    const float speed = 0.33f;
-
-    if (n == 0)
-        return FLT_MAX;
-
     float dx_sum = 0.0f;
     float dy_sum = 0.0f;
     float dt_sum = 0.0f;
@@ -196,24 +168,10 @@ float fit_direction(detection_t *window, int n, float *out_vx, float *out_vy)
         dy_sum += dy*dt;
         dt_sum += dt*dt;
     }
-    float vx = dx_sum/dt_sum;
-    float vy = dy_sum/dt_sum;
-    *out_vx = vx;
-    *out_vy = vy;
-
-    float vs = sqrtf(vx*vx + vy*vy);
-    if (vs == 0.0f)
-        return FLT_MAX;
-
-    float e = 0.0f;
-    for (int i = 0; i < n; i++)
-    {
-        float dt = window[i].t - window[n-1].t;
-        float dx = window[i].x - (window[n-1].x + speed*vx*dt/vs);
-        float dy = window[i].y - (window[n-1].y + speed*vy*dt/vs);
-        e += dx*dx + dy*dy;
-    }
-    return e/n;
+    if (dt_sum == 0.0f)
+        return m_vec2(0, 0);
+    else
+        return m_vec2(dx_sum/dt_sum, dy_sum/dt_sum);
 }
 
 #define rshift(X, COUNT) { for (int LOOPVAR = (COUNT)-1; LOOPVAR > 0; LOOPVAR--) { (X)[LOOPVAR] = (X)[LOOPVAR-1]; } }
@@ -229,7 +187,6 @@ void update_target_with_detection(target_t *target, detection_t detection)
         target->num_window++;
 
     // Update velocity
-    #if 1
     detection_t *window = target->window;
     if (target->num_window < velocity_averaging_window)
     {
@@ -238,254 +195,10 @@ void update_target_with_detection(target_t *target, detection_t detection)
     }
     else
     {
-        float e_best = FLT_MAX;
-        float vx_best = 0.0f;
-        float vy_best = 0.0f;
-        const int m_zero_nz = 0;
-        const int m_nz_zero = 1;
-        const int m_all_nz = 2;
-        const int m_all_zero = 3;
-        int m_best = m_zero_nz;
-        int k_best = 0;
-
-        #if 1
-        // IS ZERO. WAS NONZERO.
-        for (int k = 20; k < velocity_averaging_window-20; k++)
-        {
-            int nk = velocity_averaging_window-k;
-            float vx,vy;
-            float e1 = fit_zero(window, k);
-            float e2 = fit_direction(window+k, nk, &vx, &vy);
-            float e = e1 + e2;
-            if (e < e_best)
-            {
-                vx_best = 0.0f;
-                vy_best = 0.0f;
-                e_best = e;
-                m_best = m_zero_nz;
-            }
-        }
-        #endif
-
-        #if 1
-        // IS NONZERO. WAS ZERO.
-        for (int k = 20; k < velocity_averaging_window-20; k++)
-        {
-            int nk = velocity_averaging_window-k;
-            float vx,vy;
-            float e1 = fit_direction(window, k, &vx, &vy);
-            float e2 = fit_zero(window+k, nk);
-            float e = e1 + e2;
-            if (e < e_best)
-            {
-                vx_best = vx;
-                vy_best = vy;
-                e_best = e;
-                m_best = m_nz_zero;
-                k_best = k;
-            }
-        }
-        #endif
-
-        #if 1
-        // ALL NONZERO.
-        {
-            float vx,vy;
-            float e = fit_direction(window, velocity_averaging_window, &vx, &vy);
-            if (e < e_best)
-            {
-                vx_best = vx;
-                vy_best = vy;
-                e_best = e;
-                m_best = m_all_nz;
-            }
-        }
-        #endif
-
-        // ALL ZERO
-        {
-            float e = fit_zero(window, velocity_averaging_window);
-            if (e < e_best)
-            {
-                vx_best = 0.0f;
-                vy_best = 0.0f;
-                e_best = e;
-                m_best = m_all_zero;
-            }
-        }
-
-        // UPDATE PAST VELOCITIES
-        {
-            rshift(target->past_velocity_x, past_velocity_count);
-            rshift(target->past_velocity_y, past_velocity_count);
-            rshift(target->past_velocity_t, past_velocity_count);
-
-            if (target->num_past_velocity == 0)
-                target->num_past_velocity = velocity_averaging_window;
-            else if (target->num_past_velocity < past_velocity_count)
-                target->num_past_velocity++;
-
-            // write latest window into velocity history
-            if (m_best == m_zero_nz) // IS ZERO. WAS NONZERO.
-            {
-                for (int k = 0; k < k_best; k++)
-                {
-                    target->past_velocity_x[k] = 0.0f;
-                    target->past_velocity_y[k] = 0.0f;
-                }
-                for (int k = k_best; k < velocity_averaging_window; k++)
-                {
-                    target->past_velocity_x[k] = vx_best;
-                    target->past_velocity_y[k] = vy_best;
-                }
-            }
-            else if (m_best == m_nz_zero) // IS NONZERO. WAS ZERO.
-            {
-                for (int k = 0; k < k_best; k++)
-                {
-                    target->past_velocity_x[k] = vx_best;
-                    target->past_velocity_y[k] = vy_best;
-                }
-                for (int k = k_best; k < velocity_averaging_window; k++)
-                {
-                    target->past_velocity_x[k] = 0.0f;
-                    target->past_velocity_y[k] = 0.0f;
-                }
-            }
-            else if (m_best == m_all_nz) // ALL NONZERO
-            {
-                for (int k = 0; k < velocity_averaging_window; k++)
-                {
-                    target->past_velocity_x[k] = vx_best;
-                    target->past_velocity_y[k] = vy_best;
-                }
-            }
-            else if (m_best == m_all_zero) // ALL ZERO
-            {
-                for (int k = 0; k < velocity_averaging_window; k++)
-                {
-                    target->past_velocity_x[k] = 0.0f;
-                    target->past_velocity_y[k] = 0.0f;
-                }
-            }
-        }
-
-        target->velocity_e = e_best;
-        target->velocity_x = vx_best;
-        target->velocity_y = vy_best;
-
-        VDBB("Track");
-        {
-            float x = target->last_seen.x;
-            float y = target->last_seen.y;
-            float vx = target->velocity_x;
-            float vy = target->velocity_y;
-
-            Text("%f", e_best);
-            Text("all zero: %f", fit_zero(window, velocity_averaging_window));
-
-            vdbClear(0.73, 0.73, 0.73, 1.0);
-
-            {
-                float aspect = (float)vdb_input.width/vdb_input.height;
-                float cx = (int)(x/4.0f)*4.0f;
-                float cy = (int)(y/4.0f)*4.0f;
-                vdbOrtho(cx-1.5f*aspect, cx+1.5f*aspect, cy-1.5f, cy+1.5f);
-                glLines(1.0f);
-                glColor4f(0,0,0,1);
-                vdbGridXY(cx-4, cx+4, cy-4, cy+4, 8);
-                glEnd();
-            }
-
-            glLines(2.0f);
-            glColor4f(0,0,0,1);
-            glVertex2f(x, y);
-            glVertex2f(x+vx, y+vy);
-            glEnd();
-
-            glBegin(GL_TRIANGLES);
-            glColor4f(0,0,0,0.5);
-            vdbFillCircle(x, y, 0.15f);
-            glEnd();
-
-            glLines(2.0f);
-            glColor4f(0,0,0,1);
-            for (int j = 0; j < target->num_window-1; j++)
-            {
-                float x1 = window[j].x;
-                float y1 = window[j].y;
-                float x2 = window[j+1].x;
-                float y2 = window[j+1].y;
-                glVertex2f(x1,y1);
-                glVertex2f(x2,y2);
-            }
-            glEnd();
-
-            glPoints(2.0f);
-            for (int j = 0; j < target->num_window-1; j++)
-            {
-                int n = target->num_window;
-                float dt = window[j].t - window[n-1].t;
-                float vs = sqrtf(vx*vx + vy*vy);
-                float x = window[n-1].x + 0.33f*vx*dt/vs;
-                float y = window[n-1].y + 0.33f*vy*dt/vs;
-                glVertex2f(x,y);
-            }
-            glEnd();
-
-            // Begin("Histories");
-            // for (int i = 0; i < num_targets; i++)
-            // {
-            //     float past_speed[past_velocity_count];
-            //     for (int k = 0; k < targets[i].num_past_velocity; k++)
-            //     {
-            //         float vx = targets[i].past_velocity_x[k];
-            //         float vy = targets[i].past_velocity_y[k];
-            //         past_speed[k] = sqrtf(vx*vx + vy*vy);
-            //     }
-            //     char id[1024];
-            //     sprintf(id, "##speed_%d", i);
-            //     Text("%f", targets[i].velocity_e);
-            //     if (targets[i].num_past_velocity > 0)
-            //         PlotLines(id, past_speed, targets[i].num_past_velocity, 0, NULL, 0.0f, 0.35f, ImVec2(0,150));
-            // }
-            // End();
-
-            if (vdbKeyDown(SPACE))
-                vdbStepOnce();
-        }
-        VDBE();
+        vec2 v = fit_direction(window, velocity_averaging_window);
+        target->velocity_x = v.x;
+        target->velocity_y = v.y;
     }
-    #endif
-
-    #if 0
-    detection_t *window = target->window;
-    if (target->num_window < velocity_averaging_window)
-    {
-        target->velocity_x = 0.0f;
-        target->velocity_y = 0.0f;
-    }
-    else
-    {
-        float dx_sum = 0.0f;
-        float dy_sum = 0.0f;
-        float t2_sum = 0.0f;
-        for (int k = 1; k < target->num_window && k < velocity_averaging_window; k++)
-        {
-            float dx = window[0].x - window[k].x;
-            float dy = window[0].y - window[k].y;
-            float dt = window[0].t - window[k].t;
-            float ds = sqrtf(dx*dx + dy*dy) / dt;
-            dx_sum += dx*dt;
-            dy_sum += dy*dt;
-            t2_sum += dt*dt;
-        }
-        float dx = dx_sum/t2_sum;
-        float dy = dy_sum/t2_sum;
-        target->velocity_x = dx;
-        target->velocity_y = dy;
-    }
-    #endif
 }
 
 tracks_t track_targets(track_targets_opt_t opt)

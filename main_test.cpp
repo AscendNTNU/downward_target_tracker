@@ -1,6 +1,6 @@
 #define debug_draw_input 0
 #define debug_draw_calib 0
-#define debug_draw_track 0
+#define debug_draw_track 1
 #define data_directory   "C:/Temp/data_3aug_2/"
 #define poses_log_name   data_directory "log_poses.txt"
 #define video_log_name   data_directory "log_video2.txt"
