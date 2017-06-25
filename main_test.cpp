@@ -1,6 +1,6 @@
 #define debug_draw_input 0
 #define debug_draw_calib 0
-#define debug_draw_track 1
+#define debug_draw_track 0
 #define data_directory   "C:/Temp/data_3aug_2/"
 #define poses_log_name   data_directory "log_poses.txt"
 #define video_log_name   data_directory "log_video2.txt"
@@ -49,122 +49,6 @@ void downsample(unsigned char *src, int w, int h)
 
 int main(int, char **)
 {
-    {
-        int Ix,Iy,Ic;
-        unsigned char *I = stbi_load("C:/Temp/video800x600/video0299.jpg", &Ix, &Iy, &Ic, 3);
-        float cam_imu_rx = 0.0f;
-        float cam_imu_ry = 0.0f;
-        float cam_imu_rz = 0.0f;
-        float cam_imu_tx = 0.0f;
-        float cam_imu_ty = 0.0f;
-        float cam_imu_tz = 0.2f;
-        float f = 434.0f;
-        float u0 = 375.0f;
-        float v0 = 275.0f;
-
-        float imu_rx = 0.0f;
-        float imu_ry = 0.0f;
-        float imu_rz = 0.0f;
-        float imu_tx = 0.0f;
-        float imu_ty = 0.0f;
-        float imu_tz = 0.2f;
-
-        int grid_x = 9;
-        int grid_y = 6;
-        float grid_w = 2.4f/100.0f;
-        bool use_mavros_pose = true;
-
-        VDBB("Intrinsic calibration");
-        {
-            vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
-            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR, GL_LINEAR);
-            vdbDrawTexture2D(0);
-
-            mat3 imu_rot = m_rotz(imu_rz)*m_roty(imu_ry)*m_rotx(imu_rx);
-            vec3 imu_pos = m_vec3(imu_tx, imu_ty, imu_tz);
-            mat3 cam_imu_rot = m_rotz(cam_imu_rz)*m_roty(cam_imu_ry)*m_rotx(cam_imu_rx);
-            vec3 cam_imu_pos = m_vec3(cam_imu_tx, cam_imu_ty, cam_imu_tz);
-            mat3 R = imu_rot*cam_imu_rot;
-            vec3 T = imu_pos + imu_rot*cam_imu_pos;
-
-            vdbOrtho(0.0f, Ix, Iy, 0.0f);
-            glLines(2.0f);
-            glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
-
-            for (int xi = 0; xi <= grid_x; xi++)
-            {
-                float x = xi*grid_w;
-                for (int i = 0; i < 64; i++)
-                {
-                    float y1 = (i+0)*grid_y*grid_w/64.0f;
-                    float y2 = (i+1)*grid_y*grid_w/64.0f;
-                    vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y1, 0) - T));
-                    vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y2, 0) - T));
-                    glVertex2f(s1.x, s1.y);
-                    glVertex2f(s2.x, s2.y);
-                }
-            }
-
-            for (int yi = 0; yi <= grid_y; yi++)
-            {
-                float y = yi*grid_w;
-                for (int i = 0; i < 64; i++)
-                {
-                    float x1 = (i+0)*grid_x*grid_w/64.0f;
-                    float x2 = (i+1)*grid_x*grid_w/64.0f;
-                    vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x1, y, 0) - T));
-                    vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x2, y, 0) - T));
-                    glVertex2f(s1.x, s1.y);
-                    glVertex2f(s2.x, s2.y);
-                }
-            }
-
-            glEnd();
-
-            if (CollapsingHeader("Calibration pattern"))
-            {
-                grid_w *= 100.0f; DragFloat("cell width (cm)", &grid_w); grid_w /= 100.0f;
-                DragInt("cell count x", &grid_x);
-                DragInt("cell count y", &grid_y);
-            }
-
-            if (CollapsingHeader("Camera relative IMU"))
-            {
-                cam_imu_tx *= 100.0f; SliderFloat("tx (cm)", &cam_imu_tx, -10.0f, +10.0f); cam_imu_tx /= 100.0f;
-                cam_imu_ty *= 100.0f; SliderFloat("ty (cm)", &cam_imu_ty, -10.0f, +10.0f); cam_imu_ty /= 100.0f;
-                cam_imu_tz *= 100.0f; SliderFloat("tz (cm)", &cam_imu_tz, -10.0f, +10.0f); cam_imu_tz /= 100.0f;
-                cam_imu_rx *= 180.0f/3.14f; SliderFloat("rx (deg)", &cam_imu_rx, -10.00f, +10.00f); cam_imu_rx *= 3.14f/180.0f;
-                cam_imu_ry *= 180.0f/3.14f; SliderFloat("ry (deg)", &cam_imu_ry, -10.00f, +10.00f); cam_imu_ry *= 3.14f/180.0f;
-                cam_imu_rz *= 180.0f/3.14f; SliderFloat("rz (deg)", &cam_imu_rz, -180.0f, +180.0f); cam_imu_rz *= 3.14f/180.0f;
-            }
-
-            if (CollapsingHeader("IMU relative pattern"))
-            {
-                Text("Untick the checkbox to manually control a value");
-                static bool use_mavros_imu_tx = true;
-                static bool use_mavros_imu_ty = true;
-                static bool use_mavros_imu_tz = true;
-                static bool use_mavros_imu_rx = true;
-                static bool use_mavros_imu_ry = true;
-                static bool use_mavros_imu_rz = true;
-                imu_tx *= 100.0f; SliderFloat("tx (cm)##imu", &imu_tx, -100.0f, +100.0f); imu_tx /= 100.0f; SameLine(); Checkbox("##imu_tx", &use_mavros_imu_tx);
-                imu_ty *= 100.0f; SliderFloat("ty (cm)##imu", &imu_ty, -100.0f, +100.0f); imu_ty /= 100.0f; SameLine(); Checkbox("##imu_ty", &use_mavros_imu_ty);
-                imu_tz *= 100.0f; SliderFloat("tz (cm)##imu", &imu_tz,    1.0f, +100.0f); imu_tz /= 100.0f; SameLine(); Checkbox("##imu_tz", &use_mavros_imu_tz);
-                imu_rx *= 180.0f/3.14f; SliderFloat("rx (deg)##imu", &imu_rx, -60.00f, +60.00f); imu_rx *= 3.14f/180.0f; SameLine(); Checkbox("##imu_rx", &use_mavros_imu_rx);
-                imu_ry *= 180.0f/3.14f; SliderFloat("ry (deg)##imu", &imu_ry, -60.00f, +60.00f); imu_ry *= 3.14f/180.0f; SameLine(); Checkbox("##imu_ry", &use_mavros_imu_ry);
-                imu_rz *= 180.0f/3.14f; SliderFloat("rz (deg)##imu", &imu_rz, -180.0f, +180.0f); imu_rz *= 3.14f/180.0f; SameLine(); Checkbox("##imu_rz", &use_mavros_imu_rz);
-            }
-
-            if (CollapsingHeader("Fisheye parameters"))
-            {
-                DragFloat("f", &f);
-                DragFloat("u0", &u0);
-                DragFloat("v0", &v0);
-            }
-        }
-        VDBE();
-    }
-
     int levels = 3;
     float f_calibrated = 494.0f;
     float u0_calibrated = 649.0f;
@@ -219,7 +103,8 @@ int main(int, char **)
     }
 
     int skip_count = 1;
-    for (int log_index = 0; log_index < log_length; log_index+=skip_count)
+    for (int log_index = 1600; log_index < log_length; log_index+=skip_count)
+    // for (int log_index = 0; log_index < log_length; log_index+=skip_count)
     {
         if (!poses_ok[video_i[log_index]])
             continue;
@@ -492,24 +377,6 @@ int main(int, char **)
                     }
                     glEnd();
                 }
-
-                Begin("Histories");
-                for (int i = 0; i < num_targets; i++)
-                {
-                    float past_speed[past_velocity_count];
-                    for (int k = 0; k < targets[i].num_past_velocity; k++)
-                    {
-                        float vx = targets[i].past_velocity_x[k];
-                        float vy = targets[i].past_velocity_y[k];
-                        past_speed[k] = sqrtf(vx*vx + vy*vy);
-                    }
-                    char id[1024];
-                    sprintf(id, "##speed_%d", i);
-                    Text("%d", targets[i].num_past_velocity);
-                    if (targets[i].num_past_velocity > 0)
-                        PlotLines(id, past_speed, targets[i].num_past_velocity, 0, NULL, FLT_MAX, FLT_MAX, ImVec2(400,300));
-                }
-                End();
             }
 
             if (vdbKeyDown(SPACE))
