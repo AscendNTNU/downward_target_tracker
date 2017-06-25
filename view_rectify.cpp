@@ -1,10 +1,23 @@
 #include <math.h>
 
-void project_pinhole(float f, float u0, float v0, vec3 p)
+vec2 camera_project(float f, float u0, float v0, vec3 p)
+//  f  (input): Equidistant fisheye camera model parameter (r = f x theta)
+// u0  (input): Center of fisheye projection in x measured from left of image
+// v0  (input): Center of fisheye projection in y measured from top of image
+// p   (input): Camera-space coordinate (OpenGL convention)
+// uv (output): Pixel coordinate measured from top-left of image (DirectX convention)
 {
-    float u = u0 - f*p.x/p.z;
-    float v = v0 + f*p.y/p.z;
-    glVertex2f(u, v);
+    float l = sqrtf(p.x*p.x+p.y*p.y);
+    if (l < 0.001f)
+    {
+        return m_vec2(u0, v0);
+    }
+    else
+    {
+        float t = atanf(-l/p.z);
+        float r = f*t;
+        return m_vec2(u0 + r*p.x/l, v0 - r*p.y/l);
+    }
 }
 
 void view_rectify(latest_image_t latest_image, downward_target_tracker::info latest_info)
@@ -27,21 +40,15 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
     int Ix = latest_image.Ix;
     int Iy = latest_image.Iy;
 
-    static bool use_mavros_imu_rx = true;  static float imu_rx = 0.0f;
-    static bool use_mavros_imu_ry = true;  static float imu_ry = 0.0f;
-    static bool use_mavros_imu_rz = true;  static float imu_rz = 0.0f;
-    static bool use_mavros_imu_tx = true;  static float imu_tx = 0.0f;
-    static bool use_mavros_imu_ty = true;  static float imu_ty = 0.0f;
-    static bool use_mavros_imu_tz = false; static float imu_tz = 1.0f;
-    if (use_mavros_imu_rx) imu_rx = latest_info.imu_rx;
-    if (use_mavros_imu_ry) imu_ry = latest_info.imu_ry;
-    if (use_mavros_imu_rz) imu_rz = latest_info.imu_rz;
-    if (use_mavros_imu_tx) imu_tx = latest_info.imu_tx;
-    if (use_mavros_imu_ty) imu_ty = latest_info.imu_ty;
-    if (use_mavros_imu_tz) imu_tz = latest_info.imu_tz;
+    static bool use_mavros_imu_rx = true;  static float imu_rx = 0.0f; if (use_mavros_imu_rx) imu_rx = latest_info.imu_rx;
+    static bool use_mavros_imu_ry = true;  static float imu_ry = 0.0f; if (use_mavros_imu_ry) imu_ry = latest_info.imu_ry;
+    static bool use_mavros_imu_rz = true;  static float imu_rz = 0.0f; if (use_mavros_imu_rz) imu_rz = latest_info.imu_rz;
+    static bool use_mavros_imu_tx = false; static float imu_tx = 0.0f; if (use_mavros_imu_tx) imu_tx = latest_info.imu_tx;
+    static bool use_mavros_imu_ty = false; static float imu_ty = 0.0f; if (use_mavros_imu_ty) imu_ty = latest_info.imu_ty;
+    static bool use_mavros_imu_tz = true;  static float imu_tz = 1.0f; if (use_mavros_imu_tz) imu_tz = latest_info.imu_tz;
 
-    static int grid_x = 9;
-    static int grid_y = 6;
+    static int grid_x = 3;
+    static int grid_y = 3;
     static float grid_w = 1.0f;
 
     mat3 imu_rot = m_rotz(imu_rz)*m_roty(imu_ry)*m_rotx(imu_rx);
@@ -86,20 +93,17 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
             glVertex2f(s2.x, s2.y);
         }
     }
-
     glEnd();
-
 
     Begin("Calibration");
     Text("Calibration pattern:");
-    grid_w *= 100.0f; DragFloat("cell width (cm)", &grid_w); grid_w /= 100.0f;
-    DragInt("cell count x", &grid_x);
-    DragInt("cell count y", &grid_y);
-    Separator();
+    grid_w *= 100.0f; DragFloat("Cell width (cm)", &grid_w); grid_w /= 100.0f;
+    DragInt("Cell count x", &grid_x);
+    DragInt("Cell count y", &grid_y);
     Text("Drone origin relative grid origin in grid coordinates");
-    imu_tx *= 100.0f; SliderFloat("tx (cm)##imu", &imu_tx, -100.0f, +100.0f); imu_tx /= 100.0f; SameLine(); Checkbox("##imu_tx", &use_mavros_imu_tx);
-    imu_ty *= 100.0f; SliderFloat("ty (cm)##imu", &imu_ty, -100.0f, +100.0f); imu_ty /= 100.0f; SameLine(); Checkbox("##imu_ty", &use_mavros_imu_ty);
-    imu_tz *= 100.0f; SliderFloat("tz (cm)##imu", &imu_tz,    1.0f, +100.0f); imu_tz /= 100.0f; SameLine(); Checkbox("##imu_tz", &use_mavros_imu_tz);
+    imu_tx *= 100.0f; DragFloat("tx (cm)##imu", &imu_tx); imu_tx /= 100.0f; SameLine(); Checkbox("##imu_tx", &use_mavros_imu_tx);
+    imu_ty *= 100.0f; DragFloat("ty (cm)##imu", &imu_ty); imu_ty /= 100.0f; SameLine(); Checkbox("##imu_ty", &use_mavros_imu_ty);
+    imu_tz *= 100.0f; DragFloat("tz (cm)##imu", &imu_tz); imu_tz /= 100.0f; SameLine(); Checkbox("##imu_tz", &use_mavros_imu_tz);
     Text("Drone frame relative grid frame");
     imu_rx *= 180.0f/3.14f; SliderFloat("rx (deg)##imu", &imu_rx, -60.00f, +60.00f); imu_rx *= 3.14f/180.0f; SameLine(); Checkbox("##imu_rx", &use_mavros_imu_rx);
     imu_ry *= 180.0f/3.14f; SliderFloat("ry (deg)##imu", &imu_ry, -60.00f, +60.00f); imu_ry *= 3.14f/180.0f; SameLine(); Checkbox("##imu_ry", &use_mavros_imu_ry);
