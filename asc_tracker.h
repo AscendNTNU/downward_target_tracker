@@ -284,6 +284,7 @@ tracks_t track_targets(track_targets_opt_t opt)
     const int minimum_count = 50;             // Minimum number of pixels inside connected component to be accepted
     const float detection_rate_period = 0.2f; // Time interval used to compute detection rate (hits per second)
     const float frames_per_second = 60.0f;    // Framerate used to normalize detection rate (corresponds to max hits per second)
+    const float reverse_interval = 20.0f;     // Seconds between planned 180 degree turns
 
     // requirements for a color detection to be valid
     const float min_aspect_ratio = 0.2f;      // A detection must be sufficiently square (aspect ~ 1)
@@ -293,6 +294,7 @@ tracks_t track_targets(track_targets_opt_t opt)
     static target_t targets[max_targets];
     static int num_targets = 0;
     static int next_id = 0;
+    static float last_180_time = 0.0f;
 
     float f = opt.f;
     float u0 = opt.u0;
@@ -300,7 +302,6 @@ tracks_t track_targets(track_targets_opt_t opt)
     mat3 rot = opt.rot;
     vec3 pos = opt.pos;
     float timestamp = opt.timestamp;
-    float delta_z = pos.z - plate_z; // Height of camera above target plate plane
 
     // Detect targets in input image
     static detection_t detections[detector_max_groups];
@@ -350,7 +351,7 @@ tracks_t track_targets(track_targets_opt_t opt)
 
                 // Check how close the group centroids are in world space
                 // and merge only if they are sufficiently close
-                float d = metric_distance(xi,yi, xj,yj, f,u0,v0,rot,delta_z);
+                float d = metric_distance(xi,yi, xj,yj, f,u0,v0,rot,pos.z - plate_z);
                 if (d > merge_threshold)
                     continue;
 
@@ -479,7 +480,7 @@ tracks_t track_targets(track_targets_opt_t opt)
         vec2 uv = { detections[i].u, detections[i].v };
         vec3 dir = rot*camera_inverse_project(f,u0,v0, uv);
         vec2 xy;
-        if (m_intersect_xy_plane(dir, delta_z, &xy))
+        if (m_intersect_xy_plane(dir, pos.z - plate_z, &xy))
         {
             detections[i].x = xy.x + pos.x;
             detections[i].y = xy.y + pos.y;
@@ -557,6 +558,40 @@ tracks_t track_targets(track_targets_opt_t opt)
         targets[i].detection_rate = detection_rate;
     }
 
+    // Update last_180_time
+    {
+        // Each target has its own internal clock that is used to determine
+        // if twenty seconds has passed, and that it should turn 180 degrees.
+        // These clocks are not necessarily synchronized when the robots are
+        // deployed (though it will not be far off, as the robots are enabled
+        // by a universal remote). The clocks can also drift over time: if a
+        // is not in its default state (i.e. colliding or being touched) when
+        // the time comes to reverse, the reverse timer will be delayed.
+
+        // For that reason, I try to detect when a target has turned a 180
+        // and thereby estimate the time until its next turn. At the cost
+        // of being slightly wrong, I'll assume that this timer holds for
+        // all the targets and return it as one single time_until_180.
+
+        // I choose the most recent timer estimate across all the tracked
+        // targets (i.e. if we have observed two targets rotating during
+        // tracking, 'last_180_time' will be whoever turned most recently).
+
+        for (int i = 0; i < num_targets; i++)
+            if (targets[i].observed_180 && targets[i].last_180_time > last_180_time)
+                last_180_time = targets[i].last_180_time;
+
+        // If we have not observed any reversals, we need to update our
+        // estimate manually, by assuming that after 20 seconds, it will
+        // advance by another 20 seconds.
+
+        if (timestamp - last_180_time > reverse_interval)
+        {
+            float n = (int)((timestamp - last_180_time) / reverse_interval);
+            last_180_time += n*reverse_interval;
+        }
+    }
+
     // Add new tracks
     for (int i = 0; i < num_detections; i++)
     {
@@ -567,13 +602,7 @@ tracks_t track_targets(track_targets_opt_t opt)
                 target_t t = {0};
                 t.last_seen = detections[i];
                 t.unique_id = next_id++;
-                t.num_window = 0;
-                t.detection_rate = 0.0f;
-                t.velocity_x = 0.0f;
-                t.velocity_y = 0.0f;
-                t.num_past_velocity = 0;
-                targets[num_targets] = t;
-                num_targets++;
+                targets[num_targets++] = t;
             }
         }
     }
@@ -586,5 +615,6 @@ tracks_t track_targets(track_targets_opt_t opt)
     result.points = color_points;
     result.num_points = color_num_points;
     result.groups = color_groups;
+    result.time_until_180 = 20.0f - (timestamp - last_180_time);
     return result;
 }

@@ -307,6 +307,7 @@ int main(int, char **)
             SliderInt("log_index", &log_index, 0, log_length-1);
             RadioButton("Draw image", &mode, mode_draw_image);
             RadioButton("Draw world", &mode, mode_draw_world);
+            Text("Time until 180: %.2f", tracks.time_until_180);
 
             if (mode == mode_draw_image)
             {
