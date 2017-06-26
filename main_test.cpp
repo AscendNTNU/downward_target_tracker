@@ -1,6 +1,3 @@
-#define debug_draw_input 0
-#define debug_draw_calib 0
-#define debug_draw_track 1
 #define data_directory   "C:/Temp/data_3aug_2/"
 #define poses_log_name   data_directory "log_poses.txt"
 #define video_log_name   data_directory "log_video2.txt"
@@ -9,6 +6,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <assert.h>
+
+#define VDB_DISABLE_PROTIP
 #include "vdb/vdb.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -147,27 +146,157 @@ int main(int, char **)
             tracks = track_targets(opt);
         }
 
-        #if debug_draw_input==1
-        VDBB("Input");
+        #if 0
         {
-            vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
-            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
-            vdbDrawTexture2D(0);
+            ImGuiStyle &style = ImGui::GetStyle();
+            style.WindowRounding = 0.0f;
+            style.FrameRounding = 2.0f;
+            style.GrabRounding = 2.0f;
+            style.WindowFillAlphaDefault = 1.0f;
+            style.Colors[ImGuiCol_WindowBg]              = ImVec4(0.11f, 0.11f, 0.11f, 1.0f);
+            style.Colors[ImGuiCol_FrameBg]               = ImVec4(0.16f, 0.26f, 0.38f, 0.70f);
+            style.Colors[ImGuiCol_FrameBgHovered]        = ImVec4(0.20f, 0.35f, 0.47f, 0.70f);
+            style.Colors[ImGuiCol_TitleBg]               = ImVec4(0.18f, 0.18f, 0.18f, 1.00f);
+            style.Colors[ImGuiCol_TitleBgCollapsed]      = ImVec4(0.18f, 0.18f, 0.18f, 0.39f);
+            style.Colors[ImGuiCol_TitleBgActive]         = ImVec4(0.18f, 0.18f, 0.18f, 0.55f);
+            style.Colors[ImGuiCol_MenuBarBg]             = ImVec4(0.00f, 0.00f, 0.00f, 0.39f);
+            style.Colors[ImGuiCol_ScrollbarBg]           = ImVec4(0.00f, 0.00f, 0.00f, 0.42f);
+            style.Colors[ImGuiCol_ScrollbarGrab]         = ImVec4(0.24f, 0.24f, 0.24f, 0.59f);
+            style.Colors[ImGuiCol_ScrollbarGrabHovered]  = ImVec4(0.31f, 0.31f, 0.31f, 0.59f);
+            style.Colors[ImGuiCol_ScrollbarGrabActive]   = ImVec4(0.78f, 0.78f, 0.78f, 0.40f);
+            style.Colors[ImGuiCol_CheckMark]             = ImVec4(0.24f, 0.52f, 0.88f, 0.90f);
+            style.Colors[ImGuiCol_SliderGrab]            = ImVec4(0.24f, 0.52f, 0.88f, 0.90f);
+            style.Colors[ImGuiCol_Button]                = ImVec4(0.16f, 0.26f, 0.38f, 0.78f);
+            style.Colors[ImGuiCol_ButtonHovered]         = ImVec4(0.18f, 0.28f, 0.40f, 1.00f);
+            style.Colors[ImGuiCol_ButtonActive]          = ImVec4(0.20f, 0.31f, 0.47f, 1.00f);
+            style.Colors[ImGuiCol_Header]                = ImVec4(0.16f, 0.26f, 0.38f, 0.80f);
+            style.Colors[ImGuiCol_HeaderHovered]         = ImVec4(0.24f, 0.52f, 0.88f, 0.80f);
+            style.Colors[ImGuiCol_HeaderActive]          = ImVec4(0.24f, 0.52f, 0.88f, 0.80f);
+            style.Colors[ImGuiCol_ResizeGrip]            = ImVec4(0.16f, 0.26f, 0.38f, 0.60f);
+            style.Colors[ImGuiCol_ResizeGripHovered]     = ImVec4(0.16f, 0.26f, 0.38f, 0.90f);
+            style.Colors[ImGuiCol_ResizeGripActive]      = ImVec4(0.20f, 0.29f, 0.43f, 0.90f);
+            style.Colors[ImGuiCol_CloseButton]           = ImVec4(0.29f, 0.29f, 0.29f, 0.50f);
+            style.Colors[ImGuiCol_CloseButtonHovered]    = ImVec4(0.39f, 0.39f, 0.39f, 0.60f);
+        }
+        VDBB("Tracks");
+        {
+            vdbClear(0.73, 0.73, 0.73, 1.0);
+            int window_width = vdb_input.width;
+            int window_height = vdb_input.height;
+            int left_pane_width = 250;
+            int main_pane_width = window_width-left_pane_width;
+            int main_pane_height = main_pane_width*Iy/Ix;
+            int bott_pane_height = window_height-main_pane_height;
+
+            SetNextWindowPos(ImVec2(0,0));
+            SetNextWindowSize(ImVec2(left_pane_width, window_height));
+            Begin("##left_pane", NULL, ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize);
+            Text("Hello!");
+            Text("%d", main_pane_height);
+            SliderInt("Step size", &skip_count, 0, 60);
+            SliderInt("Log index", &log_index, 0, log_length-1);
+            End();
+
+            SetNextWindowPos(ImVec2(left_pane_width,main_pane_height));
+            SetNextWindowSize(ImVec2(main_pane_width, bott_pane_height));
+            Begin("##bott_pane", NULL, ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize);
+            Text("Hello sailor!");
+            End();
+
+            ShowTestWindow();
+
+            vdbViewport(left_pane_width, window_height-main_pane_height, main_pane_width, main_pane_height);
+            {
+                vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
+                vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
+                vdbDrawTexture2D(0);
+
+                // draw connected components
+                {
+                    int *points = tracks.points;
+                    int num_points = tracks.num_points;
+                    cc_groups groups = tracks.groups;
+
+                    int max_n = 0;
+                    for (int i = 0; i < groups.count; i++)
+                    {
+                        if (groups.group_n[i] > max_n)
+                            max_n = groups.group_n[i];
+                    }
+
+                    vdbOrtho(0.0f, Ix, Iy, 0.0f);
+                    glBegin(GL_TRIANGLES);
+                    for (int i = 0; i < num_points; i++)
+                    {
+                        int p = points[i];
+                        int x = p % Ix;
+                        int y = p / Ix;
+                        int l = groups.label[p];
+                        int n = groups.group_n[l];
+
+                        if (n > 0.025f*max_n)
+                        {
+                            glColor4f(vdbPalette(l));
+                            vdbFillRect(x, y, 1.0f, 1.0f);
+                        }
+                    }
+                    glEnd();
+
+                    vdbAdditiveBlend();
+                    glLines(2.0f);
+                    glColor4f(0.2f, 0.8f, 1.0f, 1.0f);
+                    for (int i = 0; i < groups.count; i++)
+                    {
+                        if (groups.group_n[i] > 0.025f*max_n)
+                        {
+                            float min_x = groups.group_min_x[i];
+                            float min_y = groups.group_min_y[i];
+                            float max_x = groups.group_max_x[i];
+                            float max_y = groups.group_max_y[i];
+                            vdbDrawRect(min_x+0.5f, min_y+0.5f, max_x-min_x, max_y-min_y);
+                        }
+                    }
+                    glEnd();
+                    vdbAlphaBlend();
+
+                    bool changed = false;
+                    changed |= SliderFloat("r_g", &opt.r_g, 0.0f, 10.0f);
+                    changed |= SliderFloat("r_b", &opt.r_b, 0.0f, 10.0f);
+                    changed |= SliderFloat("r_n", &opt.r_n, 0.0f, 255.0f);
+                    changed |= SliderFloat("g_r", &opt.g_r, 0.0f, 10.0f);
+                    changed |= SliderFloat("g_b", &opt.g_b, 0.0f, 10.0f);
+                    changed |= SliderFloat("g_n", &opt.g_n, 0.0f, 255.0f);
+                    if (changed)
+                    {
+                        tracks = track_targets(opt);
+                    }
+                }
+
+                // draw detections
+                {
+                    detection_t *detections = tracks.detections;
+                    int num_detections = tracks.num_detections;
+                    for (int i = 0; i < num_detections; i++)
+                    {
+                        float u = detections[i].u;
+                        float v = detections[i].v;
+
+                        glLines(2.0f);
+                        glColor4f(1.0f,1.0f,0.2f, 1.0f);
+                        vdbDrawCircle(u,v,6);
+                        glEnd();
+                    }
+                }
+            }
+            vdbViewport(0, 0, window_width, window_height);
+
+            if (vdbKeyDown(SPACE))
+                vdbStepOnce();
         }
         VDBE();
         #endif
 
-        #if debug_draw_calib==1
-        VDBB("Calibration");
-        {
-            vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
-            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
-            vdbDrawTexture2D(0);
-        }
-        VDBE();
-        #endif
-
-        #if debug_draw_track==1
+        #if 1
         VDBB("Tracks");
         {
             const int mode_draw_image = 0;
