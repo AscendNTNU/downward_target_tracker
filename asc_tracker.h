@@ -42,6 +42,7 @@ struct tracks_t
     int num_detections;
     detection_t *detections;
 
+    bool observed_180;
     float time_until_180;
 
     int *points;
@@ -295,6 +296,7 @@ tracks_t track_targets(track_targets_opt_t opt)
     static int num_targets = 0;
     static int next_id = 0;
     static float last_180_time = 0.0f;
+    static bool observed_180 = false;
 
     float f = opt.f;
     float u0 = opt.u0;
@@ -578,8 +580,13 @@ tracks_t track_targets(track_targets_opt_t opt)
         // tracking, 'last_180_time' will be whoever turned most recently).
 
         for (int i = 0; i < num_targets; i++)
+        {
             if (targets[i].observed_180 && targets[i].last_180_time > last_180_time)
+            {
                 last_180_time = targets[i].last_180_time;
+                observed_180 = true;
+            }
+        }
 
         // If we have not observed any reversals, we need to update our
         // estimate manually, by assuming that after 20 seconds, it will
@@ -615,6 +622,7 @@ tracks_t track_targets(track_targets_opt_t opt)
     result.points = color_points;
     result.num_points = color_num_points;
     result.groups = color_groups;
+    result.observed_180 = observed_180;
     result.time_until_180 = 20.0f - (timestamp - last_180_time);
     return result;
 }

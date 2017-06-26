@@ -264,6 +264,8 @@ int main(int argc, char **argv)
                     msg.velocity_y.push_back(tracks.targets[i].velocity_y);
                     msg.detection_rate.push_back(tracks.targets[i].detection_rate);
                 }
+                msg.observed_180 = tracks.observed_180;
+                msg.time_until_180 = tracks.time_until_180;
                 pub_tracks.publish(msg);
             }
 
