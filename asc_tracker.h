@@ -456,16 +456,33 @@ tracks_t track_targets(track_targets_opt_t opt)
             float filled = groups.group_n[i] / area;
             bool area_ok = filled > min_fill_percentage;
 
-            if (count_ok && aspect_ok && area_ok && !merged[i])
+            float u = groups.group_x[i];
+            float v = groups.group_y[i];
+            float x,y;
+            bool projection_ok = false;
+            {
+                vec3 dir = rot*camera_inverse_project(f,u0,v0,m_vec2(u,v));
+                vec2 xy;
+                if (m_intersect_xy_plane(dir, pos.z - top_plate_height, &xy))
+                {
+                    projection_ok = true;
+                    x = pos.x + xy.x;
+                    y = pos.y + xy.y;
+                }
+            }
+
+            if (projection_ok && count_ok && aspect_ok && area_ok && !merged[i])
             {
                 detection_t d = {0};
                 d.t = timestamp;
-                d.u = groups.group_x[i];
-                d.v = groups.group_y[i];
+                d.u = u;
+                d.v = v;
                 d.u1 = min_x;
                 d.u2 = max_x;
                 d.v1 = min_y;
                 d.v2 = max_y;
+                d.x = x;
+                d.y = y;
                 detections[num_detections++] = d;
             }
         }
@@ -473,24 +490,6 @@ tracks_t track_targets(track_targets_opt_t opt)
         color_points = points;
         color_num_points = num_points;
         color_groups = groups;
-    }
-
-    // Compute world-space coordinates for each detection using current GPS estimate
-    for (int i = 0; i < num_detections; i++)
-    {
-        vec2 uv = { detections[i].u, detections[i].v };
-        vec3 dir = rot*camera_inverse_project(f,u0,v0, uv);
-        vec2 xy;
-        if (m_intersect_xy_plane(dir, pos.z - top_plate_height, &xy))
-        {
-            detections[i].x = xy.x + pos.x;
-            detections[i].y = xy.y + pos.y;
-        }
-        else
-        {
-            detections[i].x = -1000.0f;
-            detections[i].y = -1000.0f;
-        }
     }
 
     static bool found_match[detector_max_groups];
