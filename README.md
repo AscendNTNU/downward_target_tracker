@@ -1,4 +1,14 @@
-### How do I compile you?
+### Contents
+
+1. Compiling
+2. Running the tracker and the list of targets
+3. Setting camera controls
+4. Verifying that things are working
+    1. Calibrating color thresholds
+    2. Calibrating fisheye parameters
+    3. Calibrating camera/imu mounting
+
+### Compiling
 
 Get the video 4 linux 2 development libraries (v4l2)
 ```
@@ -6,7 +16,7 @@ $ sudo apt-get install libv4l-dev
 $ sudo apt-get install v4l-utils
 ```
 
-Get the turbojpeg library
+Get the turbojpeg library (see [libjpeg-turbo/BUILDING.md](https://github.com/libjpeg-turbo/libjpeg-turbo/blob/master/BUILDING.md))
 ```
 $ git clone https://github.com/libjpeg-turbo/libjpeg-turbo
 $ cd libjpeg-turbo
@@ -18,9 +28,7 @@ $ make
 $ make install prefix=/usr/local libdir=/usr/local/lib64
 ```
 
-See [libjpeg-turbo/BUILDING.md](https://github.com/libjpeg-turbo/libjpeg-turbo/blob/master/BUILDING.md) if that didn't work.
-
-(For the debugger; not on the drone) Get SDL2
+Get SDL2 (for the debugger)
 ```
 $ sudo apt-get install libsdl2-dev
 ```
@@ -31,7 +39,7 @@ $ sudo apt-get install libsdl2-dev
 $ rosrun downward_target_tracker tracker
 ```
 
-This will run the executable compiled from ```main_drone.cpp```.  A list of tracked targets is published 60 times per second in the topic ```downward_target_tracker/tracks```. See [```tracks.msg```](msg/tracks.msg). The message data can be used like this:
+This will run the executable compiled from ```main_drone.cpp```.  A list of tracked targets is published 60 times per second in the topic ```downward_target_tracker/tracks``` (see [```tracks.msg```](msg/tracks.msg)). The message data can be used like this:
 
 ```
 downward_target_tracker::tracks msg // From callback
@@ -51,7 +59,11 @@ for (int i = 0; i < msg.num_targets)
 }
 ```
 
-### Make sure everything isn't broken
+### Setting camera controls
+
+```set_camera_controls.sh``` sets camera exposure, gain, powerline frequency, ..., to some hardcoded values. **You must change these values during testing** depending on lighting. Make sure that the framerate does not dip below 60 (see Timing window in debugger).
+
+### Make sure everything works
 
 Compile and run the tracker.
 ```
@@ -63,7 +75,7 @@ Run the debugger (on your computer).
 $ rosrun downward_target_tracker debugger
 ```
 
-Then, with the main tab open in the debugger, if you are
+With the main tab open in the debugger, if you are
 
 * looking at a target (red or green plate)
 * and you are either standing ONE METER above the ground at zero pitch and roll,
@@ -102,7 +114,7 @@ Verify that things look correct by opening "calibrate camera" tab.
 2. Align drone axes with grid axes.
 3. Tilt the drone in either x or y axis, and verify that the visualized grid pattern matches with real-life.
 
-#### Parameters
+#### Saving parameters
 Open ```main_drone.cpp``` and look at the top of the file. Change the parameters if you need to:
 
 Parameter   | What
