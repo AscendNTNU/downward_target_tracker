@@ -379,10 +379,14 @@ int main(int, char **)
 
                     {
                         char label[1024];
-                        sprintf(label, "##target_%d", targets[i].unique_id);
+                        sprintf(label, "Target %d", targets[i].unique_id);
                         Begin(label);
                     }
                     {
+                        Text("180 Observed: %d", targets[i].observed_180);
+                        Text("180 Time: %.2f", targets[i].last_180_time);
+                        Text("Current time: %.2f", video_t[log_index]);
+
                         static float past_speed[past_velocity_count];
                         float *past_times = targets[i].past_velocity_t;
                         for (int j = 0; j < past_velocity_count; j++)

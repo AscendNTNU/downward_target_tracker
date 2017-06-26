@@ -4,6 +4,7 @@ const int detection_window_count = 60;
 const int past_velocity_count = 5*60; // 5 seconds * 60 fps = 300 frames
 const int velocity_averaging_window = 20; // Interval of detections used to compute velocity
                                           // => need atleast this many detections before computing velocity
+const float target_speed = 0.33f;
 
 struct detection_t
 {
@@ -28,6 +29,9 @@ struct target_t
     float past_velocity_x[past_velocity_count];
     float past_velocity_y[past_velocity_count];
     float past_velocity_t[past_velocity_count];
+
+    bool observed_180;
+    float last_180_time;
 };
 
 struct tracks_t
@@ -155,7 +159,6 @@ float metric_distance(float u1, float v1, float u2, float v2,
 
 vec2 fit_direction(detection_t *window, int n)
 {
-    float speed = 0.33f;
     vec2 v = {0};
     float e_033 = FLT_MAX;
     {
@@ -179,7 +182,7 @@ vec2 fit_direction(detection_t *window, int n)
         float ds = m_length(v);
         if (ds > 0.0f)
         {
-            v *= speed/ds;
+            v *= target_speed/ds;
             e_033 = 0.0f;
             for (int i = 0; i < n; i++)
             {
@@ -223,6 +226,35 @@ vec2 fit_direction(detection_t *window, int n)
         return v;
 }
 
+bool detect_180_turn(float *vx, float *vy, float *vt, int n, float *last_turn_time)
+{
+    const float reverse_duration = 1.8f; // arduino source code says 2.15 seconds
+                                         // but to be on the safe side
+    for (int i = 0; i < n; i++)
+    {
+        float vx1 = vx[i];
+        float vy1 = vy[i];
+        float vt1 = vt[i];
+        for (int j = i+1; j < n; j++)
+        {
+            float dot = vx[i]*vx[j] + vy[i]*vy[j];
+            // if v_i and v_j are opposite, then
+            //   (v_i dot v_j) = |v_i|*|v_j|*-1 = - .33^2 = -0.1089
+            // we'll tolerate a +-30 degree noise
+            //   cos(150) = cos(210) = -0.87
+            //   -0.87 * .33^2 = -0.0947
+            float tolerance = -0.87f*target_speed*target_speed;
+            bool is_reverse = dot < tolerance;
+            if (is_reverse && vt[i] - vt[j] > reverse_duration)
+            {
+                *last_turn_time = vt[j];
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 #define rshift(X, COUNT) { for (int LOOPVAR = (COUNT)-1; LOOPVAR > 0; LOOPVAR--) { (X)[LOOPVAR] = (X)[LOOPVAR-1]; } }
 
 void update_target_with_detection(target_t *target, detection_t detection)
@@ -253,6 +285,13 @@ void update_target_with_detection(target_t *target, detection_t detection)
     target->past_velocity_t[0] = detection.t;
     if (target->num_past_velocity < past_velocity_count)
         target->num_past_velocity++;
+
+    float last_180_time;
+    if (detect_180_turn(target->past_velocity_x, target->past_velocity_y, target->past_velocity_t, target->num_past_velocity, &last_180_time))
+    {
+        target->observed_180 = true;
+        target->last_180_time = last_180_time;
+    }
 }
 
 tracks_t track_targets(track_targets_opt_t opt)
