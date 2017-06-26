@@ -279,17 +279,16 @@ void update_target_with_detection(target_t *target, detection_t detection)
 tracks_t track_targets(track_targets_opt_t opt)
 {
     const int max_targets = 1024;
-    const float plate_z = 0.1f;               // Height of top-plate above ground
+    const float top_plate_height = 0.1f;      // Height of top-plate above ground
     const float merge_threshold = 0.3f;       // Maximum distance in meters for two detections to be considered the same
-    const float removal_time = 2.0f;          // Required elapsed time without reobservation before a track is removed
-    const int minimum_count = 50;             // Minimum number of pixels inside connected component to be accepted
-    const float detection_rate_period = 0.2f; // Time interval used to compute detection rate (hits per second)
+    const float removal_interval = 2.0f;      // Required elapsed time without reobservation before a track is removed
+    const float detection_rate_interval = 0.2f; // Time interval used to compute detection rate (hits per second)
     const float frames_per_second = 60.0f;    // Framerate used to normalize detection rate (corresponds to max hits per second)
     const float reverse_interval = 20.0f;     // Seconds between planned 180 degree turns
 
-    // requirements for a color detection to be valid
+    const   int min_pixel_count = 50;         // Minimum number of pixels inside connected component to be accepted
     const float min_aspect_ratio = 0.2f;      // A detection must be sufficiently square (aspect ~ 1)
-    const float max_aspect_ratio = 4.0f;      //
+    const float max_aspect_ratio = 4.0f;      // Should be 1/min_aspect_ratio?? todo
     const float min_fill_percentage = 0.5f;   // Percentage of filled pixels within 2D bounding box
 
     static target_t targets[max_targets];
@@ -353,7 +352,7 @@ tracks_t track_targets(track_targets_opt_t opt)
 
                 // Check how close the group centroids are in world space
                 // and merge only if they are sufficiently close
-                float d = metric_distance(xi,yi, xj,yj, f,u0,v0,rot,pos.z - plate_z);
+                float d = metric_distance(xi,yi, xj,yj, f,u0,v0,rot,pos.z - top_plate_height);
                 if (d > merge_threshold)
                     continue;
 
@@ -442,7 +441,7 @@ tracks_t track_targets(track_targets_opt_t opt)
         // iii) A sufficiently large portion of bounding box is filled
         for (int i = 0; i < groups.count; i++)
         {
-            bool count_ok = groups.group_n[i] >= minimum_count;
+            bool count_ok = groups.group_n[i] >= min_pixel_count;
 
             float std1 = sqrtf(eigx[i]);
             float std2 = sqrtf(eigy[i]);
@@ -482,7 +481,7 @@ tracks_t track_targets(track_targets_opt_t opt)
         vec2 uv = { detections[i].u, detections[i].v };
         vec3 dir = rot*camera_inverse_project(f,u0,v0, uv);
         vec2 xy;
-        if (m_intersect_xy_plane(dir, pos.z - plate_z, &xy))
+        if (m_intersect_xy_plane(dir, pos.z - top_plate_height, &xy))
         {
             detections[i].x = xy.x + pos.x;
             detections[i].y = xy.y + pos.y;
@@ -502,7 +501,7 @@ tracks_t track_targets(track_targets_opt_t opt)
     for (int i = 0; i < num_targets; i++)
     {
         // Remove targets that we haven't seen for a while
-        if (timestamp - targets[i].last_seen.t >= removal_time)
+        if (timestamp - targets[i].last_seen.t >= removal_interval)
         {
             targets[i] = targets[num_targets-1];
             num_targets--;
@@ -552,10 +551,10 @@ tracks_t track_targets(track_targets_opt_t opt)
             int hits = 0;
             for (int k = 0; k < targets[i].num_window; k++)
             {
-                if (timestamp - targets[i].window[k].t <= detection_rate_period)
+                if (timestamp - targets[i].window[k].t <= detection_rate_interval)
                     hits++;
             }
-            detection_rate = (hits/detection_rate_period) / frames_per_second;
+            detection_rate = (hits/detection_rate_interval) / frames_per_second;
         }
         targets[i].detection_rate = detection_rate;
     }
