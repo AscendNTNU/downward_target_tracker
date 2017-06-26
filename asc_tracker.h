@@ -1,6 +1,10 @@
 #include "so_math.h"
 #include "asc_detector.h"
 const int detection_window_count = 60;
+const int past_velocity_count = 5*60; // 5 seconds * 60 fps = 300 frames
+const int velocity_averaging_window = 20; // Interval of detections used to compute velocity
+                                          // => need atleast this many detections before computing velocity
+const float target_speed = 0.33f;
 
 struct detection_t
 {
@@ -20,6 +24,14 @@ struct target_t
 
     float velocity_x;
     float velocity_y;
+
+    int num_past_velocity;
+    float past_velocity_x[past_velocity_count];
+    float past_velocity_y[past_velocity_count];
+    float past_velocity_t[past_velocity_count];
+
+    bool observed_180;
+    float last_180_time;
 };
 
 struct tracks_t
@@ -145,6 +157,143 @@ float metric_distance(float u1, float v1, float u2, float v2,
     }
 }
 
+vec2 fit_direction(detection_t *window, int n)
+{
+    vec2 v = {0};
+    float e_033 = FLT_MAX;
+    {
+        float dx_sum = 0.0f;
+        float dy_sum = 0.0f;
+        float dt_sum = 0.0f;
+        for (int i = 0; i < n; i++)
+        {
+            float dx = window[i].x - window[n-1].x;
+            float dy = window[i].y - window[n-1].y;
+            float dt = window[i].t - window[n-1].t;
+            dx_sum += dx*dt;
+            dy_sum += dy*dt;
+            dt_sum += dt*dt;
+        }
+        if (dt_sum > 0.0f)
+            v = m_vec2(dx_sum/dt_sum, dy_sum/dt_sum);
+        else
+            v = m_vec2(0,0);
+
+        float ds = m_length(v);
+        if (ds > 0.0f)
+        {
+            v *= target_speed/ds;
+            e_033 = 0.0f;
+            for (int i = 0; i < n; i++)
+            {
+                float dt = window[i].t - window[n-1].t;
+                float dx = window[i].x - (window[n-1].x + v.x*dt);
+                float dy = window[i].y - (window[n-1].y + v.y*dt);
+                e_033 += dx*dx + dy*dy;
+            }
+            e_033 /= n;
+        }
+        else
+        {
+            e_033 = FLT_MAX;
+        }
+    }
+
+    float e_zero = FLT_MAX;
+    {
+        float cx = 0.0f;
+        float cy = 0.0f;
+        for (int i = 0; i < n; i++)
+        {
+            cx += window[i].x;
+            cy += window[i].y;
+        }
+        cx /= n;
+        cy /= n;
+        e_zero = 0.0f;
+        for (int i = 0; i < n; i++)
+        {
+            float dx = window[i].x-cx;
+            float dy = window[i].y-cy;
+            e_zero += dx*dx + dy*dy;
+        }
+        e_zero /= n;
+    }
+
+    if (e_zero < e_033)
+        return m_vec2(0,0);
+    else
+        return v;
+}
+
+bool detect_180_turn(float *vx, float *vy, float *vt, int n, float *last_turn_time)
+{
+    const float reverse_duration = 1.8f; // arduino source code says 2.15 seconds
+                                         // but to be on the safe side
+    for (int i = 0; i < n; i++)
+    {
+        float vx1 = vx[i];
+        float vy1 = vy[i];
+        float vt1 = vt[i];
+        for (int j = i+1; j < n; j++)
+        {
+            float dot = vx[i]*vx[j] + vy[i]*vy[j];
+            // if v_i and v_j are opposite, then
+            //   (v_i dot v_j) = |v_i|*|v_j|*-1 = - .33^2 = -0.1089
+            // we'll tolerate a +-30 degree noise
+            //   cos(150) = cos(210) = -0.87
+            //   -0.87 * .33^2 = -0.0947
+            float tolerance = -0.87f*target_speed*target_speed;
+            bool is_reverse = dot < tolerance;
+            if (is_reverse && vt[i] - vt[j] > reverse_duration)
+            {
+                *last_turn_time = vt[j];
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+#define rshift(X, COUNT) { for (int LOOPVAR = (COUNT)-1; LOOPVAR > 0; LOOPVAR--) { (X)[LOOPVAR] = (X)[LOOPVAR-1]; } }
+
+void update_target_with_detection(target_t *target, detection_t detection)
+{
+    target->last_seen = detection;
+
+    // Update window of detections with latest detection
+    rshift(target->window, detection_window_count);
+    target->window[0] = detection;
+    if (target->num_window < detection_window_count)
+        target->num_window++;
+
+    // Update velocity
+    detection_t *window = target->window;
+    vec2 v;
+    if (target->num_window >= velocity_averaging_window)
+        v = fit_direction(window, velocity_averaging_window);
+    else
+        v = m_vec2(0,0);
+    target->velocity_x = v.x;
+    target->velocity_y = v.y;
+
+    rshift(target->past_velocity_x, past_velocity_count);
+    rshift(target->past_velocity_y, past_velocity_count);
+    rshift(target->past_velocity_t, past_velocity_count);
+    target->past_velocity_x[0] = v.x;
+    target->past_velocity_y[0] = v.y;
+    target->past_velocity_t[0] = detection.t;
+    if (target->num_past_velocity < past_velocity_count)
+        target->num_past_velocity++;
+
+    float last_180_time;
+    if (detect_180_turn(target->past_velocity_x, target->past_velocity_y, target->past_velocity_t, target->num_past_velocity, &last_180_time))
+    {
+        target->observed_180 = true;
+        target->last_180_time = last_180_time;
+    }
+}
+
 tracks_t track_targets(track_targets_opt_t opt)
 {
     const int max_targets = 1024;
@@ -154,7 +303,6 @@ tracks_t track_targets(track_targets_opt_t opt)
     const int minimum_count = 50;             // Minimum number of pixels inside connected component to be accepted
     const float detection_rate_period = 0.2f; // Time interval used to compute detection rate (hits per second)
     const float frames_per_second = 60.0f;    // Framerate used to normalize detection rate (corresponds to max hits per second)
-    const int velocity_averaging_window = 60; // Number of past position measurements used to compute velocity
 
     // requirements for a color detection to be valid
     const float min_aspect_ratio = 0.2f;      // A detection must be sufficiently square (aspect ~ 1)
@@ -411,23 +559,7 @@ tracks_t track_targets(track_targets_opt_t opt)
         // If the detection was sufficiently close we are reobserving the target
         if (reobserving)
         {
-            targets[i].last_seen = detection;
-
-            // Update window of detections with latest detection
-            {
-                if (targets[i].num_window < detection_window_count)
-                {
-                    for (int k = targets[i].num_window; k > 0; k--)
-                        targets[i].window[k] = targets[i].window[k-1];
-                    targets[i].num_window++;
-                }
-                else
-                {
-                    for (int k = detection_window_count-1; k > 0; k--)
-                        targets[i].window[k] = targets[i].window[k-1];
-                }
-                targets[i].window[0] = detection;
-            }
+            update_target_with_detection(&targets[i], detection);
         }
 
         // Update detection rate
@@ -442,27 +574,6 @@ tracks_t track_targets(track_targets_opt_t opt)
             detection_rate = (hits/detection_rate_period) / frames_per_second;
         }
         targets[i].detection_rate = detection_rate;
-
-        // Update velocity
-        {
-            detection_t *window = targets[i].window;
-            float dx_sum = 0.0f;
-            float dy_sum = 0.0f;
-            int sum_n = 0;
-            for (int k = 1; k < targets[i].num_window && k < velocity_averaging_window; k++)
-            {
-                float dx = window[0].x - window[k].x;
-                float dy = window[0].y - window[k].y;
-                float dt = window[0].t - window[k].t;
-                dx_sum += dx/dt;
-                dy_sum += dy/dt;
-                sum_n++;
-            }
-            float dx = dx_sum/sum_n;
-            float dy = dy_sum/sum_n;
-            targets[i].velocity_x = dx;
-            targets[i].velocity_y = dy;
-        }
     }
 
     // Add new tracks
@@ -479,6 +590,7 @@ tracks_t track_targets(track_targets_opt_t opt)
                 t.detection_rate = 0.0f;
                 t.velocity_x = 0.0f;
                 t.velocity_y = 0.0f;
+                t.num_past_velocity = 0;
                 targets[num_targets] = t;
                 num_targets++;
             }

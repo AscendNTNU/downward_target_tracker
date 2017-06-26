@@ -1,6 +1,3 @@
-#define debug_draw_input 0
-#define debug_draw_calib 1
-#define debug_draw_track 0
 #define data_directory   "C:/Temp/data_3aug_2/"
 #define poses_log_name   data_directory "log_poses.txt"
 #define video_log_name   data_directory "log_video2.txt"
@@ -9,6 +6,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <assert.h>
+
+#define VDB_DISABLE_PROTIP
 #include "vdb/vdb.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -49,122 +48,6 @@ void downsample(unsigned char *src, int w, int h)
 
 int main(int, char **)
 {
-    {
-        int Ix,Iy,Ic;
-        unsigned char *I = stbi_load("C:/Temp/video800x600/video0299.jpg", &Ix, &Iy, &Ic, 3);
-        float cam_imu_rx = 0.0f;
-        float cam_imu_ry = 0.0f;
-        float cam_imu_rz = 0.0f;
-        float cam_imu_tx = 0.0f;
-        float cam_imu_ty = 0.0f;
-        float cam_imu_tz = 0.2f;
-        float f = 434.0f;
-        float u0 = 375.0f;
-        float v0 = 275.0f;
-
-        float imu_rx = 0.0f;
-        float imu_ry = 0.0f;
-        float imu_rz = 0.0f;
-        float imu_tx = 0.0f;
-        float imu_ty = 0.0f;
-        float imu_tz = 0.2f;
-
-        int grid_x = 9;
-        int grid_y = 6;
-        float grid_w = 2.4f/100.0f;
-        bool use_mavros_pose = true;
-
-        VDBB("Intrinsic calibration");
-        {
-            vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
-            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR, GL_LINEAR);
-            vdbDrawTexture2D(0);
-
-            mat3 imu_rot = m_rotz(imu_rz)*m_roty(imu_ry)*m_rotx(imu_rx);
-            vec3 imu_pos = m_vec3(imu_tx, imu_ty, imu_tz);
-            mat3 cam_imu_rot = m_rotz(cam_imu_rz)*m_roty(cam_imu_ry)*m_rotx(cam_imu_rx);
-            vec3 cam_imu_pos = m_vec3(cam_imu_tx, cam_imu_ty, cam_imu_tz);
-            mat3 R = imu_rot*cam_imu_rot;
-            vec3 T = imu_pos + imu_rot*cam_imu_pos;
-
-            vdbOrtho(0.0f, Ix, Iy, 0.0f);
-            glLines(2.0f);
-            glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
-
-            for (int xi = 0; xi <= grid_x; xi++)
-            {
-                float x = xi*grid_w;
-                for (int i = 0; i < 64; i++)
-                {
-                    float y1 = (i+0)*grid_y*grid_w/64.0f;
-                    float y2 = (i+1)*grid_y*grid_w/64.0f;
-                    vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y1, 0) - T));
-                    vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y2, 0) - T));
-                    glVertex2f(s1.x, s1.y);
-                    glVertex2f(s2.x, s2.y);
-                }
-            }
-
-            for (int yi = 0; yi <= grid_y; yi++)
-            {
-                float y = yi*grid_w;
-                for (int i = 0; i < 64; i++)
-                {
-                    float x1 = (i+0)*grid_x*grid_w/64.0f;
-                    float x2 = (i+1)*grid_x*grid_w/64.0f;
-                    vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x1, y, 0) - T));
-                    vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x2, y, 0) - T));
-                    glVertex2f(s1.x, s1.y);
-                    glVertex2f(s2.x, s2.y);
-                }
-            }
-
-            glEnd();
-
-            if (CollapsingHeader("Calibration pattern"))
-            {
-                grid_w *= 100.0f; DragFloat("cell width (cm)", &grid_w); grid_w /= 100.0f;
-                DragInt("cell count x", &grid_x);
-                DragInt("cell count y", &grid_y);
-            }
-
-            if (CollapsingHeader("Camera relative IMU"))
-            {
-                cam_imu_tx *= 100.0f; SliderFloat("tx (cm)", &cam_imu_tx, -10.0f, +10.0f); cam_imu_tx /= 100.0f;
-                cam_imu_ty *= 100.0f; SliderFloat("ty (cm)", &cam_imu_ty, -10.0f, +10.0f); cam_imu_ty /= 100.0f;
-                cam_imu_tz *= 100.0f; SliderFloat("tz (cm)", &cam_imu_tz, -10.0f, +10.0f); cam_imu_tz /= 100.0f;
-                cam_imu_rx *= 180.0f/3.14f; SliderFloat("rx (deg)", &cam_imu_rx, -10.00f, +10.00f); cam_imu_rx *= 3.14f/180.0f;
-                cam_imu_ry *= 180.0f/3.14f; SliderFloat("ry (deg)", &cam_imu_ry, -10.00f, +10.00f); cam_imu_ry *= 3.14f/180.0f;
-                cam_imu_rz *= 180.0f/3.14f; SliderFloat("rz (deg)", &cam_imu_rz, -180.0f, +180.0f); cam_imu_rz *= 3.14f/180.0f;
-            }
-
-            if (CollapsingHeader("IMU relative pattern"))
-            {
-                Text("Untick the checkbox to manually control a value");
-                static bool use_mavros_imu_tx = true;
-                static bool use_mavros_imu_ty = true;
-                static bool use_mavros_imu_tz = true;
-                static bool use_mavros_imu_rx = true;
-                static bool use_mavros_imu_ry = true;
-                static bool use_mavros_imu_rz = true;
-                imu_tx *= 100.0f; SliderFloat("tx (cm)##imu", &imu_tx, -100.0f, +100.0f); imu_tx /= 100.0f; SameLine(); Checkbox("##imu_tx", &use_mavros_imu_tx);
-                imu_ty *= 100.0f; SliderFloat("ty (cm)##imu", &imu_ty, -100.0f, +100.0f); imu_ty /= 100.0f; SameLine(); Checkbox("##imu_ty", &use_mavros_imu_ty);
-                imu_tz *= 100.0f; SliderFloat("tz (cm)##imu", &imu_tz,    1.0f, +100.0f); imu_tz /= 100.0f; SameLine(); Checkbox("##imu_tz", &use_mavros_imu_tz);
-                imu_rx *= 180.0f/3.14f; SliderFloat("rx (deg)##imu", &imu_rx, -60.00f, +60.00f); imu_rx *= 3.14f/180.0f; SameLine(); Checkbox("##imu_rx", &use_mavros_imu_rx);
-                imu_ry *= 180.0f/3.14f; SliderFloat("ry (deg)##imu", &imu_ry, -60.00f, +60.00f); imu_ry *= 3.14f/180.0f; SameLine(); Checkbox("##imu_ry", &use_mavros_imu_ry);
-                imu_rz *= 180.0f/3.14f; SliderFloat("rz (deg)##imu", &imu_rz, -180.0f, +180.0f); imu_rz *= 3.14f/180.0f; SameLine(); Checkbox("##imu_rz", &use_mavros_imu_rz);
-            }
-
-            if (CollapsingHeader("Fisheye parameters"))
-            {
-                DragFloat("f", &f);
-                DragFloat("u0", &u0);
-                DragFloat("v0", &v0);
-            }
-        }
-        VDBE();
-    }
-
     int levels = 3;
     float f_calibrated = 494.0f;
     float u0_calibrated = 649.0f;
@@ -219,7 +102,8 @@ int main(int, char **)
     }
 
     int skip_count = 1;
-    for (int log_index = 0; log_index < log_length; log_index+=skip_count)
+    for (int log_index = 1000; log_index < log_length; log_index+=skip_count)
+    // for (int log_index = 0; log_index < log_length; log_index+=skip_count)
     {
         if (!poses_ok[video_i[log_index]])
             continue;
@@ -262,32 +146,162 @@ int main(int, char **)
             tracks = track_targets(opt);
         }
 
-        #if debug_draw_input==1
-        VDBB("Input");
+        #if 0
         {
-            vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
-            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
-            vdbDrawTexture2D(0);
+            ImGuiStyle &style = ImGui::GetStyle();
+            style.WindowRounding = 0.0f;
+            style.FrameRounding = 2.0f;
+            style.GrabRounding = 2.0f;
+            style.WindowFillAlphaDefault = 1.0f;
+            style.Colors[ImGuiCol_WindowBg]              = ImVec4(0.11f, 0.11f, 0.11f, 1.0f);
+            style.Colors[ImGuiCol_FrameBg]               = ImVec4(0.16f, 0.26f, 0.38f, 0.70f);
+            style.Colors[ImGuiCol_FrameBgHovered]        = ImVec4(0.20f, 0.35f, 0.47f, 0.70f);
+            style.Colors[ImGuiCol_TitleBg]               = ImVec4(0.18f, 0.18f, 0.18f, 1.00f);
+            style.Colors[ImGuiCol_TitleBgCollapsed]      = ImVec4(0.18f, 0.18f, 0.18f, 0.39f);
+            style.Colors[ImGuiCol_TitleBgActive]         = ImVec4(0.18f, 0.18f, 0.18f, 0.55f);
+            style.Colors[ImGuiCol_MenuBarBg]             = ImVec4(0.00f, 0.00f, 0.00f, 0.39f);
+            style.Colors[ImGuiCol_ScrollbarBg]           = ImVec4(0.00f, 0.00f, 0.00f, 0.42f);
+            style.Colors[ImGuiCol_ScrollbarGrab]         = ImVec4(0.24f, 0.24f, 0.24f, 0.59f);
+            style.Colors[ImGuiCol_ScrollbarGrabHovered]  = ImVec4(0.31f, 0.31f, 0.31f, 0.59f);
+            style.Colors[ImGuiCol_ScrollbarGrabActive]   = ImVec4(0.78f, 0.78f, 0.78f, 0.40f);
+            style.Colors[ImGuiCol_CheckMark]             = ImVec4(0.24f, 0.52f, 0.88f, 0.90f);
+            style.Colors[ImGuiCol_SliderGrab]            = ImVec4(0.24f, 0.52f, 0.88f, 0.90f);
+            style.Colors[ImGuiCol_Button]                = ImVec4(0.16f, 0.26f, 0.38f, 0.78f);
+            style.Colors[ImGuiCol_ButtonHovered]         = ImVec4(0.18f, 0.28f, 0.40f, 1.00f);
+            style.Colors[ImGuiCol_ButtonActive]          = ImVec4(0.20f, 0.31f, 0.47f, 1.00f);
+            style.Colors[ImGuiCol_Header]                = ImVec4(0.16f, 0.26f, 0.38f, 0.80f);
+            style.Colors[ImGuiCol_HeaderHovered]         = ImVec4(0.24f, 0.52f, 0.88f, 0.80f);
+            style.Colors[ImGuiCol_HeaderActive]          = ImVec4(0.24f, 0.52f, 0.88f, 0.80f);
+            style.Colors[ImGuiCol_ResizeGrip]            = ImVec4(0.16f, 0.26f, 0.38f, 0.60f);
+            style.Colors[ImGuiCol_ResizeGripHovered]     = ImVec4(0.16f, 0.26f, 0.38f, 0.90f);
+            style.Colors[ImGuiCol_ResizeGripActive]      = ImVec4(0.20f, 0.29f, 0.43f, 0.90f);
+            style.Colors[ImGuiCol_CloseButton]           = ImVec4(0.29f, 0.29f, 0.29f, 0.50f);
+            style.Colors[ImGuiCol_CloseButtonHovered]    = ImVec4(0.39f, 0.39f, 0.39f, 0.60f);
+        }
+        VDBB("Tracks");
+        {
+            vdbClear(0.73, 0.73, 0.73, 1.0);
+            int window_width = vdb_input.width;
+            int window_height = vdb_input.height;
+            int left_pane_width = 250;
+            int main_pane_width = window_width-left_pane_width;
+            int main_pane_height = main_pane_width*Iy/Ix;
+            int bott_pane_height = window_height-main_pane_height;
+
+            SetNextWindowPos(ImVec2(0,0));
+            SetNextWindowSize(ImVec2(left_pane_width, window_height));
+            Begin("##left_pane", NULL, ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize);
+            Text("Hello!");
+            Text("%d", main_pane_height);
+            SliderInt("Step size", &skip_count, 0, 60);
+            SliderInt("Log index", &log_index, 0, log_length-1);
+            End();
+
+            SetNextWindowPos(ImVec2(left_pane_width,main_pane_height));
+            SetNextWindowSize(ImVec2(main_pane_width, bott_pane_height));
+            Begin("##bott_pane", NULL, ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize);
+            Text("Hello sailor!");
+            End();
+
+            ShowTestWindow();
+
+            vdbViewport(left_pane_width, window_height-main_pane_height, main_pane_width, main_pane_height);
+            {
+                vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
+                vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
+                vdbDrawTexture2D(0);
+
+                // draw connected components
+                {
+                    int *points = tracks.points;
+                    int num_points = tracks.num_points;
+                    cc_groups groups = tracks.groups;
+
+                    int max_n = 0;
+                    for (int i = 0; i < groups.count; i++)
+                    {
+                        if (groups.group_n[i] > max_n)
+                            max_n = groups.group_n[i];
+                    }
+
+                    vdbOrtho(0.0f, Ix, Iy, 0.0f);
+                    glBegin(GL_TRIANGLES);
+                    for (int i = 0; i < num_points; i++)
+                    {
+                        int p = points[i];
+                        int x = p % Ix;
+                        int y = p / Ix;
+                        int l = groups.label[p];
+                        int n = groups.group_n[l];
+
+                        if (n > 0.025f*max_n)
+                        {
+                            glColor4f(vdbPalette(l));
+                            vdbFillRect(x, y, 1.0f, 1.0f);
+                        }
+                    }
+                    glEnd();
+
+                    vdbAdditiveBlend();
+                    glLines(2.0f);
+                    glColor4f(0.2f, 0.8f, 1.0f, 1.0f);
+                    for (int i = 0; i < groups.count; i++)
+                    {
+                        if (groups.group_n[i] > 0.025f*max_n)
+                        {
+                            float min_x = groups.group_min_x[i];
+                            float min_y = groups.group_min_y[i];
+                            float max_x = groups.group_max_x[i];
+                            float max_y = groups.group_max_y[i];
+                            vdbDrawRect(min_x+0.5f, min_y+0.5f, max_x-min_x, max_y-min_y);
+                        }
+                    }
+                    glEnd();
+                    vdbAlphaBlend();
+
+                    bool changed = false;
+                    changed |= SliderFloat("r_g", &opt.r_g, 0.0f, 10.0f);
+                    changed |= SliderFloat("r_b", &opt.r_b, 0.0f, 10.0f);
+                    changed |= SliderFloat("r_n", &opt.r_n, 0.0f, 255.0f);
+                    changed |= SliderFloat("g_r", &opt.g_r, 0.0f, 10.0f);
+                    changed |= SliderFloat("g_b", &opt.g_b, 0.0f, 10.0f);
+                    changed |= SliderFloat("g_n", &opt.g_n, 0.0f, 255.0f);
+                    if (changed)
+                    {
+                        tracks = track_targets(opt);
+                    }
+                }
+
+                // draw detections
+                {
+                    detection_t *detections = tracks.detections;
+                    int num_detections = tracks.num_detections;
+                    for (int i = 0; i < num_detections; i++)
+                    {
+                        float u = detections[i].u;
+                        float v = detections[i].v;
+
+                        glLines(2.0f);
+                        glColor4f(1.0f,1.0f,0.2f, 1.0f);
+                        vdbDrawCircle(u,v,6);
+                        glEnd();
+                    }
+                }
+            }
+            vdbViewport(0, 0, window_width, window_height);
+
+            if (vdbKeyDown(SPACE))
+                vdbStepOnce();
         }
         VDBE();
         #endif
 
-        #if debug_draw_calib==1
-        VDBB("Calibration");
-        {
-            vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
-            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
-            vdbDrawTexture2D(0);
-        }
-        VDBE();
-        #endif
-
-        #if debug_draw_track==1
+        #if 1
         VDBB("Tracks");
         {
             const int mode_draw_image = 0;
             const int mode_draw_world = 1;
-            static int mode = mode_draw_image;
+            static int mode = mode_draw_world;
 
             SliderInt("skip_count", &skip_count, 1, 16);
             SliderInt("log_index", &log_index, 0, log_length-1);
@@ -491,6 +505,34 @@ int main(int, char **)
                         glVertex2f(x2,y2);
                     }
                     glEnd();
+
+                    {
+                        char label[1024];
+                        sprintf(label, "Target %d", targets[i].unique_id);
+                        Begin(label);
+                    }
+                    {
+                        Text("180 Observed: %d", targets[i].observed_180);
+                        Text("180 Time: %.2f", targets[i].last_180_time);
+                        Text("Current time: %.2f", video_t[log_index]);
+
+                        static float past_speed[past_velocity_count];
+                        float *past_times = targets[i].past_velocity_t;
+                        for (int j = 0; j < past_velocity_count; j++)
+                        {
+                            float vx = targets[i].past_velocity_x[j];
+                            float vy = targets[i].past_velocity_y[j];
+                            past_speed[j] = sqrtf(vx*vx + vy*vy);
+                        }
+                        char label[1024];
+                        sprintf(label, "##plot_target_%d", targets[i].unique_id);
+                        if (targets[i].num_past_velocity > 0)
+                        {
+                            PlotLines(label, past_speed, targets[i].num_past_velocity, 0, NULL, 0.0f, 0.4f, ImVec2(0,50));
+                            PlotLines(label, past_times, targets[i].num_past_velocity, 0, NULL, FLT_MAX, FLT_MAX, ImVec2(0,50));
+                        }
+                    }
+                    End();
                 }
             }
 
