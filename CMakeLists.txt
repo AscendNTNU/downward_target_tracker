@@ -26,8 +26,8 @@ include(FindPkgConfig)
 pkg_search_module(SDL2 REQUIRED sdl2)
 include_directories(${SDL2_INCLUDE_DIRS})
 
-add_executable(tracker main_drone.cpp)
+add_executable(tracker src/main_drone.cpp)
 target_link_libraries(tracker ${catkin_LIBRARIES} turbojpeg v4l2)
 
-add_executable(debugger main_debugger.cpp)
+add_executable(debugger src/main_debugger.cpp)
 target_link_libraries(debugger ${catkin_LIBRARIES} turbojpeg ${SDL2_LIBRARIES} GL)
