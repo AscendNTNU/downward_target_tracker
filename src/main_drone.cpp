@@ -60,6 +60,10 @@
 #include "asc_usbcam.h"
 #include "asc_tracker.h"
 
+#if TESTING_WITH_LAPTOP_WEBCAM==1
+#include "mjpg_to_jpg.h"
+#endif
+
 float camera_f = CAMERA_F_INIT;
 float camera_u0 = CAMERA_U0_INIT;
 float camera_v0 = CAMERA_V0_INIT;
@@ -173,6 +177,8 @@ int main(int argc, char **argv)
             jpg_data = mock_jpg;
             jpg_size = mock_jpg_len;
             usleep(16*1000);
+            #elif TESTING_WITH_LAPTOP_WEBCAM==1
+            usbcam_lock_mjpg(&jpg_data, &jpg_size, &timestamp);
             #else
             usbcam_lock(&jpg_data, &jpg_size, &timestamp);
             #endif
