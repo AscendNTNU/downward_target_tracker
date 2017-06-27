@@ -37,8 +37,8 @@
 #define CAMERA_BUFFERS     3
 #define CAMERA_LEVELS      2 // Downscale factor (0=none, 1=half, 2=quarter)
 #define CAMERA_F_INIT      434.0f
-#define CAMERA_U0_INIT     375.0f
-#define CAMERA_V0_INIT     275.0f
+#define CAMERA_U0_INIT     400.0f
+#define CAMERA_V0_INIT     300.0f
 #endif
 
 #if TESTING_WITH_LAPTOP==1
