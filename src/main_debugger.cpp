@@ -117,39 +117,36 @@ int main(int argc, char **argv)
 
             Begin("Select target");
             {
+                Columns(4, "latest_tracks");
+                Separator();
+                Text("ID");        NextColumn();
+                Text("Pos (xy)");  NextColumn();
+                Text("Vel (xy)");  NextColumn();
+                Text("Hitrate");   NextColumn();
+                Separator();
                 for (int i = 0; i < latest_tracks.num_targets; i++)
                 {
-                    Columns(4, "latest_tracks");
-                    Separator();
-                    Text("ID");        NextColumn();
-                    Text("Pos (xy)");  NextColumn();
-                    Text("Vel (xy)");  NextColumn();
-                    Text("Hitrate");   NextColumn();
-                    Separator();
-                    for (int i = 0; i < latest_tracks.num_targets; i++)
+                    char label[32];
+                    sprintf(label, "%d", latest_tracks.unique_id[i]);
+                    if (Selectable(label, selected_id == latest_tracks.unique_id[i], ImGuiSelectableFlags_SpanAllColumns))
                     {
-                        char label[32];
-                        sprintf(label, "%d", latest_tracks.unique_id[i]);
-                        if (Selectable(label, selected_id == latest_tracks.unique_id[i], ImGuiSelectableFlags_SpanAllColumns))
-                        {
-                            if (selected_id == latest_tracks.unique_id[i])
-                                selected_id = -1;
-                            else
-                                selected_id = latest_tracks.unique_id[i];
-                        }
-                        NextColumn();
-
-                        ImVec4 color = ImVec4(1.0f,1.0f,1.0f,1.0f);
                         if (selected_id == latest_tracks.unique_id[i])
-                            color = ImVec4(1.0f, 0.3f, 0.1f, 1.0f);
-
-                        TextColored(color, "%.2f %.2f", latest_tracks.position_x[i], latest_tracks.position_y[i]); NextColumn();
-                        TextColored(color, "%.2f %.2f", latest_tracks.velocity_x[i], latest_tracks.velocity_y[i]); NextColumn();
-                        TextColored(color, "%.2f",      latest_tracks.detection_rate[i]);                          NextColumn();
+                            selected_id = -1;
+                        else
+                            selected_id = latest_tracks.unique_id[i];
                     }
-                    Columns(1);
-                    Separator();
+                    NextColumn();
+
+                    ImVec4 color = ImVec4(1.0f,1.0f,1.0f,1.0f);
+                    if (selected_id == latest_tracks.unique_id[i])
+                        color = ImVec4(1.0f, 0.3f, 0.1f, 1.0f);
+
+                    TextColored(color, "%.2f %.2f", latest_tracks.position_x[i], latest_tracks.position_y[i]); NextColumn();
+                    TextColored(color, "%.2f %.2f", latest_tracks.velocity_x[i], latest_tracks.velocity_y[i]); NextColumn();
+                    TextColored(color, "%.2f",      latest_tracks.detection_rate[i]);                          NextColumn();
                 }
+                Columns(1);
+                Separator();
 
                 bool selected_id_exists = false;
                 for (int i = 0; i < latest_tracks.num_targets; i++)
