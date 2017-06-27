@@ -13,7 +13,7 @@ float32[] detection_rate # Detections per second divided by framerate. Flicker
                          # it is significantly lower than 1 the target is likely
                          # a false positive and should be ignored.
 
-float     time_until_180 # Seconds remaining until (assumingly) all targets will
+float32   time_until_180 # Seconds remaining until (assumingly) all targets will
                          # do the 180 degree turn. It is corrected live from any
                          # observed turns of tracked targets, and initialized to
                          # 20 seconds when the tracker is started with rosrun.
