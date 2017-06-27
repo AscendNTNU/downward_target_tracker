@@ -28,6 +28,8 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
     static bool use_mavros_imu_ty = false; static float imu_ty = 0.0f; if (use_mavros_imu_ty) imu_ty = latest_info.imu_ty;
     static bool use_mavros_imu_tz = true;  static float imu_tz = 1.0f; if (use_mavros_imu_tz) imu_tz = latest_info.imu_tz;
 
+    static bool paused = false;
+
     static int grid_x = 3;
     static int grid_y = 3;
     static float grid_w = 1.0f;
@@ -40,7 +42,8 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
     vec3 T = imu_pos + imu_rot*cam_imu_pos;
 
     vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
-    vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR, GL_LINEAR);
+    if (!paused)
+        vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR, GL_LINEAR);
     vdbDrawTexture2D(0);
 
     vdbOrtho(0.0f, Ix, Iy, 0.0f);
@@ -77,6 +80,7 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
     glEnd();
 
     Begin("Calibration");
+    Checkbox("Freeze image", &paused);
     Text("Calibration pattern:");
     grid_w *= 100.0f; DragFloat("Cell width (cm)", &grid_w); grid_w /= 100.0f;
     DragInt("Cell count x", &grid_x);
