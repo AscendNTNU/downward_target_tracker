@@ -30,12 +30,14 @@ void view_color(latest_image_t latest_image, downward_target_tracker::info lates
 
     // draw connected components
     {
+        #if 0
         int max_n = 0;
         for (int i = 0; i < groups.count; i++)
         {
             if (groups.group_n[i] > max_n)
                 max_n = groups.group_n[i];
         }
+        #endif
 
         vdbOrtho(0.0f, Ix, Iy, 0.0f);
         glBegin(GL_TRIANGLES);
@@ -47,7 +49,9 @@ void view_color(latest_image_t latest_image, downward_target_tracker::info lates
             int l = groups.label[p];
             int n = groups.group_n[l];
 
+            #if 0
             if (n > 0.025f*max_n)
+            #endif
             {
                 glColor4f(vdbPalette(l));
                 vdbFillRect(x, y, 1.0f, 1.0f);
@@ -60,7 +64,9 @@ void view_color(latest_image_t latest_image, downward_target_tracker::info lates
         glColor4f(0.2f, 0.8f, 1.0f, 1.0f);
         for (int i = 0; i < groups.count; i++)
         {
-            if (groups.group_n[i] > 0.025f*max_n)
+            #if 0
+            // if (groups.group_n[i] > 0.025f*max_n)
+            #endif
             {
                 float min_x = groups.group_min_x[i];
                 float min_y = groups.group_min_y[i];
