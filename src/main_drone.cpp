@@ -1,5 +1,6 @@
-#define DUMMY_IMAGE            1
-#define DEVICE_NAME            "/dev/video1"
+#define TESTING_WITH_LAPTOP    1
+#define DUMMY_IMAGE            0
+#define DEVICE_NAME            "/dev/video0"
 #define IMU_POSE_TOPIC         "/mavros/vision_pose/pose"
 #define INFO_PUBLISH_INTERVAL  0.0f // minimum required seconds between publications (set to zero to publish every frame)
 #define IMAGE_PUBLISH_INTERVAL 0.0f // minimum required seconds between publications (set to zero to publish every frame)
@@ -28,7 +29,7 @@
 // Implementation
 //
 
-#if DUMMY_IMAGE==0
+#if DUMMY_IMAGE==0 && TESTING_WITH_LAPTOP==0
 #define USBCAM_DEBUG       1
 #define CAMERA_WIDTH       800
 #define CAMERA_HEIGHT      600
@@ -37,7 +38,20 @@
 #define CAMERA_F_INIT      434.0f
 #define CAMERA_U0_INIT     375.0f
 #define CAMERA_V0_INIT     275.0f
-#else
+#endif
+
+#if TESTING_WITH_LAPTOP==1
+#define USBCAM_DEBUG       1
+#define CAMERA_WIDTH       800
+#define CAMERA_HEIGHT      600
+#define CAMERA_BUFFERS     3
+#define CAMERA_LEVELS      2 // Downscale factor (0=none, 1=half, 2=quarter)
+#define CAMERA_F_INIT      434.0f
+#define CAMERA_U0_INIT     375.0f
+#define CAMERA_V0_INIT     275.0f
+#endif
+
+#if DUMMY_IMAGE==1
 #include "mock_jpg.h"      // hint: run "xxd -i" on an image to generate a header-embedded binary
 #define CAMERA_WIDTH       1280
 #define CAMERA_HEIGHT      720
@@ -59,10 +73,7 @@
 #include <downward_target_tracker/tracks.h>
 #include "asc_usbcam.h"
 #include "asc_tracker.h"
-
-#if TESTING_WITH_LAPTOP_WEBCAM==1
 #include "mjpg_to_jpg.h"
-#endif
 
 float camera_f = CAMERA_F_INIT;
 float camera_u0 = CAMERA_U0_INIT;
@@ -177,7 +188,7 @@ int main(int argc, char **argv)
             jpg_data = mock_jpg;
             jpg_size = mock_jpg_len;
             usleep(16*1000);
-            #elif TESTING_WITH_LAPTOP_WEBCAM==1
+            #elif TESTING_WITH_LAPTOP==1
             usbcam_lock_mjpg(&jpg_data, &jpg_size, &timestamp);
             #else
             usbcam_lock(&jpg_data, &jpg_size, &timestamp);
