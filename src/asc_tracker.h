@@ -6,11 +6,6 @@ const int velocity_averaging_window = 20; // Interval of detections used to comp
                                           // => need atleast this many detections before computing velocity
 const float target_speed = 0.33f;
 
-#define camera_project m_project_equidistant
-#define camera_inverse_project m_ray_equidistant
-// #define camera_project m_project_pinhole
-// #define camera_inverse_project m_ray_pinhole
-
 struct detection_t
 {
     float t;           // Timestamp when detection was made

@@ -1,8 +1,5 @@
 #include <math.h>
-#define camera_project  m_project_equidistant
-#define camera_inverse_project m_ray_equidistant
-// #define camera_project m_project_pinhole
-// #define camera_inverse_project m_ray_pinhole
+#include "camera_define.h"
 
 void view_rectify(latest_image_t latest_image, downward_target_tracker::info latest_info)
 {

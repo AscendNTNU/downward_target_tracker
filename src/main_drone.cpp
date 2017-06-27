@@ -1,4 +1,3 @@
-#define TESTING_WITH_LAPTOP    1
 #define DUMMY_IMAGE            0
 #define DEVICE_NAME            "/dev/video0"
 #define IMU_POSE_TOPIC         "/mavros/vision_pose/pose"
@@ -28,6 +27,8 @@
 //
 // Implementation
 //
+
+#include "camera_define.h"
 
 #if DUMMY_IMAGE==0 && TESTING_WITH_LAPTOP==0
 #define USBCAM_DEBUG       1
