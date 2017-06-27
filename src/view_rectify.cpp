@@ -1,5 +1,12 @@
 #include <math.h>
-#include "camera_define.h"
+
+#if TESTING_WITH_LAPTOP==1
+#define camera_project m_project_pinhole
+#define camera_inverse_project m_ray_pinhole
+#else
+#define camera_project m_project_equidistant
+#define camera_inverse_project m_ray_equidistant
+#endif
 
 void view_rectify(latest_image_t latest_image, downward_target_tracker::info latest_info)
 {

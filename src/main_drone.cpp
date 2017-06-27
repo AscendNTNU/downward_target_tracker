@@ -1,3 +1,4 @@
+#define TESTING_WITH_LAPTOP    1
 #define DUMMY_IMAGE            0
 #define DEVICE_NAME            "/dev/video0"
 #define IMU_POSE_TOPIC         "/mavros/vision_pose/pose"
@@ -24,12 +25,7 @@
 #define G_B_INIT           1.5f       // minimum green/blue ratio
 #define G_N_INIT           10.0f/3.0f // minimum average brightness (r+g+b)/3
 
-//
-// Implementation
-//
-
-#include "camera_define.h"
-
+// Camera parameters
 #if DUMMY_IMAGE==0 && TESTING_WITH_LAPTOP==0
 #define USBCAM_DEBUG       1
 #define CAMERA_WIDTH       800
@@ -40,6 +36,10 @@
 #define CAMERA_U0_INIT     400.0f
 #define CAMERA_V0_INIT     300.0f
 #endif
+
+//
+// Implementation
+//
 
 #if TESTING_WITH_LAPTOP==1
 #define USBCAM_DEBUG       1
@@ -60,6 +60,14 @@
 #define CAMERA_F_INIT      494.0f
 #define CAMERA_U0_INIT     649.0f
 #define CAMERA_V0_INIT     335.0f
+#endif
+
+#if TESTING_WITH_LAPTOP==1
+#define camera_project m_project_pinhole
+#define camera_inverse_project m_ray_pinhole
+#else
+#define camera_project m_project_equidistant
+#define camera_inverse_project m_ray_equidistant
 #endif
 
 #include <signal.h>

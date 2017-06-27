@@ -1,3 +1,9 @@
+#define TESTING_WITH_LAPTOP 1 // Set to 0 when testing with actual drone
+
+//
+//
+//
+
 #include "vdb/vdb.h"
 #include <ros/ros.h>
 #include <std_msgs/Float32.h>
@@ -161,15 +167,30 @@ int main(int argc, char **argv)
 
             Begin("Timing");
             {
-                Columns(2, "columns_timing");
-                Text("Output rate");  NextColumn(); Text("%.2f Hz", 1.0f/latest_info.dt_cycle);            NextColumn(); Separator();
-                Text("Frame rate");   NextColumn(); Text("%.2f Hz", 1.0f/latest_info.dt_frame);            NextColumn(); Separator();
-                Text("MJPEG to RGB"); NextColumn(); Text("%.2f ms", 1000.0f*latest_info.dt_jpeg_to_rgb);   NextColumn(); Separator();
-                Text("Tracker");      NextColumn(); Text("%.2f ms", 1000.0f*latest_info.dt_track_targets); NextColumn(); Separator();
-                Columns(1);
+                static bool freeze = false;
+                Checkbox("Freeze", &freeze);
+                #define PlotTiming(LABEL, LATEST, MIN, MAX)                \
+                {                                                            \
+                    const int count = 60*3;                                  \
+                    static float graph[count];                               \
+                    if (!freeze) {                                           \
+                    for (int i = 0; i < count-1; i++)                        \
+                        graph[i] = graph[i+1]; }                             \
+                    graph[count-1] = LATEST;                                 \
+                    PlotLines(LABEL, graph, count, 0, NULL, MIN, MAX, ImVec2(200,0)); \
+                }
+
+                PlotTiming("Output rate (Hz)",  1.0f/latest_info.dt_cycle, 0.0f, 60.0f); SameLine(); Text("%.2f Hz", 1.0f/latest_info.dt_cycle);
+                PlotTiming("Frame rate (Hz)",   1.0f/latest_info.dt_frame, 0.0f, 60.0f); SameLine(); Text("%.2f Hz", 1.0f/latest_info.dt_frame);
+                PlotTiming("MJPEG to RGB (ms)", 1000.0f*latest_info.dt_jpeg_to_rgb, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.dt_jpeg_to_rgb);
+                PlotTiming("Tracker (ms)",      1000.0f*latest_info.dt_track_targets, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.dt_track_targets);
 
                 if (latest_info.dt_cycle > 1.25f*1.0f/60.0f)
-                    TextColored(ImVec4(1.0f,0.3f,0.1f,1.0f), "Output rate is way less than 60 Hz (message me on Slack).");
+                {
+                    PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.3f, 0.1f, 1.0f));
+                    TextWrapped("Output rate is way less than 60 Hz (message me on Slack).");
+                    PopStyleColor();
+                }
             }
             End();
         }
