@@ -453,14 +453,9 @@ tracks_t track_targets(track_targets_opt_t opt)
         color_groups = groups;
     }
 
-    static bool found_match[detector_max_groups];
-    for (int i = 0; i < num_detections; i++)
-        found_match[i] = false;
-
-    // Update existing tracks
+    // Remove targets that we haven't seen for a while
     for (int i = 0; i < num_targets; i++)
     {
-        // Remove targets that we haven't seen for a while
         if (timestamp - targets[i].last_seen.t >= removal_interval)
         {
             targets[i] = targets[num_targets-1];
@@ -468,55 +463,60 @@ tracks_t track_targets(track_targets_opt_t opt)
             i--;
             continue;
         }
+    }
 
-        // Find the closest acceptable detection or continue otherwise
-        detection_t detection = {0};
-        bool reobserving = false;
+    // Associate each detection with the closest target
+    static int associated_target[detector_max_groups];
+    for (int detection = 0; detection < num_detections; detection++)
+    {
+        int closest_target = -1;
+        float closest_distance = FLT_MAX;
+        for (int target = 0; target < num_targets; target++)
         {
-            int closest_j = -1;
-            float closest_d = 0.0f;
-            for (int j = 0; j < num_detections; j++)
+            float dx = targets[target].last_seen.x - detections[detection].x;
+            float dy = targets[target].last_seen.y - detections[detection].y;
+            float ds = sqrtf(dx*dx + dy*dy);
+            if (ds < closest_distance && ds <= merge_threshold)
             {
-                float ui = targets[i].last_seen.u;
-                float vi = targets[i].last_seen.v;
-                float uj = detections[j].u;
-                float vj = detections[j].v;
-                float dx = targets[i].last_seen.x-detections[j].x;
-                float dy = targets[i].last_seen.y-detections[j].y;
-                float d = sqrtf(dx*dx + dy*dy);
-                if (closest_j < 0 || d < closest_d)
-                {
-                    closest_j = j;
-                    closest_d = d;
-                }
+                closest_target = target;
+                closest_distance = ds;
             }
+        }
+        associated_target[detection] = closest_target;
+    }
 
-            if (closest_j >= 0 && closest_d <= merge_threshold)
+    // Update existing tracks with new detections
+    for (int i = 0; i < num_targets; i++)
+    {
+        // Find the nearest associated detection and update track with it
+        int closest_detection = -1;
+        float closest_distance = FLT_MAX;
+        for (int j = 0; j < num_detections; j++)
+        {
+            float dx = targets[i].last_seen.x - detections[j].x;
+            float dy = targets[i].last_seen.y - detections[j].y;
+            float ds = sqrtf(dx*dx + dy*dy);
+            if (ds < closest_distance && associated_target[j] == i)
             {
-                reobserving = true;
-                found_match[closest_j] = true;
-                detection = detections[closest_j];
+                closest_detection = j;
+                closest_distance = ds;
             }
         }
 
-        // If the detection was sufficiently close we are reobserving the target
-        if (reobserving)
-        {
-            update_target_with_detection(&targets[i], detection);
-        }
+        if (closest_detection >= 0)
+            update_target_with_detection(&targets[i], detections[closest_detection]);
+    }
 
-        // Update detection rate
-        float detection_rate = 0.0f;
+    // Update detection rate
+    for (int i = 0; i < num_targets; i++)
+    {
+        int hits = 0;
+        for (int k = 0; k < targets[i].num_window; k++)
         {
-            int hits = 0;
-            for (int k = 0; k < targets[i].num_window; k++)
-            {
-                if (timestamp - targets[i].window[k].t <= detection_rate_interval)
-                    hits++;
-            }
-            detection_rate = (hits/detection_rate_interval) / frames_per_second;
+            if (timestamp - targets[i].window[k].t <= detection_rate_interval)
+                hits++;
         }
-        targets[i].detection_rate = detection_rate;
+        targets[i].detection_rate = (hits/detection_rate_interval) / frames_per_second;
     }
 
     // Update last_180_time
@@ -561,7 +561,7 @@ tracks_t track_targets(track_targets_opt_t opt)
     // Add new tracks
     for (int i = 0; i < num_detections; i++)
     {
-        if (!found_match[i])
+        if (associated_target[i] == -1)
         {
             if (num_targets < max_targets)
             {
