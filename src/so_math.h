@@ -1280,4 +1280,94 @@ m_is_circle_circle(vec2 a, vec2 b, float ra, float rb, vec2 *x1, vec2 *x2)
     }
 }
 
+/////////////// Camera projection models ///////////////
+
+vec2 m_project_pinhole(float f, float u0, float v0, vec3 p)
+//  f  (in): Focal length
+// u0  (in): Center of pinhole projection in x measured from left of image
+// v0  (in): Center of fisheye projection in y measured from top of image
+// xyz (in): Camera-space coordinate (OpenGL convention)
+// uv (out): Pixel coordinate measured from top-left of image (DirectX convention)
+{
+    return m_vec2(u0 - f*p.x/p.z, v0 + f*p.y/p.z);
+}
+
+// Inverse-projects a pixel (u,v) to unit direction vector (x,y,z)
+vec3 m_ray_pinhole(float f, float u0, float v0, vec2 uv)
+//  f   (input): Ideal pinhole fisheye camera model parameter (r = f x theta)
+// u0   (input): Center of pinhole projection in x measured from left of image
+// v0   (input): Center of pinhole projection in y measured from top of image
+// uv   (input): Pixel coordinate measured from top-left of image (DirectX convention)
+// xyz (output): Camera-space ray from camera origin through pixel (OpenGL convention)
+{
+    float ff = f*f;
+    float du = (uv.x - u0);
+    float dv = (v0 - uv.y);
+    float rr = du*du + dv*dv;
+    if (rr < 0.00001f)
+    {
+        return m_vec3(0.0f,0.0f,-1.0f);
+    }
+    else
+    {
+        float r = sqrtf(rr);
+        float cosphi = du/r;
+        float sinphi = dv/r;
+        float costheta = 1.0f / sqrtf(1.0f + rr/ff);
+        float sintheta = (r/f) / sqrtf(1.0f + rr/ff);
+        float x = sintheta*cosphi;
+        float y = sintheta*sinphi;
+        float z = -costheta;
+        return m_vec3(x, y, z);
+    }
+}
+
+// Projects a point (x,y,z) to pixel (u,v) and returns associated Jacobian evaluated
+vec2 m_project_equidistant(float f, float u0, float v0, vec3 p)
+//  f  (input): Equidistant fisheye camera model parameter (r = f x theta)
+// u0  (input): Center of fisheye projection in x measured from left of image
+// v0  (input): Center of fisheye projection in y measured from top of image
+// xyz (input): Camera-space coordinate (OpenGL convention)
+// uv (output): Pixel coordinate measured from top-left of image (DirectX convention)
+{
+    float l = sqrtf(p.x*p.x+p.y*p.y);
+    if (l < 0.001f)
+    {
+        return m_vec2(u0, v0);
+    }
+    else
+    {
+        float t = atanf(-l/p.z);
+        float r = f*t;
+        return m_vec2(u0 + r*p.x/l, v0 - r*p.y/l);
+    }
+}
+
+// Inverse-projects a pixel (u,v) to unit direction vector (x,y,z)
+vec3 m_ray_equidistant(float f, float u0, float v0, vec2 uv)
+//  f   (input): Equidistant fisheye camera model parameter (r = f x theta)
+// u0   (input): Center of fisheye projection in x measured from left of image
+// v0   (input): Center of fisheye projection in y measured from top of image
+// uv   (input): Pixel coordinate measured from top-left of image (DirectX convention)
+// xyz (output): Camera-space ray from camera origin through pixel (OpenGL convention)
+{
+    float du = uv.x-u0;
+    float dv = v0-uv.y;
+    float r = sqrtf(du*du+dv*dv);
+    if (r < 0.00001f)
+    {
+        return m_vec3(0.0f, 0.0f, -1.0f);
+    }
+    else
+    {
+        float t = r / f;
+        float s = sinf(t);
+        float c = cosf(t);
+        float x = s*du/r;
+        float y = s*dv/r;
+        float z = -c;
+        return m_vec3(x, y, z);
+    }
+}
+
 #endif

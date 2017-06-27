@@ -6,6 +6,11 @@ const int velocity_averaging_window = 20; // Interval of detections used to comp
                                           // => need atleast this many detections before computing velocity
 const float target_speed = 0.33f;
 
+#define camera_project m_project_equidistant
+#define camera_inverse_project m_ray_equidistant
+// #define camera_project m_project_pinhole
+// #define camera_inverse_project m_ray_pinhole
+
 struct detection_t
 {
     float t;           // Timestamp when detection was made
@@ -79,45 +84,6 @@ struct track_targets_opt_t
     // monotonically increasing timer (in seconds) for when image was taken
     float timestamp;
 };
-
-tracks_t track_targets(track_targets_opt_t opt);
-
-//
-// Implementation
-//
-
-vec3 camera_inverse_project(float f, float u0, float v0, vec2 uv)
-//  f   (input): Equidistant fisheye camera model parameter (r = f x theta)
-// u0   (input): Center of fisheye projection in x measured from left of image
-// v0   (input): Center of fisheye projection in y measured from top of image
-// uv   (input): Pixel coordinate measured from top-left of image (DirectX convention)
-//       return: Camera-space ray from camera origin through pixel (OpenGL convention)
-{
-    vec3 dir;
-
-    float u = uv.x;
-    float v = uv.y;
-    float du = u-u0;
-    float dv = v0-v;
-    float r = sqrtf(du*du+dv*dv);
-    if (r > 1.0f)
-    {
-        float t = r / f;
-        float s = sinf(t);
-        float c = cosf(t);
-        dir.x = s*du/r;
-        dir.y = s*dv/r;
-        dir.z = -c;
-    }
-    else
-    {
-        dir.x = 0.0f;
-        dir.y = 0.0f;
-        dir.z = -1.0f;
-    }
-
-    return dir;
-}
 
 float metric_distance(float u1, float v1, float u2, float v2,
                       float f, float u0, float v0, mat3 rot, float h)
