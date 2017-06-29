@@ -116,6 +116,19 @@ uint64_t getnsec()
     return result;
 }
 
+// Oh no! The line counter also needs the fisheye
+// camera. For efficiency we therefore run the line
+// counter in the same program so that we can share
+// memory quickly. It runs in a seperate thread, and
+// the main thread below memcpy'ies the latest camera
+// frame into a buffer it can access. There is a dubious
+// mutex locking scheme to ensure no memcpy occurs while
+// the grid detector is processing the frame.
+//   The line counter uses the same camera/imu calibration
+// as the target tracker (unsurprisingly), as well as the
+// latest imu pose.
+#include "main_line_counter.cpp"
+
 void ctrlc(int)
 {
     exit(0);
@@ -157,6 +170,8 @@ int main(int argc, char **argv)
 
     ros::Subscriber sub_imu = node.subscribe(IMU_POSE_TOPIC, 1, callback_imu);
 
+    line_counter_init();
+
     signal(SIGINT, ctrlc);
 
     #if DUMMY_IMAGE==0
@@ -192,6 +207,10 @@ int main(int argc, char **argv)
             usbcam_lock(&jpg_data, &jpg_size, &timestamp);
             #endif
         }
+
+        // SHARE IMAGE WITH LINE COUNTER
+        float dt_memcpy = 0.0f;
+        line_counter_copy(jpg_data, jpg_size, &dt_memcpy);
 
         // MEASURE TIME BETWEEN WHEN IMAGES WERE TAKEN
         float dt_frame = 0.0f;

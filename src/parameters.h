@@ -5,8 +5,9 @@
 
 #define DEVICE_NAME "/dev/video0"
 
-#define TESTING_WITH_LAPTOP 0 // Leave at 0. (1 to use author's laptop camera instead of fisheye)
-#define DUMMY_IMAGE         1 // Leave at 0. (1 to use a static image instead of usb camera input)
+#define TESTING_WITH_LAPTOP 1 // Leave at 0. 1 to use author's laptop camera instead of fisheye
+#define DUMMY_IMAGE         0 // Leave at 0. 1 to use a static image instead of usb camera input
+#define RUN_LINE_COUNTER    0 // Leave at 1.
 
 // Topic on which pose of drone relative grid is published
 #define IMU_POSE_TOPIC "/mavros/vision_pose/pose"
