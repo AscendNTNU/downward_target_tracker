@@ -25,7 +25,7 @@ $ sudo apt-get install libsdl2-dev
 
 ### Test the tracker
 
-**Step 1.** Set the parameters (i.e. camera device name and drone pose topic). See bottom of this readme for a description of all the parameters and where to find them.
+**Step 1.** Set camera device name and drone pose topic in [src/parameters.h](src/parameters.h).
 
 **Step 2.** Run the tracker on the drone: ```$ rosrun downward_target_tracker tracker```.
 
@@ -51,9 +51,7 @@ If not, we need to calibrate intrinsics (fisheye parameters), extrinsics (camera
 
 **Calibrate camera:** Click "Calibrate camera" tab in debugger and follow guide that shows up.
 
-**Save the parameters:**
-
-[src/parameters.h](src/parameters.h) contains the following parameters. If you change them, remember to **recompile**.
+**Save the parameters:** [src/parameters.h](src/parameters.h) contains the following parameters. If you change them, remember to **recompile**.
 
 Parameter   | What
 ------------|-----

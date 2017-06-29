@@ -1,7 +1,12 @@
-// Debugging parameters for author: Set to 0 during testing with drone
-#define TESTING_WITH_LAPTOP    0 // 1 - use author's laptop camera instead of fisheye
-#define DUMMY_IMAGE            1 // 1 - use a static image instead of usb camera input
-#define DEVICE_NAME            "/dev/video0"
+// If you have several variations of parameters, I suggest
+// storing them in seperate parameters_<something>.h files,
+// with a description and time/date at the top; instead of
+// commenting in/out individual lines below.
+
+#define DEVICE_NAME "/dev/video0"
+
+#define TESTING_WITH_LAPTOP 0 // Leave at 0. (1 to use author's laptop camera instead of fisheye)
+#define DUMMY_IMAGE 0         // Leave at 0. (1 to use a static image instead of usb camera input)
 
 // Topic on which pose of drone relative grid is published
 #define IMU_POSE_TOPIC "/mavros/vision_pose/pose"
@@ -51,10 +56,10 @@
 
 // Fisheye camera parameters
 #if DUMMY_IMAGE==0 && TESTING_WITH_LAPTOP==0
-#define USBCAM_DEBUG       1
+#define USBCAM_DEBUG       1      // Set 0 to ignore messages from asc_usbcam.h
 #define CAMERA_WIDTH       800
 #define CAMERA_HEIGHT      600
-#define CAMERA_BUFFERS     3      // Might want to change if output rate (see Timing window in debugger) is lower than 60 Hz
+#define CAMERA_BUFFERS     3      // Might need to change if frame rateis lower than 60 Hz (see Timing window in debugger)
 #define CAMERA_LEVELS      2      // Downscale factor (0=none, 1=half, 2=quarter)
 #define CAMERA_F_INIT      434.0f // Fisheye parameter: 'Focal' length
 #define CAMERA_U0_INIT     400.0f // Fisheye parameter: Center X
@@ -71,7 +76,7 @@
 #define CAMERA_WIDTH       800
 #define CAMERA_HEIGHT      600
 #define CAMERA_BUFFERS     3
-#define CAMERA_LEVELS      2 // Downscale factor (0=none, 1=half, 2=quarter)
+#define CAMERA_LEVELS      2
 #define CAMERA_F_INIT      434.0f
 #define CAMERA_U0_INIT     375.0f
 #define CAMERA_V0_INIT     275.0f
