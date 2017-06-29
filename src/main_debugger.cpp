@@ -1,3 +1,4 @@
+#define VDB_DISABLE_PROTIP
 #include "parameters.h"
 #include "vdb/vdb.h"
 #include <ros/ros.h>

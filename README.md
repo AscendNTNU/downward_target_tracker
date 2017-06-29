@@ -1,4 +1,4 @@
-### Compiling
+### Compile
 
 Get the video 4 linux 2 development libraries (v4l2)
 ```
@@ -25,29 +25,31 @@ $ sudo apt-get install libsdl2-dev
 
 ### Test the tracker
 
-**Step 1.** Set the parameters (camera path, drone pose topic, desired image and info publish time delays, and camera and color calibration). See bottom of this document for a description of the parameters and where to find them.
+**Step 1.** Set the parameters (i.e. camera device name and drone pose topic). See bottom of this readme for a description of all the parameters and where to find them.
 
 **Step 2.** Run the tracker on the drone: ```$ rosrun downward_target_tracker tracker```.
 
-This will run the executable compiled from [main_drone.cpp](src/main_drone.cpp).  A list of tracked targets is published 60 times per second in the topic downward_target_tracker/tracks. See bottom of document for an example of how this data can be used.
+This will run the executable compiled from [main_drone.cpp](src/main_drone.cpp).
 
-**Step 3.** Ensure that your PC is on the same network as the drone and link your PC's ROS to the drone by typing in terminal: ```$ export ROS_MASTER_URI=http://192.168.1.151:11311``` (IP is an example, replace with drone's IP. Port must be 11311).
+**Step 3.** Ensure that your PC is on the same network as the drone and link your PC's ROS to the drone by typing in your PC terminal: ```$ export ROS_MASTER_URI=http://192.168.1.151:11311``` (IP is an example, replace with drone's IP. Port must be 11311).
 
-**Step 4.** Run the debugger on your PC:  ```$ rosrun downward_target_tracker debugger```
+**Step 4.** Run the debugger on your PC:  ```$ rosrun downward_target_tracker debugger```. Keep the default view open.
 
-**Step 5.** Set camera controls according to lighting: run [set_camera_controls.sh](/set_camera_controls.sh) script on the drone while tracker is running.
+**Step 5.** Adjust camera controls to lighting: run [set_camera_controls.sh](/set_camera_controls.sh) script on the drone while tracker is running.
 
-It will set the camera exposure, gain, powerline frequency, etc., to values that are hardcoded in the script. Change the values in the script to get good image brightness, and making sure that ```Frame rate``` stays at 60 Hz (see Timing window in debugger).
+It will set the camera exposure, gain, powerline frequency, etc., to values that are hardcoded in the script. Change the values in the script to get good image brightness, making sure that ```Frame rate``` stays at 60 Hz (see Timing window in debugger).
 
-**Step 6.** Look at the "Default view" tab in the debugger.
-
-If you are:
+**Step 6.** Look at the "Default view" tab in the debugger. If you are:
 
 * looking at a target (red or green plate)
 * and you are either standing ONE METER above the ground at zero pitch and roll,
 * or you are publishing the drone pose,
 
 you should see the camera feed, a non-empty list of targets in a small GUI window, and bounding boxes around each in the image. Clicking one of the entries in the list will highlight it in red, and its ID will be published at ```downward_target_debug/selected```.
+
+Basically, something like this:
+
+![](readme_img1.png)
 
 If not, we need to calibrate intrinsics (fisheye parameters), extrinsics (camera mounting point), or color thresholds.
 
@@ -100,11 +102,16 @@ CAMERA_BUFFERS | This might need to be changed if "Frame rate" (see Timing windo
 CAMERA_LEVELS | How many halvings of resolution should be done
 CAMERA_F/U0/V0_INIT | Fisheye projection parameters, depends on video resolution
 
-### Example use of tracking data
+### Example using the tracker
+
+A list of tracked targets is published 60 times per second in the topic ```downward_target_tracker/tracks```. Each target has a unique ID that you can use to refer to it. The ID persists while the target is tracked. Targets stop being tracked if they are not seen two seconds.
+
+The messages can be used like this:
 
 ```
 downward_target_tracker::tracks msg // From callback
-int selected_id = 1234; // Planning gives us this, or manually with the debugger (below)
+int selected_id = 1234; // From planning algorithm, or manual selection
+// ...
 for (int i = 0; i < msg.num_targets)
 {
     int id = msg.unique_id[i];
@@ -115,7 +122,7 @@ for (int i = 0; i < msg.num_targets)
 
     if (id == selected_id)
     {
-        // publish x,y,vx,vy to velocity-feedforward controller node????
+        // publish x,y,vx,vy to velocity-feedforward controller node?
     }
 }
 ```

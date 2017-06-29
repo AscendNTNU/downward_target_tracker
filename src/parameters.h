@@ -1,6 +1,6 @@
 // Debugging parameters for author: Set to 0 during testing with drone
-#define TESTING_WITH_LAPTOP    1 // 1 - use author's laptop camera instead of fisheye
-#define DUMMY_IMAGE            0 // 1 - use a static image instead of usb camera input
+#define TESTING_WITH_LAPTOP    0 // 1 - use author's laptop camera instead of fisheye
+#define DUMMY_IMAGE            1 // 1 - use a static image instead of usb camera input
 #define DEVICE_NAME            "/dev/video0"
 
 // Topic on which pose of drone relative grid is published
@@ -61,6 +61,10 @@
 #define CAMERA_V0_INIT     300.0f // Fisheye parameter: Center Y
 #endif
 
+//
+// Ignore these:
+//
+
 // Author's laptop camera parameters
 #if TESTING_WITH_LAPTOP==1
 #define USBCAM_DEBUG       1
@@ -71,4 +75,14 @@
 #define CAMERA_F_INIT      434.0f
 #define CAMERA_U0_INIT     375.0f
 #define CAMERA_V0_INIT     275.0f
+#endif
+
+// Static image camera parameters
+#if DUMMY_IMAGE==1
+#define CAMERA_WIDTH       1280
+#define CAMERA_HEIGHT      720
+#define CAMERA_LEVELS      3
+#define CAMERA_F_INIT      494.0f
+#define CAMERA_U0_INIT     649.0f
+#define CAMERA_V0_INIT     335.0f
 #endif

@@ -1,13 +1,7 @@
 #include "parameters.h"
 
 #if DUMMY_IMAGE==1
-#include "mock_jpg.h"      // hint: run "xxd -i" on an image to generate a header-embedded binary
-#define CAMERA_WIDTH       1280
-#define CAMERA_HEIGHT      720
-#define CAMERA_LEVELS      3
-#define CAMERA_F_INIT      494.0f
-#define CAMERA_U0_INIT     649.0f
-#define CAMERA_V0_INIT     335.0f
+#include "mock_jpg.h" // hint: run "xxd -i" on an image to generate a header-embedded binary
 #endif
 
 #if TESTING_WITH_LAPTOP==1
