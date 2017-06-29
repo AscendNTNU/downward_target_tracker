@@ -8,11 +8,10 @@
 #include <assert.h>
 
 #define VDB_DISABLE_PROTIP
-#include "vdb/vdb.h"
-
 #define STB_IMAGE_IMPLEMENTATION
+#include "vdb/vdb.h"
+#include "vdb/stb_image.h"
 #include "asc_tracker.h"
-#include "stb_image.h"
 
 void downsample(unsigned char *src, int w, int h)
 {
