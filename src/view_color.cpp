@@ -78,4 +78,15 @@ void view_color(latest_image_t latest_image, downward_target_tracker::info lates
         glEnd();
         vdbAlphaBlend();
     }
+
+    {
+        using namespace ImGui;
+        Begin("Readme (color calibration)");
+        TextWrapped(
+            "1. Keep a red and green target plate in view.\n"
+            "2. Take snapshot and send to me, or adjust 'red' and 'green' thresholds until enough pixels are highlighted on both plates with as few outliers.\n"
+            "3. Save the thresholds by changing r_g, r_b, r_n, and so forth, in src/parameters.h.\n"
+        );
+        End();
+    }
 }

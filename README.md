@@ -29,15 +29,11 @@ $ sudo apt-get install libsdl2-dev
 
 **Step 2.** Run the tracker on the drone: ```$ rosrun downward_target_tracker tracker```.
 
-This will run the executable compiled from [main_drone.cpp](src/main_drone.cpp).
-
 **Step 3.** Ensure that your PC is on the same network as the drone and link your PC's ROS to the drone by typing in your PC terminal: ```$ export ROS_MASTER_URI=http://192.168.1.151:11311``` (IP is an example, replace with drone's IP. Port must be 11311).
 
-**Step 4.** Run the debugger on your PC:  ```$ rosrun downward_target_tracker debugger```. Keep the default view open.
+**Step 4.** Run the debugger on your PC:  ```$ rosrun downward_target_tracker debugger```.
 
-**Step 5.** Adjust camera controls to lighting: run [set_camera_controls.sh](/set_camera_controls.sh) script on the drone while tracker is running.
-
-It will set the camera exposure, gain, powerline frequency, etc., to values that are hardcoded in the script. Change the values in the script to get good image brightness, making sure that ```Frame rate``` stays at 60 Hz (see Timing window in debugger).
+**Step 5.** Adjust camera controls to lighting: run [set_camera_controls.sh](/set_camera_controls.sh) script on the drone while tracker is running. It will set the camera exposure, gain, powerline frequency, etc., to values that are hardcoded in the script. Change the values in the script to get good image brightness, making sure that ```Frame rate``` stays at 60 Hz (see Timing window in debugger).
 
 **Step 6.** Look at the "Default view" tab in the debugger. If you are:
 
@@ -45,44 +41,18 @@ It will set the camera exposure, gain, powerline frequency, etc., to values that
 * and you are either standing ONE METER above the ground at zero pitch and roll,
 * or you are publishing the drone pose,
 
-you should see the camera feed, a non-empty list of targets in a small GUI window, and bounding boxes around each in the image. Clicking one of the entries in the list will highlight it in red, and its ID will be published at ```downward_target_debug/selected```.
-
-Basically, something like this:
+you should see the camera feed, a non-empty list of targets in a small GUI window, and bounding boxes around each in the image. Basically, something like this:
 
 ![](readme_img1.png)
 
-If not, we need to calibrate intrinsics (fisheye parameters), extrinsics (camera mounting point), or color thresholds.
+If not, we need to calibrate intrinsics (fisheye parameters), extrinsics (camera mounting point), or color thresholds. If you need help, click the "Take a snapshot" button and send the files (snapshot*.jpg snapshot*.txt created in the directory you ran the debugger) to me.
 
-If you need help, click the "Take a snapshot" button and send the files (snapshot*.jpg snapshot*.txt created in the directory you ran the debugger) to me.
+**Calibrate color:** Click "Calibrate color" tab in debugger and follow guide that shows up.
 
-#### Calibrate color
+**Calibrate camera:** Click "Calibrate camera" tab in debugger and follow guide that shows up.
 
-1. Keep a red and green target plate in view.
-2. Click the "calibrate color" tab in debugger.
-3. Take snapshot and send to me, or adjust 'red' and 'green' thresholds until enough pixels are highlighted on both plates with as few outliers.
-4. Save the thresholds (see below).
+**Save the parameters:**
 
-#### Calibrate camera intrinsics
-
-With the "calibrate camera" tab open:
-
-1. Point the camera at a [checkerboard](http://docs.opencv.org/2.4/_downloads/pattern.png)
-2. Take a snapshot and send to me; or keep the camera at a known rotation and translation from the checkerboard and try to adjust f, u0 and v0.
-3. Save parameters (see below).
-
-#### Calibrate camera extrinsics
-
-These define how the camera is rotated and translated relative to the IMU coordinate frame.
-
-If the only difference between them is a rotation about z, then you can set that directly with ```CAM_IMU_R_Z_INIT``` (see below).
-
-Verify that things look correct by opening "calibrate camera" tab.
-
-1. Look at a grid pattern.
-2. Align drone axes with grid axes.
-3. Tilt the drone in either x or y axis, and verify that the visualized grid pattern matches with real-life.
-
-#### Parameters
 [src/parameters.h](src/parameters.h) contains the following parameters. If you change them, remember to **recompile**.
 
 Parameter   | What
@@ -126,3 +96,7 @@ for (int i = 0; i < msg.num_targets)
     }
 }
 ```
+
+### Selecting targets
+
+Clicking one of the entries in the list, in the default view, will highlight it in red, and its unique ID will be published at ```downward_target_debug/selected```.
