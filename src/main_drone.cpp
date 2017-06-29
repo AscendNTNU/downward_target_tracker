@@ -1,16 +1,5 @@
 #include "parameters.h"
 
-#if TESTING_WITH_LAPTOP==1
-#define USBCAM_DEBUG       1
-#define CAMERA_WIDTH       800
-#define CAMERA_HEIGHT      600
-#define CAMERA_BUFFERS     3
-#define CAMERA_LEVELS      2 // Downscale factor (0=none, 1=half, 2=quarter)
-#define CAMERA_F_INIT      434.0f
-#define CAMERA_U0_INIT     375.0f
-#define CAMERA_V0_INIT     275.0f
-#endif
-
 #if DUMMY_IMAGE==1
 #include "mock_jpg.h"      // hint: run "xxd -i" on an image to generate a header-embedded binary
 #define CAMERA_WIDTH       1280
@@ -59,6 +48,16 @@ float g_r = G_R_INIT;
 float g_b = G_B_INIT;
 float g_n = G_N_INIT;
 
+float white_threshold_r = WHITE_THRESHOLD_R_INIT;
+float white_threshold_g = WHITE_THRESHOLD_G_INIT;
+float white_threshold_b = WHITE_THRESHOLD_B_INIT;
+float white_threshold_d = WHITE_THRESHOLD_D_INIT;
+float pinhole_fov_x     = PINHOLE_FOV_X_INIT;
+float sobel_threshold   = SOBEL_THRESHOLD_INIT;
+float maxima_threshold  = MAXIMA_THRESHOLD_INIT;
+float max_error         = MAX_ERROR_INIT;
+float tile_width        = TILE_WIDTH_INIT;
+
 float imu_rx = 0.0f;
 float imu_ry = 0.0f;
 float imu_rz = 0.0f;
@@ -81,6 +80,15 @@ void callback_r_n(std_msgs::Float32 msg) { r_n = msg.data; }
 void callback_g_r(std_msgs::Float32 msg) { g_r = msg.data; }
 void callback_g_b(std_msgs::Float32 msg) { g_b = msg.data; }
 void callback_g_n(std_msgs::Float32 msg) { g_n = msg.data; }
+void callback_white_threshold_r(std_msgs::Float32 msg) { white_threshold_r = msg.data; }
+void callback_white_threshold_g(std_msgs::Float32 msg) { white_threshold_g = msg.data; }
+void callback_white_threshold_b(std_msgs::Float32 msg) { white_threshold_b = msg.data; }
+void callback_white_threshold_d(std_msgs::Float32 msg) { white_threshold_d = msg.data; }
+void callback_pinhole_fov_x(std_msgs::Float32 msg)     { pinhole_fov_x = msg.data; }
+void callback_sobel_threshold(std_msgs::Float32 msg)   { sobel_threshold = msg.data; }
+void callback_maxima_threshold(std_msgs::Float32 msg)  { maxima_threshold = msg.data; }
+void callback_max_error(std_msgs::Float32 msg)         { max_error = msg.data; }
+void callback_tile_width(std_msgs::Float32 msg)        { tile_width = msg.data; }
 void callback_imu(geometry_msgs::PoseStamped msg)
 {
     m_quat_to_ypr(msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w, &imu_rz, &imu_ry, &imu_rx);
@@ -125,6 +133,15 @@ int main(int argc, char **argv)
     ros::Subscriber sub_g_r = node.subscribe("/downward_target_debug/g_r", 1, callback_g_r);
     ros::Subscriber sub_g_b = node.subscribe("/downward_target_debug/g_b", 1, callback_g_b);
     ros::Subscriber sub_g_n = node.subscribe("/downward_target_debug/g_n", 1, callback_g_n);
+    ros::Subscriber sub_white_threshold_r = node.subscribe("/downward_target_debug/white_threshold_r", 1, callback_white_threshold_r);
+    ros::Subscriber sub_white_threshold_g = node.subscribe("/downward_target_debug/white_threshold_g", 1, callback_white_threshold_g);
+    ros::Subscriber sub_white_threshold_b = node.subscribe("/downward_target_debug/white_threshold_b", 1, callback_white_threshold_b);
+    ros::Subscriber sub_white_threshold_d = node.subscribe("/downward_target_debug/white_threshold_d", 1, callback_white_threshold_d);
+    ros::Subscriber sub_pinhole_fov_x     = node.subscribe("/downward_target_debug/pinhole_fov_x", 1, callback_pinhole_fov_x);
+    ros::Subscriber sub_sobel_threshold   = node.subscribe("/downward_target_debug/sobel_threshold", 1, callback_sobel_threshold);
+    ros::Subscriber sub_maxima_threshold  = node.subscribe("/downward_target_debug/maxima_threshold", 1, callback_maxima_threshold);
+    ros::Subscriber sub_max_error         = node.subscribe("/downward_target_debug/max_error", 1, callback_max_error);
+    ros::Subscriber sub_tile_width        = node.subscribe("/downward_target_debug/tile_width", 1, callback_tile_width);
     ros::Subscriber sub_imu = node.subscribe(IMU_POSE_TOPIC, 1, callback_imu);
 
     signal(SIGINT, ctrlc);
@@ -285,6 +302,16 @@ int main(int argc, char **argv)
                 msg.g_r = g_r;
                 msg.g_b = g_b;
                 msg.g_n = g_n;
+
+                msg.white_threshold_r = white_threshold_r;
+                msg.white_threshold_g = white_threshold_g;
+                msg.white_threshold_b = white_threshold_b;
+                msg.white_threshold_d = white_threshold_d;
+                msg.pinhole_fov_x = pinhole_fov_x;
+                msg.sobel_threshold = sobel_threshold;
+                msg.maxima_threshold = maxima_threshold;
+                msg.max_error = max_error;
+                msg.tile_width = tile_width;
 
                 msg.imu_rx = imu_rx;
                 msg.imu_ry = imu_ry;

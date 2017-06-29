@@ -26,6 +26,17 @@ float32 g_r
 float32 g_b
 float32 g_n
 
+#### GRID DETECTOR PARAMETERS
+float32 white_threshold_r
+float32 white_threshold_g
+float32 white_threshold_b
+float32 white_threshold_d
+float32 pinhole_fov_x
+float32 sobel_threshold
+float32 maxima_threshold
+float32 max_error
+float32 tile_width
+
 #### LAST RECEIVED DRONE POSE
 float32 imu_rx
 float32 imu_ry

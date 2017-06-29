@@ -38,7 +38,18 @@
 #define G_B_INIT           1.5f       // minimum green/blue ratio
 #define G_N_INIT           10.0f/3.0f // minimum average brightness (r+g+b)/3
 
-// Camera parameters
+// Grid detector parameters
+#define WHITE_THRESHOLD_R_INIT (222.0f)
+#define WHITE_THRESHOLD_G_INIT (222.0f)
+#define WHITE_THRESHOLD_B_INIT (222.0f)
+#define WHITE_THRESHOLD_D_INIT (70.0f)
+#define PINHOLE_FOV_X_INIT     (137.0f * 3.14f/180.0f)
+#define SOBEL_THRESHOLD_INIT   (10)
+#define MAXIMA_THRESHOLD_INIT  (10)
+#define MAX_ERROR_INIT         (0.5f)
+#define TILE_WIDTH_INIT        (1.0f)
+
+// Fisheye camera parameters
 #if DUMMY_IMAGE==0 && TESTING_WITH_LAPTOP==0
 #define USBCAM_DEBUG       1
 #define CAMERA_WIDTH       800
@@ -48,4 +59,16 @@
 #define CAMERA_F_INIT      434.0f // Fisheye parameter: 'Focal' length
 #define CAMERA_U0_INIT     400.0f // Fisheye parameter: Center X
 #define CAMERA_V0_INIT     300.0f // Fisheye parameter: Center Y
+#endif
+
+// Author's laptop camera parameters
+#if TESTING_WITH_LAPTOP==1
+#define USBCAM_DEBUG       1
+#define CAMERA_WIDTH       800
+#define CAMERA_HEIGHT      600
+#define CAMERA_BUFFERS     3
+#define CAMERA_LEVELS      2 // Downscale factor (0=none, 1=half, 2=quarter)
+#define CAMERA_F_INIT      434.0f
+#define CAMERA_U0_INIT     375.0f
+#define CAMERA_V0_INIT     275.0f
 #endif

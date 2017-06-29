@@ -9,6 +9,9 @@
 #include <turbojpeg.h>
 #include "so_math.h"
 
+#define ASC_GRID_DETECTOR_IMPLEMENTATION
+#include "asc_grid_detector.h"
+
 struct latest_image_t
 {
     unsigned char *jpg_data;
@@ -21,6 +24,7 @@ struct latest_image_t
 #include "view_rectify.cpp"
 #include "view_tracks.cpp"
 #include "view_color.cpp"
+#include "view_threshold.cpp"
 
 latest_image_t latest_image = {0};
 downward_target_tracker::info latest_info;
@@ -66,8 +70,8 @@ void callback_image(downward_target_tracker::image msg)
     }
 
     latest_image.I = (unsigned char*)malloc(width*height*3);
-    latest_image.Ix = width/2;
-    latest_image.Iy = height/2;
+    latest_image.Ix = width>>CAMERA_LEVELS;
+    latest_image.Iy = height>>CAMERA_LEVELS;
 
     error = tjDecompress2(decompressor,
         jpg_data,
@@ -104,6 +108,7 @@ int main(int argc, char **argv)
         const int mode_see_tracks = 0;
         const int mode_camera_calibration = 1;
         const int mode_color_calibration = 2;
+        const int mode_white_threshold = 3;
         static int mode = mode_see_tracks;
 
         if (latest_image.I && mode == mode_see_tracks)
@@ -200,7 +205,15 @@ int main(int argc, char **argv)
             view_rectify(latest_image, latest_info);
         }
 
-        if (latest_image.I && (mode == mode_color_calibration || mode == mode_camera_calibration))
+        if (latest_image.I && mode == mode_white_threshold)
+        {
+            view_threshold(latest_image, latest_info);
+        }
+
+        if (latest_image.I &&
+            (mode == mode_color_calibration ||
+             mode == mode_camera_calibration ||
+             mode == mode_white_threshold))
         {
             Begin("Parameters");
             {
@@ -219,6 +232,15 @@ int main(int argc, char **argv)
                 static float g_r = latest_info.g_r;
                 static float g_b = latest_info.g_b;
                 static float g_n = latest_info.g_n;
+                static float white_threshold_r = latest_info.white_threshold_r;
+                static float white_threshold_g = latest_info.white_threshold_g;
+                static float white_threshold_b = latest_info.white_threshold_b;
+                static float white_threshold_d = latest_info.white_threshold_d;
+                static float pinhole_fov_x = latest_info.pinhole_fov_x;
+                static float sobel_threshold = latest_info.sobel_threshold;
+                static float maxima_threshold = latest_info.maxima_threshold;
+                static float max_error = latest_info.max_error;
+                static float tile_width = latest_info.tile_width;
                 Text("Hold ALT key to adjust slowly");
                 if (CollapsingHeader("Camera intrinsics"))
                 {
@@ -249,6 +271,18 @@ int main(int argc, char **argv)
                     SliderFloat("green over blue (g_b)", &g_b, 1.0f, 10.0f);
                     SliderFloat("minimum brightness (g_n)", &g_n, 0.0f, 255.0f);
                 }
+                if (CollapsingHeader("Grid detector"))
+                {
+                    SliderFloat("white_threshold_r", &white_threshold_r, 0.0f, 255.0f);
+                    SliderFloat("white_threshold_g", &white_threshold_g, 0.0f, 255.0f);
+                    SliderFloat("white_threshold_b", &white_threshold_b, 0.0f, 255.0f);
+                    SliderFloat("white_threshold_d", &white_threshold_d, 0.0f, 255.0f);
+                    pinhole_fov_x *= 180.0f/3.14f; SliderFloat("pinhole_fov_x (deg)", &pinhole_fov_x, 45.0f, 180.0f); pinhole_fov_x *= 3.14f/180.0f;
+                    SliderFloat("sobel_threshold", &sobel_threshold, 0.0f, 100.0f);
+                    SliderFloat("maxima_threshold", &maxima_threshold, 0.0f, 100.0f);
+                    SliderFloat("max_error", &max_error, 0.0f, 1.0f);
+                    SliderFloat("tile_width (m)", &tile_width, 0.1f, 5.0f);
+                }
 
                 static ros::Publisher pub_camera_f = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_f", 1);
                 static ros::Publisher pub_camera_u0 = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_u0", 1);
@@ -265,6 +299,15 @@ int main(int argc, char **argv)
                 static ros::Publisher pub_g_r = node.advertise<std_msgs::Float32>("/downward_target_debug/g_r", 1);
                 static ros::Publisher pub_g_b = node.advertise<std_msgs::Float32>("/downward_target_debug/g_b", 1);
                 static ros::Publisher pub_g_n = node.advertise<std_msgs::Float32>("/downward_target_debug/g_n", 1);
+                static ros::Publisher pub_white_threshold_r = node.advertise<std_msgs::Float32>("/downward_target_debug/white_threshold_r", 1);
+                static ros::Publisher pub_white_threshold_g = node.advertise<std_msgs::Float32>("/downward_target_debug/white_threshold_g", 1);
+                static ros::Publisher pub_white_threshold_b = node.advertise<std_msgs::Float32>("/downward_target_debug/white_threshold_b", 1);
+                static ros::Publisher pub_white_threshold_d = node.advertise<std_msgs::Float32>("/downward_target_debug/white_threshold_d", 1);
+                static ros::Publisher pub_pinhole_fov_x = node.advertise<std_msgs::Float32>("/downward_target_debug/pinhole_fov_x", 1);
+                static ros::Publisher pub_sobel_threshold = node.advertise<std_msgs::Float32>("/downward_target_debug/sobel_threshold", 1);
+                static ros::Publisher pub_maxima_threshold = node.advertise<std_msgs::Float32>("/downward_target_debug/maxima_threshold", 1);
+                static ros::Publisher pub_max_error = node.advertise<std_msgs::Float32>("/downward_target_debug/max_error", 1);
+                static ros::Publisher pub_tile_width = node.advertise<std_msgs::Float32>("/downward_target_debug/tile_width", 1);
 
                 { std_msgs::Float32 msg; msg.data = camera_f; pub_camera_f.publish(msg); }
                 { std_msgs::Float32 msg; msg.data = camera_u0; pub_camera_u0.publish(msg); }
@@ -281,6 +324,15 @@ int main(int argc, char **argv)
                 { std_msgs::Float32 msg; msg.data = g_r; pub_g_r.publish(msg); }
                 { std_msgs::Float32 msg; msg.data = g_b; pub_g_b.publish(msg); }
                 { std_msgs::Float32 msg; msg.data = g_n; pub_g_n.publish(msg); }
+                { std_msgs::Float32 msg; msg.data = white_threshold_r; pub_white_threshold_r.publish(msg); }
+                { std_msgs::Float32 msg; msg.data = white_threshold_g; pub_white_threshold_g.publish(msg); }
+                { std_msgs::Float32 msg; msg.data = white_threshold_b; pub_white_threshold_b.publish(msg); }
+                { std_msgs::Float32 msg; msg.data = white_threshold_d; pub_white_threshold_d.publish(msg); }
+                { std_msgs::Float32 msg; msg.data = pinhole_fov_x; pub_pinhole_fov_x.publish(msg); }
+                { std_msgs::Float32 msg; msg.data = sobel_threshold; pub_sobel_threshold.publish(msg); }
+                { std_msgs::Float32 msg; msg.data = maxima_threshold; pub_maxima_threshold.publish(msg); }
+                { std_msgs::Float32 msg; msg.data = max_error; pub_max_error.publish(msg); }
+                { std_msgs::Float32 msg; msg.data = tile_width; pub_tile_width.publish(msg); }
             }
             End();
         }
@@ -289,6 +341,7 @@ int main(int argc, char **argv)
         RadioButton("Default view", &mode, mode_see_tracks); SameLine();
         RadioButton("Calibrate camera", &mode, mode_camera_calibration); SameLine();
         RadioButton("Calibrate color", &mode, mode_color_calibration); SameLine();
+        RadioButton("White threshold", &mode, mode_white_threshold); SameLine();
         if (SmallButton("Take a snapshot"))
         {
             static int suffix = 0;
