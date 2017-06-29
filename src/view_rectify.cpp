@@ -1,5 +1,3 @@
-#include <math.h>
-
 #if TESTING_WITH_LAPTOP==1
 #define camera_project m_project_pinhole
 #define camera_inverse_project m_ray_pinhole
@@ -41,6 +39,7 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
     static int grid_y = 3;
     static float grid_w = 1.0f;
 
+    // COMPUTE CAMERA POSE RELATIVE GRID
     mat3 imu_rot = m_rotz(imu_rz)*m_roty(imu_ry)*m_rotx(imu_rx);
     vec3 imu_pos = m_vec3(imu_tx, imu_ty, imu_tz);
     mat3 cam_imu_rot = m_rotz(cam_imu_rz)*m_roty(cam_imu_ry)*m_rotx(cam_imu_rx);
@@ -48,58 +47,101 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
     mat3 R = imu_rot*cam_imu_rot;
     vec3 T = imu_pos + imu_rot*cam_imu_pos;
 
-    vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
-    if (!paused)
-        vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR, GL_LINEAR);
-    vdbDrawTexture2D(0);
-
-    vdbOrtho(0.0f, Ix, Iy, 0.0f);
-    glLines(2.0f);
-    glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
-
-    for (int xi = 0; xi <= grid_x; xi++)
+    // DRAW LATEST IMAGE (IF NOT PAUSED)
     {
-        float x = xi*grid_w;
-        for (int i = 0; i < 64; i++)
-        {
-            float y1 = (i+0)*grid_y*grid_w/64.0f;
-            float y2 = (i+1)*grid_y*grid_w/64.0f;
-            vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y1, 0) - T));
-            vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y2, 0) - T));
-            glVertex2f(s1.x, s1.y);
-            glVertex2f(s2.x, s2.y);
-        }
+        vdbOrtho(-1.0f, +1.0f, +1.0f, -1.0f);
+        if (!paused)
+            vdbSetTexture2D(0, I, Ix, Iy, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR, GL_LINEAR);
+        vdbDrawTexture2D(0);
     }
 
-    for (int yi = 0; yi <= grid_y; yi++)
+    // DRAW GRID / CALIBRATION PATTERN BASED PROJECTED INTO IMAGE
     {
-        float y = yi*grid_w;
-        for (int i = 0; i < 64; i++)
-        {
-            float x1 = (i+0)*grid_x*grid_w/64.0f;
-            float x2 = (i+1)*grid_x*grid_w/64.0f;
-            vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x1, y, 0) - T));
-            vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x2, y, 0) - T));
-            glVertex2f(s1.x, s1.y);
-            glVertex2f(s2.x, s2.y);
-        }
-    }
-    glEnd();
+        vdbOrtho(0.0f, Ix, Iy, 0.0f);
+        glLines(2.0f);
+        glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
 
+        for (int xi = 0; xi <= grid_x; xi++)
+        {
+            float x = xi*grid_w;
+            for (int i = 0; i < 64; i++)
+            {
+                float y1 = (i+0)*grid_y*grid_w/64.0f;
+                float y2 = (i+1)*grid_y*grid_w/64.0f;
+                vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y1, 0) - T));
+                vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y2, 0) - T));
+                glVertex2f(s1.x, s1.y);
+                glVertex2f(s2.x, s2.y);
+            }
+        }
+
+        for (int yi = 0; yi <= grid_y; yi++)
+        {
+            float y = yi*grid_w;
+            for (int i = 0; i < 64; i++)
+            {
+                float x1 = (i+0)*grid_x*grid_w/64.0f;
+                float x2 = (i+1)*grid_x*grid_w/64.0f;
+                vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x1, y, 0) - T));
+                vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x2, y, 0) - T));
+                glVertex2f(s1.x, s1.y);
+                glVertex2f(s2.x, s2.y);
+            }
+        }
+        glEnd();
+    }
+
+    // CALIBRATION GUI
     Begin("Calibration");
-    Checkbox("Freeze image", &paused);
-    Text("Calibration pattern:");
-    grid_w *= 100.0f; DragFloat("Cell width (cm)", &grid_w); grid_w /= 100.0f;
-    DragInt("Cell count x", &grid_x);
-    DragInt("Cell count y", &grid_y);
-    Text("Drone origin relative grid origin in grid coordinates");
-    imu_tx *= 100.0f; DragFloat("tx (cm)##imu", &imu_tx); imu_tx /= 100.0f; SameLine(); Checkbox("##imu_tx", &use_mavros_imu_tx);
-    imu_ty *= 100.0f; DragFloat("ty (cm)##imu", &imu_ty); imu_ty /= 100.0f; SameLine(); Checkbox("##imu_ty", &use_mavros_imu_ty);
-    imu_tz *= 100.0f; DragFloat("tz (cm)##imu", &imu_tz); imu_tz /= 100.0f; SameLine(); Checkbox("##imu_tz", &use_mavros_imu_tz);
-    Text("Drone frame relative grid frame");
-    imu_rx *= 180.0f/3.14f; SliderFloat("rx (deg)##imu", &imu_rx, -60.00f, +60.00f); imu_rx *= 3.14f/180.0f; SameLine(); Checkbox("##imu_rx", &use_mavros_imu_rx);
-    imu_ry *= 180.0f/3.14f; SliderFloat("ry (deg)##imu", &imu_ry, -60.00f, +60.00f); imu_ry *= 3.14f/180.0f; SameLine(); Checkbox("##imu_ry", &use_mavros_imu_ry);
-    imu_rz *= 180.0f/3.14f; SliderFloat("rz (deg)##imu", &imu_rz, -180.0f, +180.0f); imu_rz *= 3.14f/180.0f; SameLine(); Checkbox("##imu_rz", &use_mavros_imu_rz);
-    Text("Untick the checkbox to manually control a value");
+    {
+        Checkbox("Freeze image", &paused);
+        if (CollapsingHeader("Readme (intrinsics)"))
+        {
+            TextWrapped("Intrinsics define the fisheye parameters. "
+                        "They depend on the chosen camera resolution."
+                        "They do not depend on the chosen downscaling (CAMERA_LEVELS).");
+            TextWrapped("For 800x600: Use f=434, u0=400, v0=300");
+            TextWrapped("For 1280x720: Use f=494, u0=649, v0=335");
+            TextWrapped("For some other resolution you need to calibrate it yourself, "
+                        "or send me a snapshot.");
+            TextWrapped("To calibrate:\n"
+                        "1. Point the camera at a checkerboard\n"
+                        "2. Adjust the \"Calibration pattern\" parameters below to fit\n"
+                        "3. Keep the camera at a known rotation and translation "
+                        "(f.ex. no rotation and 10 cm away)\n"
+                        "4. Adjust f, u0, v0 until yellow lines coincide with checkerboard");
+            Separator();
+        }
+        if (CollapsingHeader("Readme (extrinsics)"))
+        {
+            TextWrapped("Extrinsics define how camera is mounted relative IMU.");
+            TextWrapped("If the only difference between them is a rotation about z, you only need to adjust cam_imu_rz.");
+            TextWrapped("You can then verify that this is correct by:\n"
+                        "1. Look at a grid pattern\n"
+                        "2. Specify how the drone is rotated and translated in the grid\n"
+                        "3. Tilt the drone in either x or y axis\n"
+                        "4. and verify that visualized grid rotates as expected.");
+            Separator();
+        }
+        if (CollapsingHeader("Calibration pattern"))
+        {
+            grid_w *= 100.0f; DragFloat("Cell width (cm)", &grid_w); grid_w /= 100.0f;
+            DragInt("Cell count x", &grid_x);
+            DragInt("Cell count y", &grid_y);
+        }
+        if (CollapsingHeader("Drone origin relative grid origin in grid coordinates"))
+        {
+            imu_tx *= 1000.0f; DragFloat("tx (mm)##imu", &imu_tx); imu_tx /= 1000.0f; SameLine(); Checkbox("##imu_tx", &use_mavros_imu_tx);
+            imu_ty *= 1000.0f; DragFloat("ty (mm)##imu", &imu_ty); imu_ty /= 1000.0f; SameLine(); Checkbox("##imu_ty", &use_mavros_imu_ty);
+            imu_tz *= 1000.0f; DragFloat("tz (mm)##imu", &imu_tz); imu_tz /= 1000.0f; SameLine(); Checkbox("##imu_tz", &use_mavros_imu_tz);
+        }
+        if (CollapsingHeader("Drone frame relative grid frame"))
+        {
+            imu_rx *= 180.0f/3.14f; SliderFloat("rx (deg)##imu", &imu_rx, -30.00f, +30.00f); imu_rx *= 3.14f/180.0f; SameLine(); Checkbox("##imu_rx", &use_mavros_imu_rx);
+            imu_ry *= 180.0f/3.14f; SliderFloat("ry (deg)##imu", &imu_ry, -30.00f, +30.00f); imu_ry *= 3.14f/180.0f; SameLine(); Checkbox("##imu_ry", &use_mavros_imu_ry);
+            imu_rz *= 180.0f/3.14f; SliderFloat("rz (deg)##imu", &imu_rz, -180.0f, +180.0f); imu_rz *= 3.14f/180.0f; SameLine(); Checkbox("##imu_rz", &use_mavros_imu_rz);
+        }
+        TextWrapped("Untick the checkbox to manually control a value, or otherwise let it be the set to that used in the tracker (i.e. mavros pose).");
+    }
     End();
 }
