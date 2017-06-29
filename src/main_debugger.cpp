@@ -109,6 +109,7 @@ int main(int argc, char **argv)
         const int mode_camera_calibration = 1;
         const int mode_color_calibration = 2;
         const int mode_white_threshold = 3;
+        const int mode_grid_detector = 4;
         static int mode = mode_see_tracks;
 
         if (latest_image.I && mode == mode_see_tracks)
@@ -213,7 +214,8 @@ int main(int argc, char **argv)
         if (latest_image.I &&
             (mode == mode_color_calibration ||
              mode == mode_camera_calibration ||
-             mode == mode_white_threshold))
+             mode == mode_white_threshold ||
+             mode == mode_grid_detector))
         {
             Begin("Parameters");
             {
@@ -242,41 +244,44 @@ int main(int argc, char **argv)
                 static float max_error = latest_info.max_error;
                 static float tile_width = latest_info.tile_width;
                 Text("Hold ALT key to adjust slowly");
-                if (CollapsingHeader("Camera intrinsics"))
+                if (mode == mode_camera_calibration && CollapsingHeader("Camera intrinsics"))
                 {
                     DragFloat("camera_f", &camera_f);
                     DragFloat("camera_u0", &camera_u0);
                     DragFloat("camera_v0", &camera_v0);
                 }
-                if (CollapsingHeader("Camera extrinsics"))
+                if (mode == mode_camera_calibration && CollapsingHeader("Camera extrinsics"))
                 {
-                    Text("Euler angles defining rotation from camera coordinates to imu coordinates");
+                    TextWrapped("Euler angles defining rotation from camera coordinates to imu coordinates");
                     cam_imu_rx *= 180.0f/3.14f; DragFloat("cam_imu_rx (deg)", &cam_imu_rx); cam_imu_rx *= 3.14f/180.0f;
                     cam_imu_ry *= 180.0f/3.14f; DragFloat("cam_imu_ry (deg)", &cam_imu_ry); cam_imu_ry *= 3.14f/180.0f;
                     cam_imu_rz *= 180.0f/3.14f; DragFloat("cam_imu_rz (deg)", &cam_imu_rz); cam_imu_rz *= 3.14f/180.0f;
-                    Text("Camera center relative imu center in imu coordinates");
+                    TextWrapped("Camera center relative imu center in imu coordinates");
                     cam_imu_tx *= 100.0f; DragFloat("cam_imu_tx (cm)", &cam_imu_tx); cam_imu_tx /= 100.0f;
                     cam_imu_ty *= 100.0f; DragFloat("cam_imu_ty (cm)", &cam_imu_ty); cam_imu_ty /= 100.0f;
                     cam_imu_tz *= 100.0f; DragFloat("cam_imu_tz (cm)", &cam_imu_tz); cam_imu_tz /= 100.0f;
                 }
-                if (CollapsingHeader("Red thresholds"))
+                if (mode == mode_color_calibration && CollapsingHeader("Red thresholds"))
                 {
                     SliderFloat("red over green (r_g)", &r_g, 1.0f, 10.0f);
                     SliderFloat("red over blue (r_b)", &r_b, 1.0f, 10.0f);
                     SliderFloat("minimum brightness (r_n)", &r_n, 0.0f, 255.0f);
                 }
-                if (CollapsingHeader("Green thresholds"))
+                if (mode == mode_color_calibration && CollapsingHeader("Green thresholds"))
                 {
                     SliderFloat("green over red (g_r)", &g_r, 1.0f, 10.0f);
                     SliderFloat("green over blue (g_b)", &g_b, 1.0f, 10.0f);
                     SliderFloat("minimum brightness (g_n)", &g_n, 0.0f, 255.0f);
                 }
-                if (CollapsingHeader("Grid detector"))
+                if (mode == mode_white_threshold && CollapsingHeader("White threshold (grid detector)"))
                 {
                     SliderFloat("white_threshold_r", &white_threshold_r, 0.0f, 255.0f);
                     SliderFloat("white_threshold_g", &white_threshold_g, 0.0f, 255.0f);
                     SliderFloat("white_threshold_b", &white_threshold_b, 0.0f, 255.0f);
                     SliderFloat("white_threshold_d", &white_threshold_d, 0.0f, 255.0f);
+                }
+                if (mode == mode_grid_detector && CollapsingHeader("Tuning values (grid detector)"))
+                {
                     pinhole_fov_x *= 180.0f/3.14f; SliderFloat("pinhole_fov_x (deg)", &pinhole_fov_x, 45.0f, 180.0f); pinhole_fov_x *= 3.14f/180.0f;
                     SliderFloat("sobel_threshold", &sobel_threshold, 0.0f, 100.0f);
                     SliderFloat("maxima_threshold", &maxima_threshold, 0.0f, 100.0f);
@@ -342,6 +347,7 @@ int main(int argc, char **argv)
         RadioButton("Calibrate camera", &mode, mode_camera_calibration); SameLine();
         RadioButton("Calibrate color", &mode, mode_color_calibration); SameLine();
         RadioButton("White threshold", &mode, mode_white_threshold); SameLine();
+        RadioButton("Grid detector", &mode, mode_grid_detector); SameLine();
         if (SmallButton("Take a snapshot"))
         {
             static int suffix = 0;
@@ -387,9 +393,6 @@ int main(int argc, char **argv)
             }
             suffix++;
         }
-        SameLine();
-        if (selected_id >= 0)
-            Text("Publishing %d", selected_id);
         EndMainMenuBar();
 
         {
