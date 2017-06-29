@@ -1,10 +1,18 @@
 #include "parameters.h"
 
 #if DUMMY_IMAGE==1
-#include "mock_jpg.h" // hint: run "xxd -i" on an image to generate a header-embedded binary
+// This includes the binary data of the JPEG directly
+// through the variables mock_jpg and mock_jpg_len. Nice
+// for avoiding the relative/absolute file path madness.
+// Create your own by running "xxd -i" on an image.
+#include "mock_jpg.h"
 #endif
 
 #if TESTING_WITH_LAPTOP==1
+// My laptop does not have a fisheye camera
+// so I define different projection functions
+// if I am testing with my laptop or not.
+// These functions are defined in so_math.h
 #define camera_project m_project_pinhole
 #define camera_inverse_project m_ray_pinhole
 #else
@@ -26,22 +34,26 @@
 #include "asc_tracker.h"
 #include "mjpg_to_jpg.h"
 
-float camera_f = CAMERA_F_INIT;
-float camera_u0 = CAMERA_U0_INIT;
-float camera_v0 = CAMERA_V0_INIT;
-float cam_imu_rx = CAM_IMU_RX_INIT;
-float cam_imu_ry = CAM_IMU_RY_INIT;
-float cam_imu_rz = CAM_IMU_RZ_INIT;
-float cam_imu_tx = CAM_IMU_TX_INIT;
-float cam_imu_ty = CAM_IMU_TY_INIT;
-float cam_imu_tz = CAM_IMU_TZ_INIT;
-float r_g = R_G_INIT;
-float r_b = R_B_INIT;
-float r_n = R_N_INIT;
-float g_r = G_R_INIT;
-float g_b = G_B_INIT;
-float g_n = G_N_INIT;
-
+// These parameters are sent out in the msg/info
+// under the topic /downward_target_tracker/info.
+// They can also be modified live by sending a
+// std_msgs::Float32 on /downward_target_debug/camera_f
+// ... and so forth. This is done in the debugger.
+float camera_f          = CAMERA_F_INIT;
+float camera_u0         = CAMERA_U0_INIT;
+float camera_v0         = CAMERA_V0_INIT;
+float cam_imu_rx        = CAM_IMU_RX_INIT;
+float cam_imu_ry        = CAM_IMU_RY_INIT;
+float cam_imu_rz        = CAM_IMU_RZ_INIT;
+float cam_imu_tx        = CAM_IMU_TX_INIT;
+float cam_imu_ty        = CAM_IMU_TY_INIT;
+float cam_imu_tz        = CAM_IMU_TZ_INIT;
+float r_g               = R_G_INIT;
+float r_b               = R_B_INIT;
+float r_n               = R_N_INIT;
+float g_r               = G_R_INIT;
+float g_b               = G_B_INIT;
+float g_n               = G_N_INIT;
 float white_threshold_r = WHITE_THRESHOLD_R_INIT;
 float white_threshold_g = WHITE_THRESHOLD_G_INIT;
 float white_threshold_b = WHITE_THRESHOLD_B_INIT;
@@ -52,6 +64,9 @@ float maxima_threshold  = MAXIMA_THRESHOLD_INIT;
 float max_error         = MAX_ERROR_INIT;
 float tile_width        = TILE_WIDTH_INIT;
 
+// These describe the latest pose (roll, pitch, yaw, x, y, z)
+// of the drone relative to the grid, and are updated in
+// callback_imu.
 float imu_rx = 0.0f;
 float imu_ry = 0.0f;
 float imu_rz = 0.0f;
@@ -59,21 +74,21 @@ float imu_tx = 0.0f;
 float imu_ty = 0.0f;
 float imu_tz = 1.0f;
 
-void callback_camera_f(std_msgs::Float32 msg) { camera_f = msg.data; }
-void callback_camera_u0(std_msgs::Float32 msg) { camera_u0 = msg.data; }
-void callback_camera_v0(std_msgs::Float32 msg) { camera_v0 = msg.data; }
-void callback_cam_imu_rx(std_msgs::Float32 msg) { cam_imu_rx = msg.data; }
-void callback_cam_imu_ry(std_msgs::Float32 msg) { cam_imu_ry = msg.data; }
-void callback_cam_imu_rz(std_msgs::Float32 msg) { cam_imu_rz = msg.data; }
-void callback_cam_imu_tx(std_msgs::Float32 msg) { cam_imu_tx = msg.data; }
-void callback_cam_imu_ty(std_msgs::Float32 msg) { cam_imu_ty = msg.data; }
-void callback_cam_imu_tz(std_msgs::Float32 msg) { cam_imu_tz = msg.data; }
-void callback_r_g(std_msgs::Float32 msg) { r_g = msg.data; }
-void callback_r_b(std_msgs::Float32 msg) { r_b = msg.data; }
-void callback_r_n(std_msgs::Float32 msg) { r_n = msg.data; }
-void callback_g_r(std_msgs::Float32 msg) { g_r = msg.data; }
-void callback_g_b(std_msgs::Float32 msg) { g_b = msg.data; }
-void callback_g_n(std_msgs::Float32 msg) { g_n = msg.data; }
+void callback_camera_f(std_msgs::Float32 msg)          { camera_f = msg.data; }
+void callback_camera_u0(std_msgs::Float32 msg)         { camera_u0 = msg.data; }
+void callback_camera_v0(std_msgs::Float32 msg)         { camera_v0 = msg.data; }
+void callback_cam_imu_rx(std_msgs::Float32 msg)        { cam_imu_rx = msg.data; }
+void callback_cam_imu_ry(std_msgs::Float32 msg)        { cam_imu_ry = msg.data; }
+void callback_cam_imu_rz(std_msgs::Float32 msg)        { cam_imu_rz = msg.data; }
+void callback_cam_imu_tx(std_msgs::Float32 msg)        { cam_imu_tx = msg.data; }
+void callback_cam_imu_ty(std_msgs::Float32 msg)        { cam_imu_ty = msg.data; }
+void callback_cam_imu_tz(std_msgs::Float32 msg)        { cam_imu_tz = msg.data; }
+void callback_r_g(std_msgs::Float32 msg)               { r_g = msg.data; }
+void callback_r_b(std_msgs::Float32 msg)               { r_b = msg.data; }
+void callback_r_n(std_msgs::Float32 msg)               { r_n = msg.data; }
+void callback_g_r(std_msgs::Float32 msg)               { g_r = msg.data; }
+void callback_g_b(std_msgs::Float32 msg)               { g_b = msg.data; }
+void callback_g_n(std_msgs::Float32 msg)               { g_n = msg.data; }
 void callback_white_threshold_r(std_msgs::Float32 msg) { white_threshold_r = msg.data; }
 void callback_white_threshold_g(std_msgs::Float32 msg) { white_threshold_g = msg.data; }
 void callback_white_threshold_b(std_msgs::Float32 msg) { white_threshold_b = msg.data; }
@@ -83,6 +98,7 @@ void callback_sobel_threshold(std_msgs::Float32 msg)   { sobel_threshold = msg.d
 void callback_maxima_threshold(std_msgs::Float32 msg)  { maxima_threshold = msg.data; }
 void callback_max_error(std_msgs::Float32 msg)         { max_error = msg.data; }
 void callback_tile_width(std_msgs::Float32 msg)        { tile_width = msg.data; }
+
 void callback_imu(geometry_msgs::PoseStamped msg)
 {
     m_quat_to_ypr(msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w, &imu_rz, &imu_ry, &imu_rx);
@@ -109,33 +125,36 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "downward_target_tracker");
     ros::NodeHandle node;
-    ros::Publisher pub_image = node.advertise<downward_target_tracker::image>("downward_target_tracker/image", 1);
-    ros::Publisher pub_info = node.advertise<downward_target_tracker::info>("downward_target_tracker/info", 1);
-    ros::Publisher pub_tracks = node.advertise<downward_target_tracker::tracks>("downward_target_tracker/tracks", 1);
-    ros::Subscriber sub_camera_f = node.subscribe("/downward_target_debug/camera_f", 1, callback_camera_f);
-    ros::Subscriber sub_camera_u0 = node.subscribe("/downward_target_debug/camera_u0", 1, callback_camera_u0);
-    ros::Subscriber sub_camera_v0 = node.subscribe("/downward_target_debug/camera_v0", 1, callback_camera_v0);
-    ros::Subscriber sub_cam_imu_rx = node.subscribe("/downward_target_debug/cam_imu_rx", 1, callback_cam_imu_rx);
-    ros::Subscriber sub_cam_imu_ry = node.subscribe("/downward_target_debug/cam_imu_ry", 1, callback_cam_imu_ry);
-    ros::Subscriber sub_cam_imu_rz = node.subscribe("/downward_target_debug/cam_imu_rz", 1, callback_cam_imu_rz);
-    ros::Subscriber sub_cam_imu_tx = node.subscribe("/downward_target_debug/cam_imu_tx", 1, callback_cam_imu_tx);
-    ros::Subscriber sub_cam_imu_ty = node.subscribe("/downward_target_debug/cam_imu_ty", 1, callback_cam_imu_ty);
-    ros::Subscriber sub_cam_imu_tz = node.subscribe("/downward_target_debug/cam_imu_tz", 1, callback_cam_imu_tz);
-    ros::Subscriber sub_r_g = node.subscribe("/downward_target_debug/r_g", 1, callback_r_g);
-    ros::Subscriber sub_r_b = node.subscribe("/downward_target_debug/r_b", 1, callback_r_b);
-    ros::Subscriber sub_r_n = node.subscribe("/downward_target_debug/r_n", 1, callback_r_n);
-    ros::Subscriber sub_g_r = node.subscribe("/downward_target_debug/g_r", 1, callback_g_r);
-    ros::Subscriber sub_g_b = node.subscribe("/downward_target_debug/g_b", 1, callback_g_b);
-    ros::Subscriber sub_g_n = node.subscribe("/downward_target_debug/g_n", 1, callback_g_n);
-    ros::Subscriber sub_white_threshold_r = node.subscribe("/downward_target_debug/white_threshold_r", 1, callback_white_threshold_r);
-    ros::Subscriber sub_white_threshold_g = node.subscribe("/downward_target_debug/white_threshold_g", 1, callback_white_threshold_g);
-    ros::Subscriber sub_white_threshold_b = node.subscribe("/downward_target_debug/white_threshold_b", 1, callback_white_threshold_b);
-    ros::Subscriber sub_white_threshold_d = node.subscribe("/downward_target_debug/white_threshold_d", 1, callback_white_threshold_d);
-    ros::Subscriber sub_pinhole_fov_x     = node.subscribe("/downward_target_debug/pinhole_fov_x", 1, callback_pinhole_fov_x);
-    ros::Subscriber sub_sobel_threshold   = node.subscribe("/downward_target_debug/sobel_threshold", 1, callback_sobel_threshold);
-    ros::Subscriber sub_maxima_threshold  = node.subscribe("/downward_target_debug/maxima_threshold", 1, callback_maxima_threshold);
-    ros::Subscriber sub_max_error         = node.subscribe("/downward_target_debug/max_error", 1, callback_max_error);
-    ros::Subscriber sub_tile_width        = node.subscribe("/downward_target_debug/tile_width", 1, callback_tile_width);
+
+    ros::Publisher pub_image    = node.advertise<downward_target_tracker::image>("downward_target_tracker/image", 1);
+    ros::Publisher pub_info     = node.advertise<downward_target_tracker::info>("downward_target_tracker/info", 1);
+    ros::Publisher pub_tracks   = node.advertise<downward_target_tracker::tracks>("downward_target_tracker/tracks", 1);
+
+    ros::Subscriber sub_camera_f          = node.subscribe("/downward_target_debug/camera_f",           1, callback_camera_f);
+    ros::Subscriber sub_camera_u0         = node.subscribe("/downward_target_debug/camera_u0",          1, callback_camera_u0);
+    ros::Subscriber sub_camera_v0         = node.subscribe("/downward_target_debug/camera_v0",          1, callback_camera_v0);
+    ros::Subscriber sub_cam_imu_rx        = node.subscribe("/downward_target_debug/cam_imu_rx",         1, callback_cam_imu_rx);
+    ros::Subscriber sub_cam_imu_ry        = node.subscribe("/downward_target_debug/cam_imu_ry",         1, callback_cam_imu_ry);
+    ros::Subscriber sub_cam_imu_rz        = node.subscribe("/downward_target_debug/cam_imu_rz",         1, callback_cam_imu_rz);
+    ros::Subscriber sub_cam_imu_tx        = node.subscribe("/downward_target_debug/cam_imu_tx",         1, callback_cam_imu_tx);
+    ros::Subscriber sub_cam_imu_ty        = node.subscribe("/downward_target_debug/cam_imu_ty",         1, callback_cam_imu_ty);
+    ros::Subscriber sub_cam_imu_tz        = node.subscribe("/downward_target_debug/cam_imu_tz",         1, callback_cam_imu_tz);
+    ros::Subscriber sub_r_g               = node.subscribe("/downward_target_debug/r_g",                1, callback_r_g);
+    ros::Subscriber sub_r_b               = node.subscribe("/downward_target_debug/r_b",                1, callback_r_b);
+    ros::Subscriber sub_r_n               = node.subscribe("/downward_target_debug/r_n",                1, callback_r_n);
+    ros::Subscriber sub_g_r               = node.subscribe("/downward_target_debug/g_r",                1, callback_g_r);
+    ros::Subscriber sub_g_b               = node.subscribe("/downward_target_debug/g_b",                1, callback_g_b);
+    ros::Subscriber sub_g_n               = node.subscribe("/downward_target_debug/g_n",                1, callback_g_n);
+    ros::Subscriber sub_white_threshold_r = node.subscribe("/downward_target_debug/white_threshold_r",  1, callback_white_threshold_r);
+    ros::Subscriber sub_white_threshold_g = node.subscribe("/downward_target_debug/white_threshold_g",  1, callback_white_threshold_g);
+    ros::Subscriber sub_white_threshold_b = node.subscribe("/downward_target_debug/white_threshold_b",  1, callback_white_threshold_b);
+    ros::Subscriber sub_white_threshold_d = node.subscribe("/downward_target_debug/white_threshold_d",  1, callback_white_threshold_d);
+    ros::Subscriber sub_pinhole_fov_x     = node.subscribe("/downward_target_debug/pinhole_fov_x",      1, callback_pinhole_fov_x);
+    ros::Subscriber sub_sobel_threshold   = node.subscribe("/downward_target_debug/sobel_threshold",    1, callback_sobel_threshold);
+    ros::Subscriber sub_maxima_threshold  = node.subscribe("/downward_target_debug/maxima_threshold",   1, callback_maxima_threshold);
+    ros::Subscriber sub_max_error         = node.subscribe("/downward_target_debug/max_error",          1, callback_max_error);
+    ros::Subscriber sub_tile_width        = node.subscribe("/downward_target_debug/tile_width",         1, callback_tile_width);
+
     ros::Subscriber sub_imu = node.subscribe(IMU_POSE_TOPIC, 1, callback_imu);
 
     signal(SIGINT, ctrlc);
@@ -166,7 +185,7 @@ int main(int argc, char **argv)
             #if DUMMY_IMAGE==1
             jpg_data = mock_jpg;
             jpg_size = mock_jpg_len;
-            usleep(16*1000);
+            usleep(5*1000);
             #elif TESTING_WITH_LAPTOP==1
             usbcam_lock_mjpg(&jpg_data, &jpg_size, &timestamp);
             #else
@@ -201,16 +220,20 @@ int main(int argc, char **argv)
         // GET LATEST MESSAGES BEFORE PROCESSING IMAGE
         ros::spinOnce();
 
-        // RUN ONE ITERATION OF TARGET DETECTION AND TRACKING
+        // COMPUTE CAMERA POSE RELATIVE GRID
         mat3 imu_rot = m_rotz(imu_rz)*m_roty(imu_ry)*m_rotx(imu_rx);
         vec3 imu_pos = m_vec3(imu_tx, imu_ty, imu_tz);
         mat3 cam_imu_rot = m_rotz(cam_imu_rz)*m_roty(cam_imu_ry)*m_rotx(cam_imu_rx);
         vec3 cam_imu_pos = m_vec3(cam_imu_tx, cam_imu_ty, cam_imu_tz);
         mat3 rot = imu_rot*cam_imu_rot;
         vec3 pos = imu_pos + imu_rot*cam_imu_pos;
+
+        // CALCULATE CAMERA PARAMETERS FOR DOWNSCALED IMAGE
         float f = camera_f*Ix/CAMERA_WIDTH;
         float u0 = camera_u0*Ix/CAMERA_WIDTH;
         float v0 = camera_v0*Ix/CAMERA_WIDTH;
+
+        // DETECT AND TRACK TARGETS
         tracks_t tracks = {0};
         float dt_track_targets = 0.0f;
         {
