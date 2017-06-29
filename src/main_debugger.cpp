@@ -1,9 +1,4 @@
-#define TESTING_WITH_LAPTOP 1 // Set to 0 when testing with actual drone
-
-//
-//
-//
-
+#include "parameters.h"
 #include "vdb/vdb.h"
 #include <ros/ros.h>
 #include <std_msgs/Float32.h>
@@ -71,8 +66,8 @@ void callback_image(downward_target_tracker::image msg)
     }
 
     latest_image.I = (unsigned char*)malloc(width*height*3);
-    latest_image.Ix = width/4;
-    latest_image.Iy = height/4;
+    latest_image.Ix = width/2;
+    latest_image.Iy = height/2;
 
     error = tjDecompress2(decompressor,
         jpg_data,

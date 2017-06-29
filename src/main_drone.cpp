@@ -1,45 +1,4 @@
-#define TESTING_WITH_LAPTOP    1
-#define DUMMY_IMAGE            0
-#define DEVICE_NAME            "/dev/video0"
-#define IMU_POSE_TOPIC         "/mavros/vision_pose/pose"
-#define INFO_PUBLISH_INTERVAL  0.0f // minimum required seconds between publications (set to zero to publish every frame)
-#define IMAGE_PUBLISH_INTERVAL 0.0f // minimum required seconds between publications (set to zero to publish every frame)
-
-// Camera rotation offset (R_cam^imu = Rz(cam_imu_rz)Ry(cam_imu_ry)Rx(cam_imu_rx)) [camera to imu frame]
-#define CAM_IMU_RX_INIT    0.0f
-#define CAM_IMU_RY_INIT    0.0f
-#define CAM_IMU_RZ_INIT    0.0f
-
-// Camera position offset (T_cam/imu^imu = {cam_imu_tx, cam_imu_ty, cam_imu_tz}) [camera relative imu in imu frame]
-#define CAM_IMU_TX_INIT    0.0f
-#define CAM_IMU_TY_INIT    0.0f
-#define CAM_IMU_TZ_INIT    0.0f
-
-// Red classification thresholds
-#define R_G_INIT           3.0f       // minimum red/green ratio
-#define R_B_INIT           2.0f       // minimum red/blue ratio
-#define R_N_INIT           10.0f/3.0f // minimum average brightness (r+g+b)/3
-
-// Green classification thresholds
-#define G_R_INIT           1.6f       // minimum green/red ratio
-#define G_B_INIT           1.5f       // minimum green/blue ratio
-#define G_N_INIT           10.0f/3.0f // minimum average brightness (r+g+b)/3
-
-// Camera parameters
-#if DUMMY_IMAGE==0 && TESTING_WITH_LAPTOP==0
-#define USBCAM_DEBUG       1
-#define CAMERA_WIDTH       800
-#define CAMERA_HEIGHT      600
-#define CAMERA_BUFFERS     3
-#define CAMERA_LEVELS      2 // Downscale factor (0=none, 1=half, 2=quarter)
-#define CAMERA_F_INIT      434.0f
-#define CAMERA_U0_INIT     400.0f
-#define CAMERA_V0_INIT     300.0f
-#endif
-
-//
-// Implementation
-//
+#include "parameters.h"
 
 #if TESTING_WITH_LAPTOP==1
 #define USBCAM_DEBUG       1
