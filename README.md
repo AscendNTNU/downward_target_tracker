@@ -35,6 +35,10 @@ $ sudo apt-get install libsdl2-dev
 
 ### Run the tracker
 
+Step 1) Set the parameters (camera path, drone pose topic, desired image and info publish time delays, and camera and color calibration). See bottom of this document for a description of the parameters and where to find them.
+
+Step 2)
+
 ```
 $ rosrun downward_target_tracker tracker
 ```
@@ -114,7 +118,7 @@ Verify that things look correct by opening "calibrate camera" tab.
 2. Align drone axes with grid axes.
 3. Tilt the drone in either x or y axis, and verify that the visualized grid pattern matches with real-life.
 
-#### Saving parameters
+#### Parameters
 Open ```main_drone.cpp``` and look at the top of the file. Change the parameters if you need to:
 
 Parameter   | What
