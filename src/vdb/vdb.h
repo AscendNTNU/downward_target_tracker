@@ -168,6 +168,11 @@ void vdbDrawTexture2D(int slot); // Draws the texture to the entire viewport
 #define vdbKeyDown(KEY) _vdbKeyDown(SO_PLATFORM_KEY(KEY))
 #define vdbKeyPressed(KEY) _vdbKeyPressed(SO_PLATFORM_KEY(KEY))
 #define vdbKeyReleased(KEY) _vdbKeyReleased(SO_PLATFORM_KEY(KEY))
+#define vdbAspect() (vdb_input.width/(float)vdb_input.height)
+#define MOUSEX (vdb_input.mouse.u)
+#define MOUSEY (vdb_input.mouse.v)
+#define vdbWidth() (vdb_input.width)
+#define vdbHeight() (vdb_input.height)
 
 struct vdb_mat4
 {
