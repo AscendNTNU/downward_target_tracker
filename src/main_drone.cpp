@@ -143,6 +143,8 @@ int main(int argc, char **argv)
     ros::Publisher pub_info   = node.advertise<downward_target_tracker::info>(INFO_TOPIC, 1);
     ros::Publisher pub_tracks = node.advertise<downward_target_tracker::tracks>(TRACKS_TOPIC, 1);
 
+    pub_line_counter = node.advertise<ascend_msgs::LineCounter>(LINE_COUNTER_TOPIC, 1); // defined in main_line_counter.cpp
+
     ros::Subscriber sub_camera_f          = node.subscribe("/target_debug/camera_f",           1, callback_camera_f);
     ros::Subscriber sub_camera_u0         = node.subscribe("/target_debug/camera_u0",          1, callback_camera_u0);
     ros::Subscriber sub_camera_v0         = node.subscribe("/target_debug/camera_v0",          1, callback_camera_v0);

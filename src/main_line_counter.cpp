@@ -1,20 +1,26 @@
-#if RUN_LINE_COUNTER != 1
-void line_counter_init() { }
-void line_counter_copy(unsigned char *jpg_data, unsigned int jpg_size, float *dt_memcpy) { *dt_memcpy = 0.0f; }
-
-#else
 #define ASC_GRID_DETECTOR_IMPLEMENTATION
 #define ASC_GRID_DETECTOR_SSE
 #include "asc_grid_detector.h"
 #include <pthread.h>
-#include <ascend_msgs::LineCounter.h>
+#include <ascend_msgs/LineCounter.h>
 
+ros::Publisher pub_line_counter;
+
+#if RUN_LINE_COUNTER == 1
 // These need to be volatile, otherwise the main_line_counter thread did
 // not work properly when I compile with optimizations (-O2).
 volatile bool         line_counter_jpg_available = false;
 volatile bool         line_counter_using_jpg = false;
 volatile unsigned int line_counter_jpg_size;
 static unsigned char  line_counter_jpg_data[CAMERA_WIDTH*CAMERA_HEIGHT*3];
+
+void *line_counter_main(void *);
+
+void line_counter_init()
+{
+    pthread_t t;
+    pthread_create(&t, NULL, line_counter_main, NULL);
+}
 
 void line_counter_copy(unsigned char *jpg_data, unsigned int jpg_size, float *out_dt_memcpy)
 {
@@ -31,16 +37,7 @@ void line_counter_copy(unsigned char *jpg_data, unsigned int jpg_size, float *ou
     *out_dt_memcpy = dt_memcpy;
 }
 
-void *line_counter_main(void *);
-
-void line_counter_init()
-{
-    pthread_t t;
-    pthread_create(&t, NULL, line_counter_main, NULL);
-}
-
 #if 1
-// For testing: just write shared image to file ("test.jpg")
 void *line_counter_main(void *)
 {
     printf("line counter!\n");
@@ -64,6 +61,17 @@ void *line_counter_main(void *)
         }
 
         usleep(50*1000);
+
+        // publish test
+        {
+            ascend_msgs::LineCounter msg;
+            msg.timestamp = getnsec();
+            msg.x1 = 1; msg.y1 = 10; msg.yaw1 = 100;
+            msg.x2 = 2; msg.y2 = 20; msg.yaw2 = 200;
+            msg.x3 = 3; msg.y3 = 30; msg.yaw3 = 300;
+            msg.x4 = 4; msg.y4 = 40; msg.yaw4 = 400;
+            pub_line_counter.publish(msg);
+        }
 
         printf("%d. %.2f ms\n", frame, 1000.0f*dt_fwrite);
 
@@ -212,4 +220,8 @@ void *line_counter_main(void *)
     }
 }
 #endif
+
+#else // RUN_LINE_COUNTER != 1
+void line_counter_init() { }
+void line_counter_copy(unsigned char *jpg_data, unsigned int jpg_size, float *dt_memcpy) { *dt_memcpy = 0.0f; }
 #endif
