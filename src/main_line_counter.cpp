@@ -16,10 +16,12 @@ static unsigned char  line_counter_jpg_data[CAMERA_WIDTH*CAMERA_HEIGHT*3];
 
 void *line_counter_main(void *);
 
-void line_counter_init()
+void line_counter_init(ros::NodeHandle *node)
 {
     pthread_t t;
     pthread_create(&t, NULL, line_counter_main, NULL);
+
+    pub_line_counter = node->advertise<ascend_msgs::LineCounter>(LINE_COUNTER_TOPIC, 1);
 }
 
 void line_counter_copy(unsigned char *jpg_data, unsigned int jpg_size, float *out_dt_memcpy)
@@ -167,6 +169,7 @@ void *line_counter_main(void *)
             asc_GridResult result =
             asc_find_grid(I_gray,Ix,Iy, cam_rx,cam_ry,cam_z, options);
 
+            ascend_msgs::LineCounter msg;
             if (result.error < MAX_ERROR)
             {
                 // Note: The grid detector finds the yaw of the camera relative the grid.
@@ -180,7 +183,6 @@ void *line_counter_main(void *)
                 // Todo: Cannot simply convert line counter yaw output into a quaternion
                 // with zero pitch and roll, and pass that in.
 
-                ascend_msgs::LineCounter msg;
                 msg.timestamp = getnsec();
                 msg.x1 = result.x[0];
                 msg.y1 = result.y[0];
@@ -194,11 +196,9 @@ void *line_counter_main(void *)
                 msg.x4 = result.x[3];
                 msg.y4 = result.y[3];
                 msg.yaw4 = asci_angle(result.yaw[3] - cam_imu_rz);
-                pub.publish(msg);
             }
             else
             {
-                ascend_msgs::LineCounter msg;
                 msg.timestamp = getnsec();
                 msg.x1 = 0.5f;
                 msg.y1 = 0.5f;
@@ -212,8 +212,12 @@ void *line_counter_main(void *)
                 msg.x4 = 0.5f,
                 msg.y4 = 0.5f;
                 msg.yaw4 = asci_angle(3.0f*ASCI_PI/2.0f);
-                pub.publish(msg);
             }
+            publish(msg);
+
+            #if RUN_LINE_COUNTER_FILTER==1
+            filter_and_publish_vision_pose(msg);
+            #endif
         }
 
         line_counter_using_jpg = false;
@@ -222,6 +226,6 @@ void *line_counter_main(void *)
 #endif
 
 #else // RUN_LINE_COUNTER != 1
-void line_counter_init() { }
+void line_counter_init(ros::NodeHandle *node) { }
 void line_counter_copy(unsigned char *jpg_data, unsigned int jpg_size, float *dt_memcpy) { *dt_memcpy = 0.0f; }
 #endif
