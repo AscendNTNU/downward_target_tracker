@@ -9,12 +9,12 @@
 #define DUMMY_IMAGE         0 // Leave at 0. 1 to use a static image instead of usb camera input
 #define RUN_LINE_COUNTER    0 // Leave at 0 for now (not finished)
 
-#define IMU_POSE_TOPIC     "/mavros/vision_pose/pose" // (input) best current estimate of drone pose relative grid (geometry_msgs::PoseStamped)
-#define TRACKS_TOPIC       "/target_tracker/tracks"   // (output) list of tracked targets (tracks.msg)
-#define IMAGE_TOPIC        "/target_tracker/image"    // (output) compressed camera frame (image.msg)
-#define INFO_TOPIC         "/target_tracker/info"     // (output) target bounding boxes, detections, and adjustable parameters (info.msg)
-#define LINE_COUNTER_TOPIC "/line_counter/pose"       // (output) line counter grid detection (LineCounter.msg)
-#define SELECTED_TOPIC     "/target_debug/selected"   // (output,debugger) unique_id of the highlighted target (std_msgs::Int32)
+#define IMU_POSE_TOPIC     "/mavros/local_position/pose" // (input) best current estimate of drone pose relative grid (geometry_msgs::PoseStamped)
+#define TRACKS_TOPIC       "/target_tracker/tracks"      // (output) list of tracked targets (tracks.msg)
+#define IMAGE_TOPIC        "/target_tracker/image"       // (output) compressed camera frame (image.msg)
+#define INFO_TOPIC         "/target_tracker/info"        // (output) target bounding boxes, detections, and adjustable parameters (info.msg)
+#define LINE_COUNTER_TOPIC "/line_counter/pose"          // (output) line counter grid detection (LineCounter.msg)
+#define SELECTED_TOPIC     "/target_debug/selected"      // (output,debugger) unique_id of the highlighted target (std_msgs::Int32)
 
 // Minimum required seconds between publishing debug info
 // Used in debugger to visualize bounding boxes and raw detections

@@ -34,11 +34,10 @@
 #include "asc_tracker.h"
 #include "mjpg_to_jpg.h"
 
-// These parameters are sent out in the msg/info
-// under the topic /downward_target_tracker/info.
-// They can also be modified live by sending a
-// std_msgs::Float32 on /downward_target_debug/camera_f
-// ... and so forth. This is done in the debugger.
+// These parameters are sent out as msg/info.msg
+// under the topic INFO_TOPIC (see parameters.h).
+// They can be modified live by sending std_msgs::Float32
+// on /target_debug/camera_f, ... etc
 float camera_f          = CAMERA_F_INIT;
 float camera_u0         = CAMERA_U0_INIT;
 float camera_v0         = CAMERA_V0_INIT;
@@ -66,7 +65,8 @@ float tile_width        = TILE_WIDTH_INIT;
 
 // These describe the latest pose (roll, pitch, yaw, x, y, z)
 // of the drone relative to the grid, and are updated in
-// callback_imu.
+// callback_imu. The target tracker uses *all* of these, while
+// the line counter does not care about imu_rz, imu_tx or imu_ty.
 float imu_rx = 0.0f;
 float imu_ry = 0.0f;
 float imu_rz = 0.0f;

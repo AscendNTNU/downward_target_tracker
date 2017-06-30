@@ -120,6 +120,7 @@ void *line_counter_main(void *)
 
         // COMPUTE CAMERA POSE
         // (rotation relative grid, and height relative grid in grid coordinates)
+        // AND EXTRACT PITCH, ROLL AND HEIGHT
         float cam_ry, cam_rx, cam_z;
         {
             mat3 imu_rot = m_rotz(imu_rz)*m_roty(imu_ry)*m_rotx(imu_rx);
