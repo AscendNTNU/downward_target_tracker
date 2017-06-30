@@ -10,6 +10,8 @@
 #define RUN_LINE_COUNTER    0 // Leave at 1.
 
 // Topic on which pose of drone relative grid is published
+// This should be the latest and best estimate of ALL pose
+// parameters.
 #define IMU_POSE_TOPIC "/mavros/vision_pose/pose"
 
 // Minimum required seconds between publishing debug info
