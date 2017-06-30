@@ -1,65 +1,8 @@
-// so_math.h - ver 27
-// + Vector and matrix math.
-// + Linear algebra.
-// + GLSL like functions
-// + Euclidean transformations.
-// + Conversions between Euler angles, quaternions and matrices
-// + Representations of SE(3) and SO(3)
-// + Conversions between SO(3) and so(3)
-// + Conversions between SE(3) and se(3)
-//
-// :::::::::::::::::::::::::Changelog::::::::::::::::::::::::::
-//   5/4/17: m_solvespd without templates
-//  20/3/17: m_intersect_ray_ray, m_intersect_ray_flat_cone
-//  12/3/17: Removed projections.
-//  11/3/17: m_orthogonalize. [] accessors.
-//
-//  26/2/17: Camera math, inverse and forward projections.
-//           Got rid of T type template.
-//
-//  5/12/16: m_so3_log bounds check on acos
-//
-//  1/10/16: fixed m_ortho
-//
-//  15/9/16: removed undefined types (s32, r32)
-//
-//  24/7/16: m_floor, m_mod
-//
-//  17/7/16: m_normalize no longer defaults to using fast_inv_sqrt.
-//
-//  15/7/16: m_map: Now works with y1 < y0
-//
-//   8/7/16: m_so3_to_ypr: Rotation matrix to euler angles (YPR)
-//
-//   7/7/16: m_quat_to_ypr: Quaternion to euler angles (YPR)
-//
-//   1/7/16: m_solvespd: Solve Sx=b where S is symmetric positive definite
-//           m_cholesky: Decompose a symmetric positive definite matrix
-//                       S=U'U, where U is upper-triangular
-//
-//  29/6/16: Added ability to disable PI, TWO_PI define.
-//
-//   3/6/16: Circle-circle intersection test: m_is_circle_circle
-//
-//   4/1/16: m_smoothstep
-//
-// 11/12/15: Fixed sign convention on the rotation matrices in
-//           mat_rotate_*. They now follow the right-hand rule:
-//           Positive angle means counter-clockwise rotation
-//           about the respective axis.
-//
-//  6/12/15: m_sign
-//
-// 26/11/15: Made it a template library after reading
-//           http://www.reedbeta.com/blog/2013/12/28/on-vector-math-libraries/
-//           I agree on a lot of the points. I do however not
-//           like templates in general, due to poor compiler
-//           error messages. Kind of unsure if this was a good
-//           idea or not. I don't really use vectors or matrices
-//           or dimension greater than 4x4; but I do sometimes
-//           use matrices of odd dimensions.
-//
-// Some earlier entries have been omitted.
+// bastardized version of so_math.h version 27
+// see github.com/lightbits/soi
+// edits made:
+// * added camera projection functions
+// * fixed m_quat_from_euler YPR/RPY typo
 
 #ifndef SO_MATH_HEADER_INCLUDE
 #define SO_MATH_HEADER_INCLUDE
