@@ -4,6 +4,29 @@ This repository contains the downward target tracker node, whose job it is to de
 
 It also contains a debugger, that you can run on your computer, to verify that target tracking works correctly, and calibrate camera parameters, algorithm parameters, etc. It does not need to run during the competition, and is intended only for calibration and verification before the competition.
 
+The tracker, when running correctly, will publish a list of tracked targets, [msg/tracks.msg](msg/tracks.msg), 60 times per second on the topic ```TRACKS_TOPIC```, which you can change in [src/parameters.h](src/parameters.h). Each target has a unique ID that you can use to refer to it. The ID persists while the target is tracked. Targets stop being tracked if they are not seen two seconds. The message can be used like this:
+
+```
+downward_target_tracker::tracks msg // From callback
+int selected_id = 1234; // From planning algorithm, or manual selection
+// ...
+for (int i = 0; i < msg.num_targets)
+{
+    int id = msg.unique_id[i];
+    float x = msg.position_x[i];
+    float y = msg.position_y[i];
+    float vx = msg.velocity_x[i];
+    float vy = msg.velocity_y[i];
+
+    if (id == selected_id)
+    {
+        // publish x,y,vx,vy to velocity-feedforward controller node?
+    }
+}
+```
+
+The debugger can be used to *select* a target by clicking on its list row in the GUI, and have its ```unique_id``` published on the topic ```SELECTED_TOPIC```, which you can change in [src/parameters.h](src/parameters.h).
+
 ### Compile
 
 Get the video 4 linux 2 development libraries (v4l2)
@@ -80,32 +103,3 @@ CAMERA_WIDTH/HEIGHT | Request video resolution from USB camera
 CAMERA_BUFFERS | This might need to be changed if "Frame rate" (see Timing window in debugger) is less than 60 Hz
 CAMERA_LEVELS | How many halvings of resolution should be done
 CAMERA_F/U0/V0_INIT | Fisheye projection parameters, depends on video resolution
-
-### Example using the tracker
-
-A list of tracked targets is published 60 times per second in the topic ```downward_target_tracker/tracks```. Each target has a unique ID that you can use to refer to it. The ID persists while the target is tracked. Targets stop being tracked if they are not seen two seconds.
-
-The messages can be used like this:
-
-```
-downward_target_tracker::tracks msg // From callback
-int selected_id = 1234; // From planning algorithm, or manual selection
-// ...
-for (int i = 0; i < msg.num_targets)
-{
-    int id = msg.unique_id[i];
-    float x = msg.position_x[i];
-    float y = msg.position_y[i];
-    float vx = msg.velocity_x[i];
-    float vy = msg.velocity_y[i];
-
-    if (id == selected_id)
-    {
-        // publish x,y,vx,vy to velocity-feedforward controller node?
-    }
-}
-```
-
-### Selecting targets
-
-Clicking one of the entries in the list, in the default view, will highlight it in red, and its unique ID will be published at ```downward_target_debug/selected```.
