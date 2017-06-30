@@ -94,10 +94,10 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "downward_target_debug");
     ros::NodeHandle node;
-    ros::Subscriber sub_image  = node.subscribe("/downward_target_tracker/image", 1, callback_image);
-    ros::Subscriber sub_info   = node.subscribe("/downward_target_tracker/info", 1, callback_info);
-    ros::Subscriber sub_tracks = node.subscribe("/downward_target_tracker/tracks", 1, callback_tracks);
-    ros::Publisher pub_selected = node.advertise<std_msgs::Int32>("/downward_target_debug/selected", 1);
+    ros::Subscriber sub_image  = node.subscribe(IMAGE_TOPIC, 1, callback_image);
+    ros::Subscriber sub_info   = node.subscribe(INFO_TOPIC, 1, callback_info);
+    ros::Subscriber sub_tracks = node.subscribe(TRACKS_TOPIC, 1, callback_tracks);
+    ros::Publisher pub_selected = node.advertise<std_msgs::Int32>(SELECTED_TOPIC, 1);
 
     int selected_id = -1;
 
@@ -287,30 +287,30 @@ int main(int argc, char **argv)
                     SliderFloat("tile_width (m)", &tile_width, 0.1f, 5.0f);
                 }
 
-                static ros::Publisher pub_camera_f = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_f", 1);
-                static ros::Publisher pub_camera_u0 = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_u0", 1);
-                static ros::Publisher pub_camera_v0 = node.advertise<std_msgs::Float32>("/downward_target_debug/camera_v0", 1);
-                static ros::Publisher pub_cam_imu_rx = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_rx", 1);
-                static ros::Publisher pub_cam_imu_ry = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_ry", 1);
-                static ros::Publisher pub_cam_imu_rz = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_rz", 1);
-                static ros::Publisher pub_cam_imu_tx = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_tx", 1);
-                static ros::Publisher pub_cam_imu_ty = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_ty", 1);
-                static ros::Publisher pub_cam_imu_tz = node.advertise<std_msgs::Float32>("/downward_target_debug/cam_imu_tz", 1);
-                static ros::Publisher pub_r_g = node.advertise<std_msgs::Float32>("/downward_target_debug/r_g", 1);
-                static ros::Publisher pub_r_b = node.advertise<std_msgs::Float32>("/downward_target_debug/r_b", 1);
-                static ros::Publisher pub_r_n = node.advertise<std_msgs::Float32>("/downward_target_debug/r_n", 1);
-                static ros::Publisher pub_g_r = node.advertise<std_msgs::Float32>("/downward_target_debug/g_r", 1);
-                static ros::Publisher pub_g_b = node.advertise<std_msgs::Float32>("/downward_target_debug/g_b", 1);
-                static ros::Publisher pub_g_n = node.advertise<std_msgs::Float32>("/downward_target_debug/g_n", 1);
-                static ros::Publisher pub_white_threshold_r = node.advertise<std_msgs::Float32>("/downward_target_debug/white_threshold_r", 1);
-                static ros::Publisher pub_white_threshold_g = node.advertise<std_msgs::Float32>("/downward_target_debug/white_threshold_g", 1);
-                static ros::Publisher pub_white_threshold_b = node.advertise<std_msgs::Float32>("/downward_target_debug/white_threshold_b", 1);
-                static ros::Publisher pub_white_threshold_d = node.advertise<std_msgs::Float32>("/downward_target_debug/white_threshold_d", 1);
-                static ros::Publisher pub_pinhole_fov_x = node.advertise<std_msgs::Float32>("/downward_target_debug/pinhole_fov_x", 1);
-                static ros::Publisher pub_sobel_threshold = node.advertise<std_msgs::Float32>("/downward_target_debug/sobel_threshold", 1);
-                static ros::Publisher pub_maxima_threshold = node.advertise<std_msgs::Float32>("/downward_target_debug/maxima_threshold", 1);
-                static ros::Publisher pub_max_error = node.advertise<std_msgs::Float32>("/downward_target_debug/max_error", 1);
-                static ros::Publisher pub_tile_width = node.advertise<std_msgs::Float32>("/downward_target_debug/tile_width", 1);
+                static ros::Publisher pub_camera_f          = node.advertise<std_msgs::Float32>("/target_debug/camera_f", 1);
+                static ros::Publisher pub_camera_u0         = node.advertise<std_msgs::Float32>("/target_debug/camera_u0", 1);
+                static ros::Publisher pub_camera_v0         = node.advertise<std_msgs::Float32>("/target_debug/camera_v0", 1);
+                static ros::Publisher pub_cam_imu_rx        = node.advertise<std_msgs::Float32>("/target_debug/cam_imu_rx", 1);
+                static ros::Publisher pub_cam_imu_ry        = node.advertise<std_msgs::Float32>("/target_debug/cam_imu_ry", 1);
+                static ros::Publisher pub_cam_imu_rz        = node.advertise<std_msgs::Float32>("/target_debug/cam_imu_rz", 1);
+                static ros::Publisher pub_cam_imu_tx        = node.advertise<std_msgs::Float32>("/target_debug/cam_imu_tx", 1);
+                static ros::Publisher pub_cam_imu_ty        = node.advertise<std_msgs::Float32>("/target_debug/cam_imu_ty", 1);
+                static ros::Publisher pub_cam_imu_tz        = node.advertise<std_msgs::Float32>("/target_debug/cam_imu_tz", 1);
+                static ros::Publisher pub_r_g               = node.advertise<std_msgs::Float32>("/target_debug/r_g", 1);
+                static ros::Publisher pub_r_b               = node.advertise<std_msgs::Float32>("/target_debug/r_b", 1);
+                static ros::Publisher pub_r_n               = node.advertise<std_msgs::Float32>("/target_debug/r_n", 1);
+                static ros::Publisher pub_g_r               = node.advertise<std_msgs::Float32>("/target_debug/g_r", 1);
+                static ros::Publisher pub_g_b               = node.advertise<std_msgs::Float32>("/target_debug/g_b", 1);
+                static ros::Publisher pub_g_n               = node.advertise<std_msgs::Float32>("/target_debug/g_n", 1);
+                static ros::Publisher pub_white_threshold_r = node.advertise<std_msgs::Float32>("/target_debug/white_threshold_r", 1);
+                static ros::Publisher pub_white_threshold_g = node.advertise<std_msgs::Float32>("/target_debug/white_threshold_g", 1);
+                static ros::Publisher pub_white_threshold_b = node.advertise<std_msgs::Float32>("/target_debug/white_threshold_b", 1);
+                static ros::Publisher pub_white_threshold_d = node.advertise<std_msgs::Float32>("/target_debug/white_threshold_d", 1);
+                static ros::Publisher pub_pinhole_fov_x     = node.advertise<std_msgs::Float32>("/target_debug/pinhole_fov_x", 1);
+                static ros::Publisher pub_sobel_threshold   = node.advertise<std_msgs::Float32>("/target_debug/sobel_threshold", 1);
+                static ros::Publisher pub_maxima_threshold  = node.advertise<std_msgs::Float32>("/target_debug/maxima_threshold", 1);
+                static ros::Publisher pub_max_error         = node.advertise<std_msgs::Float32>("/target_debug/max_error", 1);
+                static ros::Publisher pub_tile_width        = node.advertise<std_msgs::Float32>("/target_debug/tile_width", 1);
 
                 { std_msgs::Float32 msg; msg.data = camera_f; pub_camera_f.publish(msg); }
                 { std_msgs::Float32 msg; msg.data = camera_u0; pub_camera_u0.publish(msg); }

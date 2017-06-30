@@ -7,12 +7,14 @@
 
 #define TESTING_WITH_LAPTOP 1 // Leave at 0. 1 to use author's laptop camera instead of fisheye
 #define DUMMY_IMAGE         0 // Leave at 0. 1 to use a static image instead of usb camera input
-#define RUN_LINE_COUNTER    0 // Leave at 1.
+#define RUN_LINE_COUNTER    0 // Leave at 0 for now (not finished)
 
-// Topic on which pose of drone relative grid is published
-// This should be the latest and best estimate of ALL pose
-// parameters.
-#define IMU_POSE_TOPIC "/mavros/vision_pose/pose"
+#define IMU_POSE_TOPIC     "/mavros/vision_pose/pose" // (input) best current estimate of drone pose relative grid (geometry_msgs::PoseStamped)
+#define TRACKS_TOPIC       "/target_tracker/tracks"   // (output) list of tracked targets (tracks.msg)
+#define IMAGE_TOPIC        "/target_tracker/image"    // (output) compressed camera frame (image.msg)
+#define INFO_TOPIC         "/target_tracker/info"     // (output) target bounding boxes, detections, and adjustable parameters (info.msg)
+#define LINE_COUNTER_TOPIC "/line_counter/pose"       // (output) line counter grid detection (LineCounter.msg)
+#define SELECTED_TOPIC     "/target_debug/selected"   // (output,debugger) unique_id of the highlighted target (Int32)
 
 // Minimum required seconds between publishing debug info
 // Used in debugger to visualize bounding boxes and raw detections
