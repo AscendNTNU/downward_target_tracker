@@ -84,8 +84,6 @@ void *line_counter_main(void *)
 void *line_counter_main(void *)
 {
     printf("[line_counter] Running\n");
-    pub = node.advertise<ascend_msgs::LineCounter>("/line_counter/pose", 1);
-
     const int Ix = CAMERA_WIDTH>>CAMERA_LEVELS_GRID_DETECTOR;
     const int Iy = CAMERA_HEIGHT>>CAMERA_LEVELS_GRID_DETECTOR;
     static unsigned char I_rgb[Ix*Iy*3];
@@ -213,7 +211,7 @@ void *line_counter_main(void *)
                 msg.y4 = 0.5f;
                 msg.yaw4 = asci_angle(3.0f*ASCI_PI/2.0f);
             }
-            publish(msg);
+            pub_line_counter.publish(msg);
 
             #if RUN_LINE_COUNTER_FILTER==1
             filter_and_publish_vision_pose(msg);
