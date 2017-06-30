@@ -31,7 +31,7 @@ $ sudo apt-get install libsdl2-dev
 
 ### Test the tracker
 
-**Step 1.** Set camera device name and drone pose topic in [src/parameters.h](src/parameters.h).
+**Step 1.** Set the parameters that you already know (like camera device name and topic names) in [src/parameters.h](src/parameters.h). Leave the rest alone for now.
 
 **Step 2.** Run the tracker on the drone: ```$ rosrun downward_target_tracker tracker```.
 
@@ -61,10 +61,15 @@ If not, we need to calibrate intrinsics (fisheye parameters), extrinsics (camera
 
 Parameter   | What
 ------------|-----
+DEVICE_NAME         | i.e. /dev/video1
 TESTING_WITH_LAPTOP | Just for me. Set this to 0.
-DUMMY_IMAGE | 0 will use USB camera; 1 will use a static image embedded in source code.
-DEVICE_NAME | i.e. /dev/video1
-IMU_POSE_TOPIC | Topic on which drone pose relative grid is published
+DUMMY_IMAGE         | 0 will use USB camera; 1 will use a static image embedded in source code.
+IMU_POSE_TOPIC      | Topic for best current estimate of drone pose (geometry_msgs::PoseStamped)
+TRACKS_TOPIC        | Topic on which list of targets will be published (tracks.msg)
+IMAGE_TOPIC         | Topic on which compressed camera feed will be published (image.msg)
+INFO_TOPIC          | Topic on which debug info (adjustable parameters, bounding boxes and detections) will be published (info.msg)
+LINE_COUNTER_TOPIC  | Topic on which [line counter output](README_linecounter.md) will be published
+SELECTED_TOPIC      | Topic on which selected target ID will be published (std_msgs::Int32)
 INFO_PUBLISH_INTERVAL | Change this to limit how often debug visualization info is sent (default is every frame)
 IMAGE_PUBLISH_INTERVAL | Change this to limit how often compressed camera image is sent (default is every frame)
 CAM_IMU_RX/Y/Z_INIT | Euler angles defining rotation from camera coordinates to imu coordinates

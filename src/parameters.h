@@ -14,7 +14,7 @@
 #define IMAGE_TOPIC        "/target_tracker/image"    // (output) compressed camera frame (image.msg)
 #define INFO_TOPIC         "/target_tracker/info"     // (output) target bounding boxes, detections, and adjustable parameters (info.msg)
 #define LINE_COUNTER_TOPIC "/line_counter/pose"       // (output) line counter grid detection (LineCounter.msg)
-#define SELECTED_TOPIC     "/target_debug/selected"   // (output,debugger) unique_id of the highlighted target (Int32)
+#define SELECTED_TOPIC     "/target_debug/selected"   // (output,debugger) unique_id of the highlighted target (std_msgs::Int32)
 
 // Minimum required seconds between publishing debug info
 // Used in debugger to visualize bounding boxes and raw detections
