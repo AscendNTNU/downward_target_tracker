@@ -92,6 +92,7 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
     }
 
     // CALIBRATION GUI
+    SetNextWindowSize(ImVec2(400, 300), ImGuiSetCond_Appearing);
     Begin("Calibration");
     {
         Checkbox("Freeze image", &paused);

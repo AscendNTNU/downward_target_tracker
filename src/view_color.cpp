@@ -81,6 +81,7 @@ void view_color(latest_image_t latest_image, downward_target_tracker::info lates
 
     {
         using namespace ImGui;
+        SetNextWindowSize(ImVec2(400, 300), ImGuiSetCond_Appearing);
         Begin("Readme (color calibration)");
         TextWrapped(
             "1. Keep a red and green target plate in view.\n"

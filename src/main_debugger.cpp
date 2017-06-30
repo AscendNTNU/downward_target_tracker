@@ -120,6 +120,7 @@ int main(int argc, char **argv)
             vdbDrawTexture2D(0);
             view_tracks(latest_info, selected_id);
 
+            SetNextWindowSize(ImVec2(400, 300), ImGuiSetCond_Appearing);
             Begin("Select target");
             {
                 Columns(4, "latest_tracks");
@@ -164,6 +165,7 @@ int main(int argc, char **argv)
             }
             End();
 
+            SetNextWindowSize(ImVec2(400, 300), ImGuiSetCond_Appearing);
             Begin("Timing");
             {
                 static bool freeze = false;
@@ -215,6 +217,7 @@ int main(int argc, char **argv)
              mode == mode_white_threshold ||
              mode == mode_grid_detector))
         {
+            SetNextWindowSize(ImVec2(400, 300), ImGuiSetCond_Appearing);
             Begin("Parameters");
             {
                 static float camera_f = latest_info.camera_f;

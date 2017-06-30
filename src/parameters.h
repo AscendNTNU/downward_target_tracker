@@ -5,7 +5,7 @@
 
 #define DEVICE_NAME "/dev/video0"
 
-#define TESTING_WITH_LAPTOP 1 // Leave at 0. 1 to use author's laptop camera instead of fisheye
+#define TESTING_WITH_LAPTOP 0 // Leave at 0. 1 to use author's laptop camera instead of fisheye
 #define DUMMY_IMAGE         0 // Leave at 0. 1 to use a static image instead of usb camera input
 #define RUN_LINE_COUNTER    0 // Leave at 0 for now (not finished)
 
