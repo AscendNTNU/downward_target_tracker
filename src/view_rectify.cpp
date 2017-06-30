@@ -6,6 +6,22 @@
 #define camera_inverse_project m_ray_equidistant
 #endif
 
+void project_line(float f, float u0, float v0, mat3 R, vec3 T, vec3 p1, vec3 p2)
+{
+    // transform from world frame to camera frame
+    vec3 q1 = m_transpose(R)*(p1 - T);
+    vec3 q2 = m_transpose(R)*(p2 - T);
+
+    // only draw if entire line is visible
+    if (q1.z < 0.0f && q2.z < 0.0f)
+    {
+        vec2 s1 = camera_project(f,u0,v0, q1);
+        vec2 s2 = camera_project(f,u0,v0, q2);
+        glVertex2f(s1.x, s1.y);
+        glVertex2f(s2.x, s2.y);
+    }
+}
+
 void view_rectify(latest_image_t latest_image, downward_target_tracker::info latest_info)
 {
     using namespace ImGui;
@@ -68,10 +84,7 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
             {
                 float y1 = (i+0)*grid_y*grid_w/64.0f;
                 float y2 = (i+1)*grid_y*grid_w/64.0f;
-                vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y1, 0) - T));
-                vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x, y2, 0) - T));
-                glVertex2f(s1.x, s1.y);
-                glVertex2f(s2.x, s2.y);
+                project_line(f,u0,v0, R,T, m_vec3(x,y1,0), m_vec3(x,y2,0));
             }
         }
 
@@ -82,10 +95,7 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
             {
                 float x1 = (i+0)*grid_x*grid_w/64.0f;
                 float x2 = (i+1)*grid_x*grid_w/64.0f;
-                vec2 s1 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x1, y, 0) - T));
-                vec2 s2 = camera_project(f,u0,v0, m_transpose(R)*(m_vec3(x2, y, 0) - T));
-                glVertex2f(s1.x, s1.y);
-                glVertex2f(s2.x, s2.y);
+                project_line(f,u0,v0, R,T, m_vec3(x1,y,0), m_vec3(x2,y,0));
             }
         }
         glEnd();
