@@ -20,7 +20,7 @@ generate_messages(
   std_msgs
 )
 catkin_package(CATKIN_DEPENDS message_runtime)
-add_definitions("-O3")
+add_definitions("-O3 -mavx")
 include_directories()
 
 include(FindPkgConfig)
