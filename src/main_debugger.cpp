@@ -10,9 +10,6 @@
 #include <turbojpeg.h>
 #include "so_math.h"
 
-#define ASC_GRID_DETECTOR_IMPLEMENTATION
-#include "asc_grid_detector.h"
-
 struct latest_image_t
 {
     unsigned char *jpg_data;

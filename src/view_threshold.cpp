@@ -1,3 +1,6 @@
+#define ASC_GRID_DETECTOR_IMPLEMENTATION
+#include "asc_grid_detector.h" // for asci_threshold
+
 void view_threshold(latest_image_t latest_image, downward_target_tracker::info latest_info)
 {
     static unsigned char I_gray[CAMERA_WIDTH*CAMERA_HEIGHT];
