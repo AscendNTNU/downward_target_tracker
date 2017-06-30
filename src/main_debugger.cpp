@@ -377,6 +377,15 @@ int main(int argc, char **argv)
                 fprintf(f, "g_r = %f\n", msg.g_r);
                 fprintf(f, "g_b = %f\n", msg.g_b);
                 fprintf(f, "g_n = %f\n", msg.g_n);
+                fprintf(f, "white_threshold_r = %f\n", msg.white_threshold_r);
+                fprintf(f, "white_threshold_g = %f\n", msg.white_threshold_g);
+                fprintf(f, "white_threshold_b = %f\n", msg.white_threshold_b);
+                fprintf(f, "white_threshold_d = %f\n", msg.white_threshold_d);
+                fprintf(f, "pinhole_fov_x = %f\n", msg.pinhole_fov_x);
+                fprintf(f, "sobel_threshold = %f\n", msg.sobel_threshold);
+                fprintf(f, "maxima_threshold = %f\n", msg.maxima_threshold);
+                fprintf(f, "max_error = %f\n", msg.max_error);
+                fprintf(f, "tile_width = %f\n", msg.tile_width);
                 fprintf(f, "camera_w = %d\n", msg.camera_w);
                 fprintf(f, "camera_h = %d\n", msg.camera_h);
                 fprintf(f, "imu_rx = %f\n", msg.imu_rx);
