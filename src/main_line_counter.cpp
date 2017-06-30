@@ -3,10 +3,10 @@ void line_counter_init() { }
 void line_counter_copy(unsigned char *jpg_data, unsigned int jpg_size, float *dt_memcpy) { *dt_memcpy = 0.0f; }
 
 #else
+#define ASC_GRID_DETECTOR_IMPLEMENTATION
+#define ASC_GRID_DETECTOR_SSE
+#include "asc_grid_detector.h"
 #include <pthread.h>
-// #define ASC_GRID_DETECTOR_IMPLEMENTATION
-// #define ASC_GRID_DETECTOR_SSE
-// #include "asc_grid_detector.h"
 
 // These need to be volatile, otherwise the main_line_counter thread did
 // not work properly when I compile with optimizations (-O2).
@@ -70,15 +70,15 @@ void *line_counter_main(void *)
     }
 }
 #else
-void *main_line_counter(void *)
+void *line_counter_main(void *)
 {
     printf("[line_counter] Running\n");
     pub = node.advertise<ascend_msgs::LineCounter>("/line_counter/pose", 1);
 
     const int Ix = CAMERA_WIDTH>>CAMERA_LEVELS_GRID_DETECTOR;
     const int Iy = CAMERA_HEIGHT>>CAMERA_LEVELS_GRID_DETECTOR;
-    static unsigned char I_rgb[CAMERA_WIDTH*CAMERA_HEIGHT*3];
-    static unsigned char I_gray[CAMERA_WIDTH*CAMERA_HEIGHT];
+    static unsigned char I_rgb[Ix*Iy*3];
+    static unsigned char I_gray[Ix*Iy];
     for (int frame = 0;; frame++)
     {
         // WAIT UNTIL MAIN THREAD RECEIVED FRAME FROM CAMERA
@@ -130,7 +130,7 @@ void *main_line_counter(void *)
 
             cam_z = pos.z;
             float cam_rx,cam_ry,cam_rz;
-            if (!m_so3_to_ypr(mat3 R, &cam_rz, &cam_ry, &cam_rx))
+            if (!m_so3_to_ypr(rot, &cam_rz, &cam_ry, &cam_rx))
             {
                 printf("[line_counter] Failed to convert rotation matrix to YPR\n");
                 line_counter_using_jpg = false; // unlock
@@ -146,22 +146,16 @@ void *main_line_counter(void *)
             options.maxima_threshold = maxima_threshold;
             options.max_error        = max_error;
             options.tile_width       = tile_width;
-            options.fisheye_f        = fisheye_f;
-            options.fisheye_center_x = fisheye_center_x;
-            options.fisheye_center_y = fisheye_center_y;
+            options.fisheye_f        = camera_f*Ix/CAMERA_WIDTH;
+            options.fisheye_center_x = camera_u0*Ix/CAMERA_WIDTH;
+            options.fisheye_center_y = camera_v0*Ix/CAMERA_WIDTH;
             options.pinhole_fov_x    = pinhole_fov_x;
             options.pinhole_center_x = options.fisheye_center_x;
             options.pinhole_center_y = options.fisheye_center_y;
             options.height_adaptation_rate = 1.0f;
 
             asc_GridResult result =
-            asc_find_grid(gray,
-                          width,
-                          height,
-                          camera_roll,
-                          camera_pitch,
-                          camera_z,
-                          options);
+            asc_find_grid(I_gray,Ix,Iy, cam_rx,cam_ry,cam_z, options);
 
             if (result.error < MAX_ERROR)
             {
