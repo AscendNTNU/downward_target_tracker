@@ -7,6 +7,7 @@ find_package(catkin REQUIRED
   geometry_msgs
   std_msgs
   message_generation
+  ascend_msgs # for LineCounter.msg
 )
 add_message_files(
   FILES

@@ -7,6 +7,7 @@ void line_counter_copy(unsigned char *jpg_data, unsigned int jpg_size, float *dt
 #define ASC_GRID_DETECTOR_SSE
 #include "asc_grid_detector.h"
 #include <pthread.h>
+#include <ascend_msgs::LineCounter.h>
 
 // These need to be volatile, otherwise the main_line_counter thread did
 // not work properly when I compile with optimizations (-O2).

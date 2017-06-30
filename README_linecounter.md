@@ -17,5 +17,17 @@ Then the grid detector should receive as input ```pitch```, ```roll``` and ```he
 
 However, there are four possibilities for ```yaw```, since we cannot from a single image of a grid tile determine which axis is the x axis (the red line). Therefore, the output consists of four ```yaw``` angles, each offset by 90 degrees, and with its own associated ```x``` and ```y```.
 
+**The ROS message**: Is defined in ascend_msgs/LineCounter.msg. The timestamp is in nanoseconds since the UNIX epoch and is calculated like so:
+```
+#include <stdint.h> // uint64_t
+uint64_t getnsec()
+{
+    struct timespec ts = {};
+    clock_gettime(CLOCK_REALTIME, &ts);
+    uint64_t result = ((uint64_t)ts.tv_sec)*1000000000 +
+                      ((uint64_t)ts.tv_nsec);
+    return result;
+}
+```
 
 
