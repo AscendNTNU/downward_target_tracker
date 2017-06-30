@@ -740,10 +740,12 @@ quat m_quat_from_angle_axis(vec3 axis, float angle)
 // return: A quaternion describing the rotation
 // represented by the given Euler angles that
 // parametrize the rotation matrix given by
-//   R = Rx(ex)Ry(ey)Rz(ez)
+//   R = Rz(ez)Ry(ey)Rx(ex)
 quat m_quat_from_euler(float ex, float ey, float ez)
 {
     // Implements Shepperd's method
+    // See Handbook of Marine Craft Hydrodynamics and Motion Control, Fossen
+    //     Page 32, section 2.2.3, Shepperd's method.
     float cz = cosf(ez); float sz = sinf(ez);
     float cy = cosf(ey); float sy = sinf(ey);
     float cx = cosf(ex); float sx = sinf(ex);
