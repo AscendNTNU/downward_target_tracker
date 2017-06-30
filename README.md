@@ -1,3 +1,9 @@
+### About this repository
+
+This repository contains the downward target tracker node, whose job it is to detect and track targets seen in the downward fisheye camera. It also contains the line counter node (see [README_linecounter.md](README_linecounter.md)), because it needs the fisheye camera video and thus shares it for efficiency. These will run on the drone.
+
+It also contains a debugger, that you can run on your computer, to verify that target tracking works correctly, and calibrate camera parameters, algorithm parameters, etc. It does not need to run during the competition, and is intended only for calibration and verification before the competition.
+
 ### Compile
 
 Get the video 4 linux 2 development libraries (v4l2)
