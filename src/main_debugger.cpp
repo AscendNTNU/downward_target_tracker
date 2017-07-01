@@ -1,6 +1,7 @@
 #define VDB_DISABLE_PROTIP
 #include "parameters.h"
 #include "vdb/vdb.h"
+#include "vdb/vdb_imgui_draw.h"
 #include <ros/ros.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/Int32.h>
