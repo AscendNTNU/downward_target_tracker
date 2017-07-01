@@ -1,5 +1,6 @@
 void view_tracks(downward_target_tracker::info info, int selected_id)
 {
+    ImBegin();
     vdbOrtho(0.0f, info.image_x, info.image_y, 0.0f);
     for (int i = 0; i < info.num_targets; i++)
     {
@@ -11,22 +12,20 @@ void view_tracks(downward_target_tracker::info info, int selected_id)
         float u2 = info.last_seen_u2[i];
         float v2 = info.last_seen_v2[i];
 
-        glPoints(14.0f);
-        glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
-        glVertex2f(u, v);
-        glEnd();
+        ImColor4f(1.0f, 1.0f, 1.0f, 0.5f);
+        ImFillCircle(u, v, 14.0f);
 
-        glLines(2.0f);
+        ImLineWidth(2.0f);
         if (selected_id == info.unique_id[i])
-            glColor4f(1.0f, 0.2f, 0.1f, 1.0f);
+            ImColor4f(1.0f, 0.2f, 0.1f, 1.0f);
         else
-            glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
-        glVertex2f(u1, v1); glVertex2f(u2, v1);
-        glVertex2f(u2, v1); glVertex2f(u2, v2);
-        glVertex2f(u2, v2); glVertex2f(u1, v2);
-        glVertex2f(u1, v2); glVertex2f(u1, v1);
-        glEnd();
+            ImColor4f(1.0f, 1.0f, 1.0f, 0.5f);
+        ImLine(u1, v1, u2, v1);
+        ImLine(u2, v1, u2, v2);
+        ImLine(u2, v2, u1, v2);
+        ImLine(u1, v2, u1, v1);
 
         vdbNote(u, v, "ID: %d", info.unique_id[i]);
     }
+    ImEnd();
 }
