@@ -181,10 +181,15 @@ int main(int argc, char **argv)
                     PlotLines(LABEL, graph, count, 0, NULL, MIN, MAX, ImVec2(200,0)); \
                 }
 
+                Text("Tracker");
                 PlotTiming("Output rate (Hz)",  1.0f/latest_info.dt_cycle, 0.0f, 60.0f); SameLine(); Text("%.2f Hz", 1.0f/latest_info.dt_cycle);
                 PlotTiming("Frame rate (Hz)",   1.0f/latest_info.dt_frame, 0.0f, 60.0f); SameLine(); Text("%.2f Hz", 1.0f/latest_info.dt_frame);
                 PlotTiming("MJPEG to RGB (ms)", 1000.0f*latest_info.dt_jpeg_to_rgb, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.dt_jpeg_to_rgb);
                 PlotTiming("Tracker (ms)",      1000.0f*latest_info.dt_track_targets, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.dt_track_targets);
+                Text("Line counter");
+                PlotTiming("MJPEG to RGB (ms)##line_counter", 1000.0f*latest_info.line_counter_dt_jpeg_to_rgb, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.line_counter_dt_jpeg_to_rgb);
+                PlotTiming("Threshold (ms)##line_counter",    1000.0f*latest_info.line_counter_dt_threshold, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.line_counter_dt_threshold);
+                PlotTiming("Find grid (ms)##line_counter",    1000.0f*latest_info.line_counter_dt_find_grid, 0.0f, 30.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.line_counter_dt_find_grid);
 
                 if (latest_info.dt_cycle > 1.25f*1.0f/60.0f)
                 {

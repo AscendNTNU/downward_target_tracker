@@ -5,9 +5,9 @@
 
 #define DEVICE_NAME "/dev/video0"
 
-#define TESTING_WITH_LAPTOP 0 // Leave at 0. 1 to use author's laptop camera instead of fisheye
+#define TESTING_WITH_LAPTOP 1 // Leave at 0. 1 to use author's laptop camera instead of fisheye
 #define DUMMY_IMAGE         0 // Leave at 0. 1 to use a static image instead of usb camera input
-#define RUN_LINE_COUNTER    0 // Leave at 0 for now (not finished)
+#define RUN_LINE_COUNTER    1 // Leave at 0 for now (not finished)
 
 #define IMU_POSE_TOPIC     "/mavros/local_position/pose" // (input) best current estimate of drone pose relative grid (geometry_msgs::PoseStamped)
 #define TRACKS_TOPIC       "/target_tracker/tracks"      // (output) list of tracked targets (tracks.msg)
@@ -48,17 +48,17 @@
 #define G_B_INIT           1.5f       // minimum green/blue ratio
 #define G_N_INIT           10.0f/3.0f // minimum average brightness (r+g+b)/3
 
-// Linecounter parameters
-#define WHITE_THRESHOLD_R_INIT    (222.0f)
-#define WHITE_THRESHOLD_G_INIT    (222.0f)
-#define WHITE_THRESHOLD_B_INIT    (222.0f)
-#define WHITE_THRESHOLD_D_INIT    (70.0f)
-#define PINHOLE_FOV_X_INIT        (137.0f * 3.14f/180.0f)
-#define SOBEL_THRESHOLD_INIT      (10)
-#define MAXIMA_THRESHOLD_INIT     (10)
-#define MAX_ERROR_INIT            (0.5f)
-#define TILE_WIDTH_INIT           (1.0f)
-#define CAMERA_LEVELS_LINECOUNTER (1) // Downscale factor (0=none, 1=half, 2=quarter)
+// Line counter parameters
+#define WHITE_THRESHOLD_R_INIT     (222.0f)
+#define WHITE_THRESHOLD_G_INIT     (222.0f)
+#define WHITE_THRESHOLD_B_INIT     (222.0f)
+#define WHITE_THRESHOLD_D_INIT     (70.0f)
+#define PINHOLE_FOV_X_INIT         (137.0f * 3.14f/180.0f)
+#define SOBEL_THRESHOLD_INIT       (10)
+#define MAXIMA_THRESHOLD_INIT      (10)
+#define MAX_ERROR_INIT             (0.5f)
+#define TILE_WIDTH_INIT            (1.0f)
+#define CAMERA_LEVELS_LINE_COUNTER (1) // Downscale factor (0=none, 1=half, 2=quarter)
 
 // Fisheye camera parameters
 #if DUMMY_IMAGE==0 && TESTING_WITH_LAPTOP==0

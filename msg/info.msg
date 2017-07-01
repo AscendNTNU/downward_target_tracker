@@ -3,6 +3,10 @@ float32 dt_jpeg_to_rgb
 float32 dt_track_targets
 float32 dt_cycle
 
+float32 line_counter_dt_jpeg_to_rgb
+float32 line_counter_dt_threshold
+float32 line_counter_dt_find_grid
+
 #### CAMERA INTRINSICS
 float32 camera_f
 float32 camera_u0

@@ -38,73 +38,73 @@
 // under the topic INFO_TOPIC (see parameters.h).
 // They can be modified live by sending std_msgs::Float32
 // on /target_debug/camera_f, ... etc
-float camera_f          = CAMERA_F_INIT;
-float camera_u0         = CAMERA_U0_INIT;
-float camera_v0         = CAMERA_V0_INIT;
-float cam_imu_rx        = CAM_IMU_RX_INIT;
-float cam_imu_ry        = CAM_IMU_RY_INIT;
-float cam_imu_rz        = CAM_IMU_RZ_INIT;
-float cam_imu_tx        = CAM_IMU_TX_INIT;
-float cam_imu_ty        = CAM_IMU_TY_INIT;
-float cam_imu_tz        = CAM_IMU_TZ_INIT;
-float r_g               = R_G_INIT;
-float r_b               = R_B_INIT;
-float r_n               = R_N_INIT;
-float g_r               = G_R_INIT;
-float g_b               = G_B_INIT;
-float g_n               = G_N_INIT;
-float white_threshold_r = WHITE_THRESHOLD_R_INIT;
-float white_threshold_g = WHITE_THRESHOLD_G_INIT;
-float white_threshold_b = WHITE_THRESHOLD_B_INIT;
-float white_threshold_d = WHITE_THRESHOLD_D_INIT;
-float pinhole_fov_x     = PINHOLE_FOV_X_INIT;
-float sobel_threshold   = SOBEL_THRESHOLD_INIT;
-float maxima_threshold  = MAXIMA_THRESHOLD_INIT;
-float max_error         = MAX_ERROR_INIT;
-float tile_width        = TILE_WIDTH_INIT;
+float _camera_f          = CAMERA_F_INIT;
+float _camera_u0         = CAMERA_U0_INIT;
+float _camera_v0         = CAMERA_V0_INIT;
+float _cam_imu_rx        = CAM_IMU_RX_INIT;
+float _cam_imu_ry        = CAM_IMU_RY_INIT;
+float _cam_imu_rz        = CAM_IMU_RZ_INIT;
+float _cam_imu_tx        = CAM_IMU_TX_INIT;
+float _cam_imu_ty        = CAM_IMU_TY_INIT;
+float _cam_imu_tz        = CAM_IMU_TZ_INIT;
+float _r_g               = R_G_INIT;
+float _r_b               = R_B_INIT;
+float _r_n               = R_N_INIT;
+float _g_r               = G_R_INIT;
+float _g_b               = G_B_INIT;
+float _g_n               = G_N_INIT;
+float _white_threshold_r = WHITE_THRESHOLD_R_INIT;
+float _white_threshold_g = WHITE_THRESHOLD_G_INIT;
+float _white_threshold_b = WHITE_THRESHOLD_B_INIT;
+float _white_threshold_d = WHITE_THRESHOLD_D_INIT;
+float _pinhole_fov_x     = PINHOLE_FOV_X_INIT;
+float _sobel_threshold   = SOBEL_THRESHOLD_INIT;
+float _maxima_threshold  = MAXIMA_THRESHOLD_INIT;
+float _max_error         = MAX_ERROR_INIT;
+float _tile_width        = TILE_WIDTH_INIT;
 
 // These describe the latest pose (roll, pitch, yaw, x, y, z)
 // of the drone relative to the grid, and are updated in
 // callback_imu. The target tracker uses *all* of these, while
 // the line counter does not care about imu_rz, imu_tx or imu_ty.
-float imu_rx = 0.0f;
-float imu_ry = 0.0f;
-float imu_rz = 0.0f;
-float imu_tx = 0.0f;
-float imu_ty = 0.0f;
-float imu_tz = 1.0f;
+float _imu_rx = 0.0f;
+float _imu_ry = 0.0f;
+float _imu_rz = 0.0f;
+float _imu_tx = 0.0f;
+float _imu_ty = 0.0f;
+float _imu_tz = 1.0f;
 
-void callback_camera_f(std_msgs::Float32 msg)          { camera_f = msg.data; }
-void callback_camera_u0(std_msgs::Float32 msg)         { camera_u0 = msg.data; }
-void callback_camera_v0(std_msgs::Float32 msg)         { camera_v0 = msg.data; }
-void callback_cam_imu_rx(std_msgs::Float32 msg)        { cam_imu_rx = msg.data; }
-void callback_cam_imu_ry(std_msgs::Float32 msg)        { cam_imu_ry = msg.data; }
-void callback_cam_imu_rz(std_msgs::Float32 msg)        { cam_imu_rz = msg.data; }
-void callback_cam_imu_tx(std_msgs::Float32 msg)        { cam_imu_tx = msg.data; }
-void callback_cam_imu_ty(std_msgs::Float32 msg)        { cam_imu_ty = msg.data; }
-void callback_cam_imu_tz(std_msgs::Float32 msg)        { cam_imu_tz = msg.data; }
-void callback_r_g(std_msgs::Float32 msg)               { r_g = msg.data; }
-void callback_r_b(std_msgs::Float32 msg)               { r_b = msg.data; }
-void callback_r_n(std_msgs::Float32 msg)               { r_n = msg.data; }
-void callback_g_r(std_msgs::Float32 msg)               { g_r = msg.data; }
-void callback_g_b(std_msgs::Float32 msg)               { g_b = msg.data; }
-void callback_g_n(std_msgs::Float32 msg)               { g_n = msg.data; }
-void callback_white_threshold_r(std_msgs::Float32 msg) { white_threshold_r = msg.data; }
-void callback_white_threshold_g(std_msgs::Float32 msg) { white_threshold_g = msg.data; }
-void callback_white_threshold_b(std_msgs::Float32 msg) { white_threshold_b = msg.data; }
-void callback_white_threshold_d(std_msgs::Float32 msg) { white_threshold_d = msg.data; }
-void callback_pinhole_fov_x(std_msgs::Float32 msg)     { pinhole_fov_x = msg.data; }
-void callback_sobel_threshold(std_msgs::Float32 msg)   { sobel_threshold = msg.data; }
-void callback_maxima_threshold(std_msgs::Float32 msg)  { maxima_threshold = msg.data; }
-void callback_max_error(std_msgs::Float32 msg)         { max_error = msg.data; }
-void callback_tile_width(std_msgs::Float32 msg)        { tile_width = msg.data; }
+void callback_camera_f(std_msgs::Float32 msg)          { _camera_f = msg.data; }
+void callback_camera_u0(std_msgs::Float32 msg)         { _camera_u0 = msg.data; }
+void callback_camera_v0(std_msgs::Float32 msg)         { _camera_v0 = msg.data; }
+void callback_cam_imu_rx(std_msgs::Float32 msg)        { _cam_imu_rx = msg.data; }
+void callback_cam_imu_ry(std_msgs::Float32 msg)        { _cam_imu_ry = msg.data; }
+void callback_cam_imu_rz(std_msgs::Float32 msg)        { _cam_imu_rz = msg.data; }
+void callback_cam_imu_tx(std_msgs::Float32 msg)        { _cam_imu_tx = msg.data; }
+void callback_cam_imu_ty(std_msgs::Float32 msg)        { _cam_imu_ty = msg.data; }
+void callback_cam_imu_tz(std_msgs::Float32 msg)        { _cam_imu_tz = msg.data; }
+void callback_r_g(std_msgs::Float32 msg)               { _r_g = msg.data; }
+void callback_r_b(std_msgs::Float32 msg)               { _r_b = msg.data; }
+void callback_r_n(std_msgs::Float32 msg)               { _r_n = msg.data; }
+void callback_g_r(std_msgs::Float32 msg)               { _g_r = msg.data; }
+void callback_g_b(std_msgs::Float32 msg)               { _g_b = msg.data; }
+void callback_g_n(std_msgs::Float32 msg)               { _g_n = msg.data; }
+void callback_white_threshold_r(std_msgs::Float32 msg) { _white_threshold_r = msg.data; }
+void callback_white_threshold_g(std_msgs::Float32 msg) { _white_threshold_g = msg.data; }
+void callback_white_threshold_b(std_msgs::Float32 msg) { _white_threshold_b = msg.data; }
+void callback_white_threshold_d(std_msgs::Float32 msg) { _white_threshold_d = msg.data; }
+void callback_pinhole_fov_x(std_msgs::Float32 msg)     { _pinhole_fov_x = msg.data; }
+void callback_sobel_threshold(std_msgs::Float32 msg)   { _sobel_threshold = msg.data; }
+void callback_maxima_threshold(std_msgs::Float32 msg)  { _maxima_threshold = msg.data; }
+void callback_max_error(std_msgs::Float32 msg)         { _max_error = msg.data; }
+void callback_tile_width(std_msgs::Float32 msg)        { _tile_width = msg.data; }
 
 void callback_imu(geometry_msgs::PoseStamped msg)
 {
-    m_quat_to_ypr(msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w, &imu_rz, &imu_ry, &imu_rx);
-    imu_tx = msg.pose.position.x;
-    imu_ty = msg.pose.position.y;
-    imu_tz = msg.pose.position.z;
+    m_quat_to_ypr(msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w, &_imu_rz, &_imu_ry, &_imu_rx);
+    _imu_tx = msg.pose.position.x;
+    _imu_ty = msg.pose.position.y;
+    _imu_tz = msg.pose.position.z;
 }
 
 uint64_t getnsec()
@@ -170,7 +170,9 @@ int main(int argc, char **argv)
 
     ros::Subscriber sub_imu = node.subscribe(IMU_POSE_TOPIC, 1, callback_imu);
 
+    #if RUN_LINE_COUNTER==1
     line_counter_init(&node);
+    #endif
 
     signal(SIGINT, ctrlc);
 
@@ -210,7 +212,9 @@ int main(int argc, char **argv)
 
         // SHARE IMAGE WITH LINE COUNTER
         float dt_memcpy = 0.0f;
-        line_counter_copy(jpg_data, jpg_size, &dt_memcpy);
+        #if RUN_LINE_COUNTER==1
+        line_counter_copy_image(jpg_data, jpg_size, &dt_memcpy);
+        #endif
 
         // MEASURE TIME BETWEEN WHEN IMAGES WERE TAKEN
         float dt_frame = 0.0f;
@@ -237,7 +241,43 @@ int main(int argc, char **argv)
         }
 
         // GET LATEST MESSAGES BEFORE PROCESSING IMAGE
+        #if RUN_LINE_COUNTER==1
+        pthread_mutex_lock(&line_counter_param_mutex);
+        #endif
         ros::spinOnce();
+        float camera_f = _camera_f;
+        float camera_u0 = _camera_u0;
+        float camera_v0 = _camera_v0;
+        float cam_imu_rx = _cam_imu_rx;
+        float cam_imu_ry = _cam_imu_ry;
+        float cam_imu_rz = _cam_imu_rz;
+        float cam_imu_tx = _cam_imu_tx;
+        float cam_imu_ty = _cam_imu_ty;
+        float cam_imu_tz = _cam_imu_tz;
+        float r_g = _r_g;
+        float r_b = _r_b;
+        float r_n = _r_n;
+        float g_r = _g_r;
+        float g_b = _g_b;
+        float g_n = _g_n;
+        float white_threshold_r = _white_threshold_r;
+        float white_threshold_g = _white_threshold_g;
+        float white_threshold_b = _white_threshold_b;
+        float white_threshold_d = _white_threshold_d;
+        float pinhole_fov_x = _pinhole_fov_x;
+        float sobel_threshold = _sobel_threshold;
+        float maxima_threshold = _maxima_threshold;
+        float max_error = _max_error;
+        float tile_width = _tile_width;
+        float imu_rx = _imu_rx;
+        float imu_ry = _imu_ry;
+        float imu_rz = _imu_rz;
+        float imu_tx = _imu_tx;
+        float imu_ty = _imu_ty;
+        float imu_tz = _imu_tz;
+        #if RUN_LINE_COUNTER==1
+        pthread_mutex_unlock(&line_counter_param_mutex);
+        #endif
 
         // COMPUTE CAMERA POSE RELATIVE GRID
         mat3 imu_rot = m_rotz(imu_rz)*m_roty(imu_ry)*m_rotx(imu_rx);
@@ -320,12 +360,13 @@ int main(int argc, char **argv)
                 msg.dt_track_targets = dt_track_targets;
                 msg.dt_cycle = dt_cycle;
 
+                msg.line_counter_dt_jpeg_to_rgb = line_counter_dt_jpeg_to_rgb;
+                msg.line_counter_dt_threshold = line_counter_dt_threshold;
+                msg.line_counter_dt_find_grid = line_counter_dt_find_grid;
+
                 msg.camera_f = camera_f;
                 msg.camera_u0 = camera_u0;
                 msg.camera_v0 = camera_v0;
-                msg.camera_w = CAMERA_WIDTH;
-                msg.camera_h = CAMERA_HEIGHT;
-
                 msg.cam_imu_rx = cam_imu_rx;
                 msg.cam_imu_ry = cam_imu_ry;
                 msg.cam_imu_rz = cam_imu_rz;
@@ -338,7 +379,6 @@ int main(int argc, char **argv)
                 msg.g_r = g_r;
                 msg.g_b = g_b;
                 msg.g_n = g_n;
-
                 msg.white_threshold_r = white_threshold_r;
                 msg.white_threshold_g = white_threshold_g;
                 msg.white_threshold_b = white_threshold_b;
@@ -357,6 +397,8 @@ int main(int argc, char **argv)
                 msg.imu_tz = imu_tz;
 
                 // debug info
+                msg.camera_w = CAMERA_WIDTH;
+                msg.camera_h = CAMERA_HEIGHT;
                 msg.image_x = Ix;
                 msg.image_y = Iy;
                 // tracks
