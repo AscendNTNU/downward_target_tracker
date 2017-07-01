@@ -6,7 +6,7 @@
 #define camera_inverse_project m_ray_equidistant
 #endif
 
-void project_line(int Ix, int Iy, float f, float u0, float v0, mat3 R, vec3 T, vec3 p1, vec3 p2)
+void project_line(float f, float u0, float v0, mat3 R, vec3 T, vec3 p1, vec3 p2)
 {
     // transform from world frame to camera frame
     vec3 q1 = m_transpose(R)*(p1 - T);
@@ -17,13 +17,7 @@ void project_line(int Ix, int Iy, float f, float u0, float v0, mat3 R, vec3 T, v
     {
         vec2 s1 = camera_project(f,u0,v0, q1);
         vec2 s2 = camera_project(f,u0,v0, q2);
-        using namespace ImGui;
-        ImDrawList *draw = GetWindowDrawList();
-        float x1 = (s1.x/Ix)*GetWindowWidth();
-        float y1 = (s1.y/Iy)*GetWindowHeight();
-        float x2 = (s2.x/Ix)*GetWindowWidth();
-        float y2 = (s2.y/Iy)*GetWindowHeight();
-        draw->AddLine(ImVec2(x1, y1), ImVec2(x2, y2), 0xff22ffff);
+        ImLine(s1.x, s1.y, s2.x, s2.y);
     }
 }
 
@@ -78,10 +72,10 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
 
     // DRAW GRID / CALIBRATION PATTERN BASED PROJECTED INTO IMAGE
     {
-        SetNextWindowPos(ImVec2(0,0));
-        SetNextWindowSize(ImVec2(vdbWindowWidth(), vdbWindowHeight()));
-        PushStyleColor(ImGuiCol_WindowBg, ImVec4(0,0,0,0));
-        Begin("##calibration_pattern_vis", NULL, ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoInputs|ImGuiWindowFlags_NoFocusOnAppearing|ImGuiWindowFlags_NoBringToFrontOnFocus);
+        ImBegin();
+        vdbOrtho(0, Ix, Iy, 0);
+        ImLineWidth(2.0f);
+        ImColor4f(1.0f, 1.0f, 0.2f, 1.0f);
         for (int xi = 0; xi <= grid_x; xi++)
         {
             float x = xi*grid_w;
@@ -89,7 +83,7 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
             {
                 float y1 = (i+0)*grid_y*grid_w/64.0f;
                 float y2 = (i+1)*grid_y*grid_w/64.0f;
-                project_line(Ix,Iy, f,u0,v0, R,T, m_vec3(x,y1,0), m_vec3(x,y2,0));
+                project_line(f,u0,v0, R,T, m_vec3(x,y1,0), m_vec3(x,y2,0));
             }
         }
         for (int yi = 0; yi <= grid_y; yi++)
@@ -99,11 +93,10 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
             {
                 float x1 = (i+0)*grid_x*grid_w/64.0f;
                 float x2 = (i+1)*grid_x*grid_w/64.0f;
-                project_line(Ix,Iy, f,u0,v0, R,T, m_vec3(x1,y,0), m_vec3(x2,y,0));
+                project_line(f,u0,v0, R,T, m_vec3(x1,y,0), m_vec3(x2,y,0));
             }
         }
-        End();
-        PopStyleColor();
+        ImEnd();
     }
 
     // CALIBRATION GUI
