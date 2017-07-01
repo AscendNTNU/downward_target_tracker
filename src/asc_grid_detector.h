@@ -961,6 +961,26 @@ asc_find_grid(
 
     r32 tile_width = options.tile_width;
 
+    #ifdef ASC_GRID_DEBUG
+    VDBB("Input (RGB)");
+    {
+        vdbOrtho(-1, +1, +1, -1);
+        vdbSetTexture2D(0, rgb, width, height, GL_RGB);
+        vdbDrawTexture2D(0);
+    }
+    VDBE();
+    #endif
+
+    #ifdef ASC_GRID_DEBUG
+    VDBB("Input (GRAY)");
+    {
+        vdbOrtho(-1, +1, +1, -1);
+        vdbSetTexture2D(0, gray, width, height, GL_LUMINANCE);
+        vdbDrawTexture2D(0);
+    }
+    VDBE();
+    #endif
+
     // TIMING("SOBEL");
 
     static asci_Feature features[ASCI_MAX_WIDTH*ASCI_MAX_HEIGHT];
