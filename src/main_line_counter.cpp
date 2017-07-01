@@ -1,3 +1,6 @@
+#ifdef ASC_GRID_DEBUG
+#include "vdb/vdb.h"
+#endif
 #define ASC_GRID_DETECTOR_IMPLEMENTATION
 #define ASC_GRID_DETECTOR_SSE
 #include "asc_grid_detector.h"
@@ -138,7 +141,7 @@ void *line_counter_main(void *)
         // COMPUTE CAMERA POSE
         // (rotation relative grid, and height relative grid in grid coordinates)
         // AND EXTRACT PITCH, ROLL AND HEIGHT
-        float cam_ry, cam_rx, cam_z;
+        float cam_ry, cam_rx, cam_rz, cam_z;
         {
             mat3 imu_rot = m_rotz(imu_rz)*m_roty(imu_ry)*m_rotx(imu_rx);
             vec3 imu_pos = m_vec3(imu_tx, imu_ty, imu_tz);
@@ -148,7 +151,6 @@ void *line_counter_main(void *)
             vec3 pos = imu_pos + imu_rot*cam_imu_pos;
 
             cam_z = pos.z;
-            float cam_rx,cam_ry,cam_rz;
             if (!m_so3_to_ypr(rot, &cam_rz, &cam_ry, &cam_rx))
             {
                 printf("[line_counter] Failed to convert rotation matrix to YPR.");
@@ -176,7 +178,7 @@ void *line_counter_main(void *)
             options.height_adaptation_rate = 1.0f;
 
             asc_GridResult result =
-            asc_find_grid(I_gray,Ix,Iy, cam_rx,cam_ry,cam_z, options);
+            asc_find_grid(I_gray,Ix,Iy, cam_rx,cam_ry,cam_z, options, I_rgb);
 
             ascend_msgs::LineCounter msg;
             if (result.error < max_error)
