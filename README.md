@@ -54,6 +54,13 @@ $ sudo apt-get install libsdl2-dev
 
 Clone [ascend_msgs](https://github.com/AscendNTNU/ascend_msgs) into catkin workspace.
 
+Run
+```
+catkin_make
+```
+
+This will build the debugger if it found SDL2, or only build the tracker otherwise (for the drone).
+
 ### Test the tracker
 
 **Step 1.** Set the parameters that you already know (like camera device name and topic names) in [src/parameters.h](src/parameters.h). Leave the rest alone for now.
