@@ -17,14 +17,12 @@ void project_line(int Ix, int Iy, float f, float u0, float v0, mat3 R, vec3 T, v
     {
         vec2 s1 = camera_project(f,u0,v0, q1);
         vec2 s2 = camera_project(f,u0,v0, q2);
-        // glVertex2f(s1.x, s1.y);
-        // glVertex2f(s2.x, s2.y);
         using namespace ImGui;
         ImDrawList *draw = GetWindowDrawList();
-        float x1 = (s1.x/Ix)*vdb__globals.window_w;
-        float y1 = (s1.y/Iy)*vdb__globals.window_h;
-        float x2 = (s2.x/Ix)*vdb__globals.window_w;
-        float y2 = (s2.y/Iy)*vdb__globals.window_h;
+        float x1 = (s1.x/Ix)*GetWindowWidth();
+        float y1 = (s1.y/Iy)*GetWindowHeight();
+        float x2 = (s2.x/Ix)*GetWindowWidth();
+        float y2 = (s2.y/Iy)*GetWindowHeight();
         draw->AddLine(ImVec2(x1, y1), ImVec2(x2, y2), 0xff22ffff);
     }
 }
@@ -81,15 +79,9 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
     // DRAW GRID / CALIBRATION PATTERN BASED PROJECTED INTO IMAGE
     {
         SetNextWindowPos(ImVec2(0,0));
-        SetNextWindowSize(ImVec2(vdb__globals.window_w, vdb__globals.window_h));
-
+        SetNextWindowSize(ImVec2(vdbWindowWidth(), vdbWindowHeight()));
         PushStyleColor(ImGuiCol_WindowBg, ImVec4(0,0,0,0));
         Begin("##calibration_pattern_vis", NULL, ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoInputs|ImGuiWindowFlags_NoFocusOnAppearing|ImGuiWindowFlags_NoBringToFrontOnFocus);
-
-        vdbOrtho(0.0f, Ix, Iy, 0.0f);
-        glLines(2.0f);
-        glColor4f(1.0f, 1.0f, 0.2f, 1.0f);
-
         for (int xi = 0; xi <= grid_x; xi++)
         {
             float x = xi*grid_w;
@@ -100,7 +92,6 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
                 project_line(Ix,Iy, f,u0,v0, R,T, m_vec3(x,y1,0), m_vec3(x,y2,0));
             }
         }
-
         for (int yi = 0; yi <= grid_y; yi++)
         {
             float y = yi*grid_w;
@@ -111,8 +102,6 @@ void view_rectify(latest_image_t latest_image, downward_target_tracker::info lat
                 project_line(Ix,Iy, f,u0,v0, R,T, m_vec3(x1,y,0), m_vec3(x2,y,0));
             }
         }
-        glEnd();
-
         End();
         PopStyleColor();
     }

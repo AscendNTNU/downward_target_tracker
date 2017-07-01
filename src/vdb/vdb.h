@@ -173,6 +173,8 @@ void vdbDrawTexture2D(int slot); // Draws the texture to the entire viewport
 #define MOUSEY (vdb_input.mouse.v)
 #define vdbWidth() (vdb_input.width)
 #define vdbHeight() (vdb_input.height)
+#define vdbWindowWidth() (vdb__globals.window_w)
+#define vdbWindowHeight() (vdb__globals.window_h)
 
 struct vdb_mat4
 {
