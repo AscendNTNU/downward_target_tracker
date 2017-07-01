@@ -34,15 +34,11 @@ Together with rotation, these parameters describe the **extrinsic** camera calib
 
 **Calibration procedure:**
 
-The "Camera calibration" tab in the debugger will overlay a 3D grid pattern on the camera feed based on the given extrinsic and intrinsic calibration parameters, and the current pose of the IMU frame relative to the calibration pattern.
+The "Camera calibration" tab in the debugger will overlay a 3D grid pattern on the camera feed based on the extrinsic and intrinsic parameters, and the current pose of the IMU frame. If you are publishing on ```IMU_POSE_TOPIC```, you can have the pose of the IMU be set automatically to that, with the option to select a subset of the parameters (i.e. only pitch and roll) and specify the rest manually.
 
-If you are publishing on ```IMU_POSE_TOPIC```, you can have the pose of the IMU be set automatically to that, with the option to select a subset of the parameters (i.e. only pitch and roll) and specify the rest manually.
+The IMU frame pose can be adjusted with *tx, ty, tz* under *Drone origin relative grid origin in grid coordinates* in the *Calibration* window, and *rx, ry, rz* under *Drone frame relative grid frame*. Untick the checkbox of those you want to be set to the published IMU pose.
 
-They can be specified by adjusting *tx, ty, tz* under *Drone origin relative grid origin in grid coordinates* in the *Calibration* window, and *rx, ry, rz* under *Drone frame relative grid frame*. Untick the checkbox of those you want to be set to the published IMU pose.
-
-The extrinsic calibration parameters can be specified by adjusting *tx, ty, tz* and *rx, ry, rz* under *Camera extrinsics* in the *Parameters* window. These correspond to ```CAM_IMU_TX_INIT```, ... etc., above.
-
-To verify that the extrinsic calibration is correct, follow these steps:
+The extrinsic parameters can be adjusted with *tx, ty, tz* and *rx, ry, rz* under *Camera extrinsics* in the *Parameters* window. These correspond to ```CAM_IMU_TX_INIT```, ... etc., above. To verify that the extrinsic calibration is correct, follow these steps:
 
 1. Look at a grid pattern (i.e. 1x1m grid carpet, or a small checkerboard on your phone)
 2. Set the pattern dimensions (cell width) in the *Calibration* window
@@ -55,6 +51,6 @@ The visualized grid should now coincide with the true grid in the image. If not,
 
 To verify extrinsic rotation:
 
-6. Tilt the IMU positively around its x-axis (arrow in picture above). If you are publishing on ```IMU_POSE_TOPIC```, ensure that I've got my coordinate conventions correct by checking that the resulting *rx* under *Drone frame relative grid frame*, is also positive. Do the same for around the y-axis.
+7. Tilt the IMU positively around its x-axis (arrow in picture above). If you are publishing on ```IMU_POSE_TOPIC```, ensure that I've got my coordinate conventions correct by checking that the resulting *rx* under *Drone frame relative grid frame*, is also positive. Do the same for around the y-axis.
 
 If you got your extrinsic rz right, the visualized grid should rotate to always coincide with the grid on the ground.
