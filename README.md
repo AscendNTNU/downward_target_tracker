@@ -80,7 +80,7 @@ If not, we need to calibrate intrinsics (fisheye parameters), extrinsics (camera
 
 **Calibrate color:** Click "Calibrate color" tab in debugger and follow guide that shows up.
 
-**Calibrate camera:** Click "Calibrate camera" tab in debugger and follow guide that shows up.
+**Calibrate camera:** Click "Calibrate camera" tab in debugger and follow guide that shows up. See also [README_example_calibration.md](README_example_calibration.md) for a more in-depth tutorial.
 
 **Save the parameters:** [src/parameters.h](src/parameters.h) contains the following parameters. If you change them, remember to **recompile**.
 
