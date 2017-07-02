@@ -27,7 +27,7 @@ for (int i = 0; i < msg.num_targets)
 
 The debugger can be used to *select* a target by clicking on its list row in the GUI, and have its ```unique_id``` published on the topic ```SELECTED_TOPIC```, which you can change in [src/parameters.h](src/parameters.h).
 
-### Compile
+### Compiling
 
 Get the video 4 linux 2 development libraries (v4l2)
 ```
@@ -59,43 +59,41 @@ Run
 catkin_make
 ```
 
-This will build the debugger if it found SDL2, or only build the tracker otherwise (for the drone).
+The debugger is only built if SDL2 is present on the system.
 
-### Test the tracker
+### Running the tracker and debugger
 
-**Step 1.** Set the parameters that you already know (like camera device name and topic names) in [src/parameters.h](src/parameters.h). Leave the rest alone for now.
+1. (On drone) Set camera device path and drone pose topic in [src/parameters.h](src/parameters.h)
+2. (On drone) Start tracker: ```$ rosrun downward_target_tracker tracker```
+3. (On pc) Connect to drone ROS: ```$ export ROS_MASTER_URI=http://192.168.1.151:11311```
+(IP is an example, replace with drone's IP. Port must be 11311).
+4. (On pc) Start debugger: ```$ rosrun downward_target_tracker debugger```
 
-**Step 2.** Run the tracker on the drone: ```$ rosrun downward_target_tracker tracker```.
+### Verify that grid detection works
 
-**Step 3.** Ensure that your PC is on the same network as the drone and link your PC's ROS to the drone by typing in your PC terminal: ```$ export ROS_MASTER_URI=http://192.168.1.151:11311``` (IP is an example, replace with drone's IP. Port must be 11311).
+1. Verify that the rotation and translation is interpreted correctly by the grid detector, by following the calibration guide in [README_example_calibration.md](README_example_calibration.md).
 
-**Step 4.** Run the debugger on your PC:  ```$ rosrun downward_target_tracker debugger```.
+2. Adjust camera exposure to fit the lighting: by running the [set_camera_controls.sh](/set_camera_controls.sh) script on the drone while the tracker is running. It will set the camera exposure, gain, powerline frequency, etc., to values that are hardcoded in the script. Change the values in the script to get good image brightness, making sure that ```Frame rate``` stays at 60 Hz (see Timing window in debugger).
 
-**Step 5.** Adjust camera controls to lighting: run [set_camera_controls.sh](/set_camera_controls.sh) script on the drone while tracker is running. It will set the camera exposure, gain, powerline frequency, etc., to values that are hardcoded in the script. Change the values in the script to get good image brightness, making sure that ```Frame rate``` stays at 60 Hz (see Timing window in debugger).
+3. Click the *White threshold* tab in the debugger and adjust the values until the white grid lines are clearly visible, and that the background is clean (not noisy).
 
-**Step 6.** Look at the "Default view" tab in the debugger. If you are:
+4. Go to the *Grid detector* tab and check that the detected grid aligns with the real grid. Adjust white thresholds, detector parameters, or camera calibration otherwise.
 
-* looking at a target (red or green plate)
-* and you are either standing ONE METER above the ground at zero pitch and roll,
-* or you are publishing the drone pose,
+### Verify that tracking works
 
-you should see the camera feed, a non-empty list of targets in a small GUI window, and bounding boxes around each in the image. Basically, something like this:
+1. Look at the *Default view* tab in the debugger.
+2. Look at a target (red or green plate)
+3. Stand one meter above the ground without tilting, or be publishing the drone pose
+
+You should see the camera feed, a list of targets, and bounding boxes around each, as illustrated below. If not, we need to calibrate color thresholds. To do this, click the *Calibrate color* tab and follow the guide that shows up, or click the *Take a snapshot* button and send the files (snapshot*.jpg snapshot*.txt created in the directory you ran the debugger) to me. Save the parameters by editing [src/parameters.h](src/parameters.h) on the drone, and recompiling.
 
 ![](readme_img1.png)
 
-If not, we need to calibrate intrinsics (fisheye parameters), extrinsics (camera mounting point), or color thresholds. If you need help, click the "Take a snapshot" button and send the files (snapshot*.jpg snapshot*.txt created in the directory you ran the debugger) to me.
-
-**Calibrate color:** Click "Calibrate color" tab in debugger and follow guide that shows up.
-
-**Calibrate camera:** Click "Calibrate camera" tab in debugger and follow guide that shows up. See also [README_example_calibration.md](README_example_calibration.md) for a more in-depth tutorial.
-
-**Save the parameters:** [src/parameters.h](src/parameters.h) contains the following parameters. If you change them, remember to **recompile**.
+### Description of all parameters
 
 Parameter   | What
 ------------|-----
 DEVICE_NAME         | i.e. /dev/video1
-TESTING_WITH_LAPTOP | Just for me. Set this to 0.
-DUMMY_IMAGE         | 0 will use USB camera; 1 will use a static image embedded in source code.
 IMU_POSE_TOPIC      | Topic for best current estimate of drone pose (geometry_msgs::PoseStamped)
 TRACKS_TOPIC        | Topic on which list of targets will be published (tracks.msg)
 IMAGE_TOPIC         | Topic on which compressed camera feed will be published (image.msg)

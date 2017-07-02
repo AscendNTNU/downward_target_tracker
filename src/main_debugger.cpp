@@ -8,6 +8,7 @@
 #include <downward_target_tracker/image.h>
 #include <downward_target_tracker/info.h>
 #include <downward_target_tracker/tracks.h>
+#include <ascend_msgs/LineCounter.h>
 #include <turbojpeg.h>
 #include "so_math.h"
 
@@ -24,13 +25,16 @@ struct latest_image_t
 #include "view_tracks.cpp"
 #include "view_color.cpp"
 #include "view_threshold.cpp"
+#include "view_line_counter.cpp"
 
 latest_image_t latest_image = {0};
 downward_target_tracker::info latest_info;
 downward_target_tracker::tracks latest_tracks;
+ascend_msgs::LineCounter latest_line_counter;
 
 void callback_info(downward_target_tracker::info msg) { latest_info = msg; }
 void callback_tracks(downward_target_tracker::tracks msg) { latest_tracks = msg; }
+void callback_line_counter(ascend_msgs::LineCounter msg) { latest_line_counter = msg; }
 void callback_image(downward_target_tracker::image msg)
 {
     static tjhandle decompressor = tjInitDecompress();
@@ -95,10 +99,11 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "downward_target_debug");
     ros::NodeHandle node;
-    ros::Subscriber sub_image  = node.subscribe(IMAGE_TOPIC, 1, callback_image);
-    ros::Subscriber sub_info   = node.subscribe(INFO_TOPIC, 1, callback_info);
-    ros::Subscriber sub_tracks = node.subscribe(TRACKS_TOPIC, 1, callback_tracks);
-    ros::Publisher pub_selected = node.advertise<std_msgs::Int32>(SELECTED_TOPIC, 1);
+    ros::Subscriber sub_image        = node.subscribe(IMAGE_TOPIC, 1, callback_image);
+    ros::Subscriber sub_info         = node.subscribe(INFO_TOPIC, 1, callback_info);
+    ros::Subscriber sub_tracks       = node.subscribe(TRACKS_TOPIC, 1, callback_tracks);
+    ros::Subscriber sub_line_counter = node.subscribe(LINE_COUNTER_TOPIC, 1, callback_line_counter);
+    ros::Publisher pub_selected      = node.advertise<std_msgs::Int32>(SELECTED_TOPIC, 1);
 
     int selected_id = -1;
 
@@ -108,7 +113,7 @@ int main(int argc, char **argv)
         const int mode_camera_calibration = 1;
         const int mode_color_calibration = 2;
         const int mode_white_threshold = 3;
-        const int mode_grid_detector = 4;
+        const int mode_line_counter = 4;
         static int mode = mode_see_tracks;
 
         if (latest_image.I && mode == mode_see_tracks)
@@ -217,11 +222,16 @@ int main(int argc, char **argv)
             view_threshold(latest_image, latest_info);
         }
 
+        if (latest_image.I && mode == mode_line_counter)
+        {
+            view_line_counter(latest_image, latest_info, latest_line_counter);
+        }
+
         if (latest_image.I &&
             (mode == mode_color_calibration ||
              mode == mode_camera_calibration ||
              mode == mode_white_threshold ||
-             mode == mode_grid_detector))
+             mode == mode_line_counter))
         {
             SetNextWindowSize(ImVec2(400, 300), ImGuiSetCond_Appearing);
             Begin("Parameters");
@@ -287,7 +297,7 @@ int main(int argc, char **argv)
                     SliderFloat("white_threshold_b", &white_threshold_b, 0.0f, 255.0f);
                     SliderFloat("white_threshold_d", &white_threshold_d, 0.0f, 255.0f);
                 }
-                if (mode == mode_grid_detector && CollapsingHeader("Tuning values (grid detector)"))
+                if (mode == mode_line_counter && CollapsingHeader("Tuning values (grid detector)"))
                 {
                     pinhole_fov_x *= 180.0f/3.14f; SliderFloat("pinhole_fov_x (deg)", &pinhole_fov_x, 45.0f, 180.0f); pinhole_fov_x *= 3.14f/180.0f;
                     SliderFloat("sobel_threshold", &sobel_threshold, 0.0f, 100.0f);
@@ -354,7 +364,7 @@ int main(int argc, char **argv)
         RadioButton("Calibrate camera", &mode, mode_camera_calibration); SameLine();
         RadioButton("Calibrate color", &mode, mode_color_calibration); SameLine();
         RadioButton("White threshold", &mode, mode_white_threshold); SameLine();
-        RadioButton("Grid detector", &mode, mode_grid_detector); SameLine();
+        RadioButton("Grid detector", &mode, mode_line_counter); SameLine();
         if (SmallButton("Take a snapshot"))
         {
             static int suffix = 0;
