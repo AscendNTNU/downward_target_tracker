@@ -25,7 +25,7 @@ generate_messages(
 )
 catkin_package(CATKIN_DEPENDS message_runtime)
 add_definitions("-O3 -mavx")
-include_directories()
+include_directories(${catkin_INCLUDE_DIRS})
 
 if (ASC_GRID_DEBUG)
 
