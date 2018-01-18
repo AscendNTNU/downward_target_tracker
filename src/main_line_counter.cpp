@@ -2,7 +2,7 @@
 #include "vdb/vdb.h"
 #endif
 #define ASC_GRID_DETECTOR_IMPLEMENTATION
-#define ASC_GRID_DETECTOR_SSE
+//#define ASC_GRID_DETECTOR_SSE
 #include "asc_grid_detector.h"
 #include <pthread.h>
 #include <ascend_msgs/LineCounter.h>
