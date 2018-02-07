@@ -1,4 +1,4 @@
-#define DEVICE_NAME        "/dev/video0"
+#define DEVICE_NAME        "/dev/video1"
 
 
 // Topic names

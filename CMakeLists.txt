@@ -6,8 +6,6 @@ cmake_minimum_required(VERSION 2.8.3)
 project(downward_target_tracker)
 find_package(catkin REQUIRED
   roscpp
-  image_transport
-  sensor_msgs
   geometry_msgs
   std_msgs
   message_generation
@@ -31,11 +29,15 @@ if (ASC_GRID_DEBUG)
 
   add_definitions("-DASC_GRID_DEBUG")
   add_executable(tracker src/main_drone.cpp)
+  add_dependencies(tracker downward_target_tracker_generate_messages_cpp
+  )
   target_link_libraries(tracker ${catkin_LIBRARIES} turbojpeg v4l2 ${SDL2_LIBRARIES} GL)
 
 else (ASC_GRID_DEBUG)
 
   add_executable(tracker src/main_drone.cpp)
+  add_dependencies(tracker downward_target_tracker_generate_messages_cpp
+  )
   target_link_libraries(tracker ${catkin_LIBRARIES} turbojpeg v4l2)
 
 endif (ASC_GRID_DEBUG)
@@ -48,6 +50,8 @@ if (SDL2_FOUND)
 
   include_directories(${SDL2_INCLUDE_DIRS})
   add_executable(debugger src/main_debugger.cpp)
+  add_dependencies(debugger downward_target_tracker_generate_messages_cpp
+  )
   target_link_libraries(debugger ${catkin_LIBRARIES} turbojpeg ${SDL2_LIBRARIES} GL)
 
 endif (SDL2_FOUND)
