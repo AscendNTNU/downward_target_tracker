@@ -94,7 +94,7 @@ void *line_counter_main(void *)
 
         // GET LATEST MESSAGES BEFORE PROCESSING IMAGE
         pthread_mutex_lock(&line_counter_param_mutex); // disallow main from modifying parameters
-        //ros::spinOnce(); 
+        ros::spinOnce(); 
         float camera_f = _camera_f;
         float camera_u0 = _camera_u0;
         float camera_v0 = _camera_v0;

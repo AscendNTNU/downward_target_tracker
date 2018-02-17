@@ -115,8 +115,7 @@ void callback_camera_img(const sensor_msgs::ImageConstPtr& msg)
     _image->width  = msg->width;
     _image->step   = msg->step;
 
-    int img_size = msg->width * msg->height;
-
+    int img_size = msg->height * msg->step; //equivalent to height*width*3, but with one less multiplication
     _image->data.resize(img_size);
     for(int i = 0; i < img_size; ++i) {
         _image->data[i] = msg->data[i];
@@ -237,9 +236,9 @@ int main(int argc, char **argv)
             usbcam_lock_mjpg(&jpg_data, &jpg_size, &timestamp);
             #elif USE_CAMERA_NODE == 0
             usbcam_lock(&jpg_data, &jpg_size, &timestamp);
-            #else
+            #elif USE_CAMERA_NODE == 1
             jpg_data  = _image->data.data();
-            jpg_size  = _image->height * _image->width;
+            jpg_size  = _image->height * _image->step;
             timestamp.tv_sec  = _image->header.stamp.sec;
             timestamp.tv_usec = _image->header.stamp.nsec * 1000;
             if(!jpg_size) continue; //invalid picture
