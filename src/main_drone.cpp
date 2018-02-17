@@ -24,12 +24,18 @@
 #include <assert.h>
 #include <stdint.h>
 #include <time.h>
+
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <std_msgs/Float32.h>
+#include <image_transport/image_transport.h>
+#include <sensor_msgs/image_encodings.h>
+#include <sensor_msgs/Image.h>
+
 #include <downward_target_tracker/image.h>
 #include <downward_target_tracker/info.h>
 #include <downward_target_tracker/tracks.h>
+
 #include "asc_usbcam.h"
 #include "asc_tracker.h"
 #include "mjpg_to_jpg.h"
@@ -62,6 +68,9 @@ float _sobel_threshold   = SOBEL_THRESHOLD_INIT;
 float _maxima_threshold  = MAXIMA_THRESHOLD_INIT;
 float _max_error         = MAX_ERROR_INIT;
 float _tile_width        = TILE_WIDTH_INIT;
+
+//Stores information about the image data from the callback
+sensor_msgs::Image::Ptr _image = boost::make_shared<sensor_msgs::Image>();;
 
 // These describe the latest pose (roll, pitch, yaw, x, y, z)
 // of the drone relative to the grid, and are updated in
@@ -98,6 +107,21 @@ void callback_sobel_threshold(std_msgs::Float32 msg)   { _sobel_threshold = msg.
 void callback_maxima_threshold(std_msgs::Float32 msg)  { _maxima_threshold = msg.data; }
 void callback_max_error(std_msgs::Float32 msg)         { _max_error = msg.data; }
 void callback_tile_width(std_msgs::Float32 msg)        { _tile_width = msg.data; }
+
+void callback_camera_img(const sensor_msgs::ImageConstPtr& msg) 
+{
+    _image->header = msg->header;
+    _image->height = msg->height;
+    _image->width  = msg->width;
+    _image->step   = msg->step;
+
+    int img_size = msg->width * msg->height;
+
+    _image->data.resize(img_size);
+    for(int i = 0; i < img_size; ++i) {
+        _image->data[i] = msg->data[i];
+    }
+}
 
 void callback_imu(geometry_msgs::PoseStamped msg)
 {
@@ -139,6 +163,8 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "downward_target_tracker");
     ros::NodeHandle node;
 
+    image_transport::ImageTransport img_transport(node); //Advertise and subscribe to image topics.
+
     ros::Publisher pub_image  = node.advertise<downward_target_tracker::image>(IMAGE_TOPIC, 1);
     ros::Publisher pub_info   = node.advertise<downward_target_tracker::info>(INFO_TOPIC, 1);
     ros::Publisher pub_tracks = node.advertise<downward_target_tracker::tracks>(TRACKS_TOPIC, 1);
@@ -168,7 +194,10 @@ int main(int argc, char **argv)
     ros::Subscriber sub_max_error         = node.subscribe("/target_debug/max_error",          1, callback_max_error);
     ros::Subscriber sub_tile_width        = node.subscribe("/target_debug/tile_width",         1, callback_tile_width);
 
+
     ros::Subscriber sub_imu = node.subscribe(IMU_POSE_TOPIC, 1, callback_imu);
+
+    image_transport::Subscriber sub_img = img_transport.subscribe(CAMERA_TOPIC, 1, callback_camera_img);
 
     #if RUN_LINE_COUNTER==1
     line_counter_init(&node);
@@ -176,7 +205,7 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    #if DUMMY_IMAGE==0
+    #if DUMMY_IMAGE == 0 && USE_CAMERA_NODE == 0
     {
         usbcam_opt_t opt = {0};
         opt.device_name = DEVICE_NAME;
@@ -195,18 +224,25 @@ int main(int argc, char **argv)
     for (int frame = 0;; frame++)
     {
         // RECEIVE LATEST IMAGE
+        ros::spinOnce();
         unsigned char *jpg_data = 0;
         unsigned int jpg_size = 0;
         timeval timestamp = {0};
         {
-            #if DUMMY_IMAGE==1
+            #if DUMMY_IMAGE == 1
             jpg_data = mock_jpg;
             jpg_size = mock_jpg_len;
             usleep(5*1000);
-            #elif TESTING_WITH_LAPTOP==1
+            #elif TESTING_WITH_LAPTOP == 1
             usbcam_lock_mjpg(&jpg_data, &jpg_size, &timestamp);
-            #else
+            #elif USE_CAMERA_NODE == 0
             usbcam_lock(&jpg_data, &jpg_size, &timestamp);
+            #else
+            jpg_data  = _image->data.data();
+            jpg_size  = _image->height * _image->width;
+            timestamp.tv_sec  = _image->header.stamp.sec;
+            timestamp.tv_usec = _image->header.stamp.nsec * 1000;
+            if(!jpg_size) continue; //invalid picture
             #endif
         }
 
@@ -229,6 +265,7 @@ int main(int argc, char **argv)
 
         // DECOMPRESS
         float dt_jpeg_to_rgb = 0.0f;
+        #if USE_CAMERA_NODE == 0
         {
             uint64_t t1 = getnsec();
             if (!usbcam_jpeg_to_rgb(Ix, Iy, I, jpg_data, jpg_size))
@@ -239,14 +276,15 @@ int main(int argc, char **argv)
             uint64_t t2 = getnsec();
             dt_jpeg_to_rgb = (t2-t1)/1e9;
         }
+        #endif
 
         // GET LATEST MESSAGES BEFORE PROCESSING IMAGE
         #if RUN_LINE_COUNTER==1
         pthread_mutex_lock(&line_counter_param_mutex);
         #endif
-        ros::spinOnce();
         float camera_f = _camera_f;
         float camera_u0 = _camera_u0;
+
         float camera_v0 = _camera_v0;
         float cam_imu_rx = _cam_imu_rx;
         float cam_imu_ry = _cam_imu_ry;
@@ -454,7 +492,7 @@ int main(int argc, char **argv)
             }
         }
 
-        #if DUMMY_IMAGE==0
+        #if DUMMY_IMAGE == 0 && USE_CAMERA_NODE == 0
         usbcam_unlock();
         #endif
     }

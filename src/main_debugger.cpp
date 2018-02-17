@@ -12,6 +12,8 @@
 #include <turbojpeg.h>
 #include "so_math.h"
 
+#include <cstdio>
+
 struct latest_image_t
 {
     unsigned char *jpg_data;
@@ -37,11 +39,15 @@ void callback_tracks(downward_target_tracker::tracks msg) { latest_tracks = msg;
 void callback_line_counter(ascend_msgs::LineCounter msg) { latest_line_counter = msg; }
 void callback_image(downward_target_tracker::image msg)
 {
-    static tjhandle decompressor = tjInitDecompress();
     int subsamp,width,height,error;
-
     unsigned char *jpg_data = (unsigned char*)&msg.jpg_data[0];
     unsigned int jpg_size = (unsigned int)msg.jpg_data.size();
+
+    #if USE_CAMERA_NODE == 1
+    width  = CAMERA_WIDTH;
+    height = CAMERA_HEIGHT;
+    #else
+    static tjhandle decompressor = tjInitDecompress();
 
     error = tjDecompressHeader2(decompressor,
         jpg_data,
@@ -55,6 +61,7 @@ void callback_image(downward_target_tracker::image msg)
         printf("%s\n", tjGetErrorStr());
         return;
     }
+    #endif
 
     if (latest_image.jpg_data)
     {
@@ -76,6 +83,7 @@ void callback_image(downward_target_tracker::image msg)
     latest_image.Ix = width>>CAMERA_LEVELS;
     latest_image.Iy = height>>CAMERA_LEVELS;
 
+    #if USE_CAMERA_NODE == 0
     error = tjDecompress2(decompressor,
         jpg_data,
         jpg_size,
@@ -93,6 +101,7 @@ void callback_image(downward_target_tracker::image msg)
         latest_image.I = 0;
         return;
     }
+    #endif
 }
 
 int main(int argc, char **argv)
