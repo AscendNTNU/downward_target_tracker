@@ -73,7 +73,6 @@ void *line_counter_main(void *)
 
         // DEOMCPRESS AND CONVERT JPEG TO RGB
         float dt_jpeg_to_rgb = 0.0f;
-        #if USE_CAMERA_NODE == 0
         {
             uint64_t t1 = getnsec();
             if (!usbcam_jpeg_to_rgb(Ix, Iy, I_rgb, line_counter_jpg_data, line_counter_jpg_size))
@@ -87,24 +86,13 @@ void *line_counter_main(void *)
             uint64_t t2 = getnsec();
             dt_jpeg_to_rgb = (t2-t1)/1e9;
         }
-        // Image is from an external ROS node, i.e. image is allready in RGB format.
-        // Thus we just need to memcpy the image to the correct location
-        #else
-        float* dt_memcpy_jpg_data = &dt_jpeg_to_rgb;
-
-        uint64_t t1 = getnsec();
-        memcpy(I_rgb, line_counter_jpg_data, line_counter_jpg_size);
-        uint64_t t2 = getnsec();
-
-        *dt_memcpy_jpg_data = (t2-t1)/1e9;
-        #endif
 
         // RELEASE LOCK ON FRAME (allow main to update jpg)
         pthread_mutex_unlock(&line_counter_image_mutex);
 
         // GET LATEST MESSAGES BEFORE PROCESSING IMAGE
         pthread_mutex_lock(&line_counter_param_mutex); // disallow main from modifying parameters
-        ros::spinOnce(); 
+        //ros::spinOnce(); 
         float camera_f = _camera_f;
         float camera_u0 = _camera_u0;
         float camera_v0 = _camera_v0;

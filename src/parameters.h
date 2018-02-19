@@ -8,7 +8,7 @@
 #define INFO_TOPIC         "/target_tracker/info"        // (output) target bounding boxes, detections, and adjustable parameters
 #define LINE_COUNTER_TOPIC "/line_counter/pose"          // (output) line counter grid detection
 #define SELECTED_TOPIC     "/target_debug/selected"      // (output) unique_id of the highlighted target
-#define CAMERA_TOPIC       "/data/video0"                // (input) image data feed from fisheye camera
+#define CAMERA_TOPIC       "/camera_publisher0/data/video0/compressed_image" // (input) image data feed from fisheye camera
 
 // Minimum required seconds between publishing debug info and compressed JPEG frame
 #define INFO_PUBLISH_INTERVAL  0.0f
@@ -35,8 +35,11 @@
 
 // Fisheye camera parameters (see README.md)
 #define USBCAM_DEBUG       1
-#define CAMERA_WIDTH       800
-#define CAMERA_HEIGHT      600
+
+// If USE_CAMERA_NODE == 1, these values must be the same as the one specified in the camera node
+#define CAMERA_WIDTH       800 
+#define CAMERA_HEIGHT      600 
+
 #define CAMERA_BUFFERS     3      // Change if frame rate is lower than 60 Hz (see Timing window in debugger)
 #define CAMERA_LEVELS      2      // Downscale factor (0=none, 1=half, 2=quarter)
 #define CAMERA_F_INIT      434.0f // Fisheye parameter: Focal length

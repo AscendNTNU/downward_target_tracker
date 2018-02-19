@@ -31,6 +31,7 @@
 #include <image_transport/image_transport.h>
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/Image.h>
+#include <sensor_msgs/CompressedImage.h>
 
 #include <downward_target_tracker/image.h>
 #include <downward_target_tracker/info.h>
@@ -70,7 +71,7 @@ float _max_error         = MAX_ERROR_INIT;
 float _tile_width        = TILE_WIDTH_INIT;
 
 //Stores information about the image data from the callback
-sensor_msgs::Image::Ptr _image = boost::make_shared<sensor_msgs::Image>();;
+sensor_msgs::CompressedImagePtr _image = boost::make_shared<sensor_msgs::CompressedImage>();
 
 // These describe the latest pose (roll, pitch, yaw, x, y, z)
 // of the drone relative to the grid, and are updated in
@@ -108,16 +109,13 @@ void callback_maxima_threshold(std_msgs::Float32 msg)  { _maxima_threshold = msg
 void callback_max_error(std_msgs::Float32 msg)         { _max_error = msg.data; }
 void callback_tile_width(std_msgs::Float32 msg)        { _tile_width = msg.data; }
 
-void callback_camera_img(const sensor_msgs::ImageConstPtr& msg) 
+void callback_camera_img(const sensor_msgs::CompressedImageConstPtr msg) 
 {
-    _image->header = msg->header;
-    _image->height = msg->height;
-    _image->width  = msg->width;
-    _image->step   = msg->step;
+    _image->header  = msg->header;
+    _image->format  = msg->format;
 
-    int img_size = msg->height * msg->step; //equivalent to height*width*3, but with one less multiplication
-    _image->data.resize(img_size);
-    for(int i = 0; i < img_size; ++i) {
+    _image->data.resize(msg->data.size());
+    for(int i = 0; i < msg->data.size(); ++i) {
         _image->data[i] = msg->data[i];
     }
 }
@@ -196,7 +194,7 @@ int main(int argc, char **argv)
 
     ros::Subscriber sub_imu = node.subscribe(IMU_POSE_TOPIC, 1, callback_imu);
 
-    image_transport::Subscriber sub_img = img_transport.subscribe(CAMERA_TOPIC, 1, callback_camera_img);
+    ros::Subscriber sub_img = node.subscribe(CAMERA_TOPIC, 1, callback_camera_img);
 
     #if RUN_LINE_COUNTER==1
     line_counter_init(&node);
@@ -239,9 +237,7 @@ int main(int argc, char **argv)
             usbcam_lock(&jpg_data, &jpg_size, &timestamp);
             #elif USE_CAMERA_NODE == 1
             jpg_data   = _image->data.data();
-            jpg_size   = _image->height * _image->step;
-            img_width  = _image->width;
-            img_height = _image->height;
+            jpg_size   = _image->data.size(); 
             timestamp.tv_sec  = _image->header.stamp.sec;
             timestamp.tv_usec = _image->header.stamp.nsec * 1000;
             if(!jpg_size) continue; //invalid picture
@@ -267,28 +263,18 @@ int main(int argc, char **argv)
 
         // DECOMPRESS AND CONVERT JPEG TO RGB
         float dt_jpeg_to_rgb = 0.0f;
-        #if USE_CAMERA_NODE == 0
         {
             uint64_t t1 = getnsec();
             if (!usbcam_jpeg_to_rgb(Ix, Iy, I, jpg_data, jpg_size))
             {
+                #if USE_CAMERA_NODE == 0
                 usbcam_unlock();
+                #endif
                 continue;
             }
             uint64_t t2 = getnsec();
             dt_jpeg_to_rgb = (t2-t1)/1e9;
         }
-        // Image is from an external ROS node, i.e. image is allready in RGB format.
-        // Thus we just need to memcpy the image to the correct location
-        #else
-        float* dt_memcpy_jpg_data = &dt_jpeg_to_rgb;
-
-        uint64_t t1 = getnsec();
-        memcpy(I, jpg_data, jpg_size);
-        uint64_t t2 = getnsec();
-
-        *dt_memcpy_jpg_data = (t2-t1)/1e9;
-        #endif
 
         // GET LATEST MESSAGES BEFORE PROCESSING IMAGE
         #if RUN_LINE_COUNTER==1
@@ -500,8 +486,8 @@ int main(int argc, char **argv)
 
                 downward_target_tracker::image msg;
                 msg.jpg_data.resize(jpg_size);
-                msg.width = img_width;
-                msg.height = img_height;
+                msg.width = CAMERA_WIDTH;
+                msg.height = CAMERA_HEIGHT;
                 memcpy(&msg.jpg_data[0], jpg_data, jpg_size);
                 pub_image.publish(msg);
             }

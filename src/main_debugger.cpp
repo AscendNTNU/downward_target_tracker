@@ -43,10 +43,6 @@ void callback_image(downward_target_tracker::image msg)
     unsigned char *jpg_data = (unsigned char*)&msg.jpg_data[0];
     unsigned int jpg_size = (unsigned int)msg.jpg_data.size();
 
-    #if USE_CAMERA_NODE == 1
-    width  = msg.width;
-    height = msg.height;
-    #else
     static tjhandle decompressor = tjInitDecompress();
 
     error = tjDecompressHeader2(decompressor,
@@ -61,7 +57,6 @@ void callback_image(downward_target_tracker::image msg)
         printf("%s\n", tjGetErrorStr());
         return;
     }
-    #endif
 
     if (latest_image.jpg_data)
     {
@@ -83,7 +78,6 @@ void callback_image(downward_target_tracker::image msg)
     latest_image.Ix = width>>CAMERA_LEVELS;
     latest_image.Iy = height>>CAMERA_LEVELS;
 
-    #if USE_CAMERA_NODE == 0
     error = tjDecompress2(decompressor,
         jpg_data,
         jpg_size,
@@ -101,9 +95,6 @@ void callback_image(downward_target_tracker::image msg)
         latest_image.I = 0;
         return;
     }
-    #else
-    memcpy(latest_image.I, jpg_data, jpg_size);
-    #endif
 }
 
 int main(int argc, char **argv)
@@ -198,13 +189,10 @@ int main(int argc, char **argv)
                     PlotLines(LABEL, graph, count, 0, NULL, MIN, MAX, ImVec2(200,0)); \
                 }
 
-                //no jpg decompression is done if we take camera input from an external ros node
-                const char* timer_message = USE_CAMERA_NODE == 0 ? "MJPEG to RGB (ms)" : "memcpy image data (ms)";
-
                 Text("Tracker");
                 PlotTiming("Output rate (Hz)",  1.0f/latest_info.dt_cycle, 0.0f, 60.0f); SameLine(); Text("%.2f Hz", 1.0f/latest_info.dt_cycle);
                 PlotTiming("Frame rate (Hz)",   1.0f/latest_info.dt_frame, 0.0f, 60.0f); SameLine(); Text("%.2f Hz", 1.0f/latest_info.dt_frame);
-                PlotTiming(timer_message, 1000.0f*latest_info.dt_jpeg_to_rgb, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.dt_jpeg_to_rgb);
+                PlotTiming("MJPEG to RGB (ms)" , 1000.0f*latest_info.dt_jpeg_to_rgb, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.dt_jpeg_to_rgb);
                 PlotTiming("Tracker (ms)",      1000.0f*latest_info.dt_track_targets, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.dt_track_targets);
                 Text("Line counter");
                 PlotTiming("MJPEG to RGB (ms)##line_counter", 1000.0f*latest_info.line_counter_dt_jpeg_to_rgb, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.line_counter_dt_jpeg_to_rgb);
