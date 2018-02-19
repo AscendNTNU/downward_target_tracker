@@ -94,10 +94,12 @@ You should see the camera feed, a list of targets, and bounding boxes around eac
 Parameter   | What
 ------------|-----
 DEVICE_NAME         | i.e. /dev/video1
+USE_CAMERA_NODE     | Set to 1 if camera input is from an external camera node, 0 otherwise.
 IMU_POSE_TOPIC      | Topic for best current estimate of drone pose (geometry_msgs::PoseStamped)
 TRACKS_TOPIC        | Topic on which list of targets will be published (tracks.msg)
 IMAGE_TOPIC         | Topic on which compressed camera feed will be published (image.msg)
-INFO_TOPIC          | Topic on which debug info (adjustable parameters, bounding boxes and detections) will be published (info.msg)
+INFO_TOPIC          | Topic on which debug info (adjustable parameters, bounding boxes and detections) will be published 
+CAMERA_TOPIC        | Topic on which camera node that we get input from. The images must be published as compressed JPEGs.
 LINE_COUNTER_TOPIC  | Topic on which [line counter output](README_linecounter.md) will be published
 SELECTED_TOPIC      | Topic on which selected target ID will be published (std_msgs::Int32)
 INFO_PUBLISH_INTERVAL | Change this to limit how often debug visualization info is sent (default is every frame)
