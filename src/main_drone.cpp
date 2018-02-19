@@ -226,6 +226,7 @@ int main(int argc, char **argv)
         ros::spinOnce();
         unsigned char *jpg_data = 0;
         unsigned int jpg_size = 0;
+        int img_width, img_height;
         timeval timestamp = {0};
         {
             #if DUMMY_IMAGE == 1
@@ -237,8 +238,10 @@ int main(int argc, char **argv)
             #elif USE_CAMERA_NODE == 0
             usbcam_lock(&jpg_data, &jpg_size, &timestamp);
             #elif USE_CAMERA_NODE == 1
-            jpg_data  = _image->data.data();
-            jpg_size  = _image->height * _image->step;
+            jpg_data   = _image->data.data();
+            jpg_size   = _image->height * _image->step;
+            img_width  = _image->width;
+            img_height = _image->height;
             timestamp.tv_sec  = _image->header.stamp.sec;
             timestamp.tv_usec = _image->header.stamp.nsec * 1000;
             if(!jpg_size) continue; //invalid picture
@@ -275,12 +278,21 @@ int main(int argc, char **argv)
             uint64_t t2 = getnsec();
             dt_jpeg_to_rgb = (t2-t1)/1e9;
         }
+        #else
+        float* dt_memcpy_jpg_data = &dt_jpeg_to_rgb;
+
+        uint64_t t1 = getnsec();
+        memcpy(I, jpg_data, jpg_size);
+        uint64_t t2 = getnsec();
+
+        *dt_memcpy_jpg_data = (t2-t1)/1e9;
         #endif
 
         // GET LATEST MESSAGES BEFORE PROCESSING IMAGE
         #if RUN_LINE_COUNTER==1
         pthread_mutex_lock(&line_counter_param_mutex);
         #endif
+        ros::spinOnce();
         float camera_f = _camera_f;
         float camera_u0 = _camera_u0;
 
@@ -486,6 +498,8 @@ int main(int argc, char **argv)
 
                 downward_target_tracker::image msg;
                 msg.jpg_data.resize(jpg_size);
+                msg.width = img_width;
+                msg.height = img_height;
                 memcpy(&msg.jpg_data[0], jpg_data, jpg_size);
                 pub_image.publish(msg);
             }

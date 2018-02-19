@@ -87,6 +87,14 @@ void *line_counter_main(void *)
             uint64_t t2 = getnsec();
             dt_jpeg_to_rgb = (t2-t1)/1e9;
         }
+        #else
+        float* dt_memcpy_jpg_data = &dt_jpeg_to_rgb;
+
+        uint64_t t1 = getnsec();
+        memcpy(I_rgb, line_counter_jpg_data, line_counter_jpg_size);
+        uint64_t t2 = getnsec();
+
+        *dt_memcpy_jpg_data = (t2-t1)/1e9;
         #endif
 
         // RELEASE LOCK ON FRAME (allow main to update jpg)
