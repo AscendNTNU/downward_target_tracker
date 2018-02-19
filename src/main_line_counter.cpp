@@ -71,7 +71,7 @@ void *line_counter_main(void *)
         // ACQUIRE LOCK ON FRAME (disallow main from updating jpg)
         pthread_mutex_lock(&line_counter_image_mutex);
 
-        // CONVERT JPEG TO RGB
+        // DEOMCPRESS AND CONVERT JPEG TO RGB
         float dt_jpeg_to_rgb = 0.0f;
         #if USE_CAMERA_NODE == 0
         {
@@ -87,6 +87,8 @@ void *line_counter_main(void *)
             uint64_t t2 = getnsec();
             dt_jpeg_to_rgb = (t2-t1)/1e9;
         }
+        // Image is from an external ROS node, i.e. image is allready in RGB format.
+        // Thus we just need to memcpy the image to the correct location
         #else
         float* dt_memcpy_jpg_data = &dt_jpeg_to_rgb;
 
