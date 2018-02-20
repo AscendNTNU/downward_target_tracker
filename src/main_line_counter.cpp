@@ -4,12 +4,13 @@
 #define ASC_GRID_DETECTOR_IMPLEMENTATION
 #define ASC_GRID_DETECTOR_SSE
 #include "asc_grid_detector.h"
-#include <pthread.h>
+#include <pthread.h> 
 #include <ascend_msgs/LineCounter.h>
 
 // These need to be volatile, otherwise the main_line_counter thread did
 // not work properly when I compile with optimizations (-O2).
 volatile bool         line_counter_image_avail = false;
+volatile bool         line_counter_ros_spin = false;
 volatile unsigned int line_counter_jpg_size;
 static unsigned char  line_counter_jpg_data[CAMERA_WIDTH*CAMERA_HEIGHT*3];
 pthread_mutex_t       line_counter_image_mutex;
@@ -92,7 +93,8 @@ void *line_counter_main(void *)
 
         // GET LATEST MESSAGES BEFORE PROCESSING IMAGE
         pthread_mutex_lock(&line_counter_param_mutex); // disallow main from modifying parameters
-        //ros::spinOnce(); 
+        line_counter_ros_spin = true; //spinOnce is called from the line_counter, do not update the image callback
+        ros::spinOnce();
         float camera_f = _camera_f;
         float camera_u0 = _camera_u0;
         float camera_v0 = _camera_v0;
@@ -123,6 +125,7 @@ void *line_counter_main(void *)
         float imu_tx = _imu_tx;
         float imu_ty = _imu_ty;
         float imu_tz = _imu_tz;
+        line_counter_ros_spin = false;
         pthread_mutex_unlock(&line_counter_param_mutex); // allow main to modify parameters
 
         // CONVERT RGB IMAGE TO GRAYSCALE IMAGE (EXTRACTING 'WHITE' PIXELS)

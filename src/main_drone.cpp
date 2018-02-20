@@ -72,6 +72,7 @@ float _tile_width        = TILE_WIDTH_INIT;
 
 //Stores information about the image data from the callback
 sensor_msgs::CompressedImagePtr _image = boost::make_shared<sensor_msgs::CompressedImage>();
+float _main_drone_ros_spin = false; //variable to secure that image is copied in the first spinOnce of the main loop
 
 // These describe the latest pose (roll, pitch, yaw, x, y, z)
 // of the drone relative to the grid, and are updated in
@@ -109,16 +110,6 @@ void callback_maxima_threshold(std_msgs::Float32 msg)  { _maxima_threshold = msg
 void callback_max_error(std_msgs::Float32 msg)         { _max_error = msg.data; }
 void callback_tile_width(std_msgs::Float32 msg)        { _tile_width = msg.data; }
 
-void callback_camera_img(const sensor_msgs::CompressedImageConstPtr msg) 
-{
-    _image->header  = msg->header;
-    _image->format  = msg->format;
-
-    _image->data.resize(msg->data.size());
-    for(int i = 0; i < msg->data.size(); ++i) {
-        _image->data[i] = msg->data[i];
-    }
-}
 
 void callback_imu(geometry_msgs::PoseStamped msg)
 {
@@ -149,6 +140,23 @@ uint64_t getnsec()
 // as the target tracker (unsurprisingly), as well as the
 // latest imu pose.
 #include "main_line_counter.cpp"
+
+void callback_camera_img(const sensor_msgs::CompressedImageConstPtr msg) 
+{
+    // only the main drone dictates the rate of image callback
+    if(line_counter_ros_spin && !_main_drone_ros_spin) 
+    {
+        return;
+    }
+    _image->header  = msg->header;
+    _image->format  = msg->format;
+
+    _image->data.resize(msg->data.size());
+    for(int i = 0; i < msg->data.size(); ++i) 
+    {
+        _image->data[i] = msg->data[i];
+    }
+}
 
 void ctrlc(int)
 {
@@ -220,6 +228,7 @@ int main(int argc, char **argv)
     uint64_t t_begin = getnsec();
     for (int frame = 0;; frame++)
     {
+        _main_drone_ros_spin = true;
         // RECEIVE LATEST IMAGE
         ros::spinOnce();
         unsigned char *jpg_data = 0;
@@ -243,6 +252,7 @@ int main(int argc, char **argv)
             if(!jpg_size) continue; //invalid picture
             #endif
         }
+        _main_drone_ros_spin = false;
 
         // SHARE IMAGE WITH LINE COUNTER
         float dt_memcpy = 0.0f;
