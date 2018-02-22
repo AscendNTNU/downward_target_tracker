@@ -1,5 +1,4 @@
-#define DEVICE_NAME        "/dev/video1"
-
+#define DEVICE_NAME        "/dev/camera_downwards"
 
 // Topic names
 #define IMU_POSE_TOPIC     "/mavros/local_position/pose" // (input) best current estimate of drone pose relative grid
