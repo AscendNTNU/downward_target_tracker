@@ -73,6 +73,8 @@ float _tile_width        = TILE_WIDTH_INIT;
 //Stores information about the image data from the callback
 sensor_msgs::CompressedImagePtr _image = boost::make_shared<sensor_msgs::CompressedImage>();
 volatile float _image_available = false; // variable to keep track of if callback has made the image available
+pthread_mutex_t image_mutex;
+pthread_cond_t  image_condition;
 #endif
 
 // These describe the latest pose (roll, pitch, yaw, x, y, z)
@@ -124,6 +126,8 @@ void callback_imu(geometry_msgs::PoseStamped msg)
 // callback to be added to user queue instead of internal ROS queue
 void callback_camera_img(const sensor_msgs::CompressedImageConstPtr msg) 
 {
+    pthread_mutex_lock(&image_mutex);
+
     _image->header  = msg->header;
     _image->format  = msg->format;
 
@@ -133,6 +137,9 @@ void callback_camera_img(const sensor_msgs::CompressedImageConstPtr msg)
         _image->data[i] = msg->data[i];
     }
     _image_available = true;
+
+    pthread_cond_signal(&image_condition);
+    pthread_mutex_unlock(&image_mutex);
 }
 #endif
 
@@ -201,6 +208,9 @@ int main(int argc, char **argv)
     ros::Subscriber sub_imu = node.subscribe(IMU_POSE_TOPIC, 1, callback_imu);
     
     #if USE_CAMERA_NODE == 1
+    pthread_mutex_init(&image_mutex, NULL);
+    pthread_cond_init(&image_condition, NULL);
+
     //We create our own image queue that will be used in an asynchronous spinner
     ros::CallbackQueue img_queue; 
     ros::SubscribeOptions ops = ros::SubscribeOptions::create<sensor_msgs::CompressedImage>(
@@ -243,11 +253,15 @@ int main(int argc, char **argv)
     {
         // RECEIVE LATEST IMAGE
         #if USE_CAMERA_NODE == 1
+        pthread_mutex_lock(&image_mutex);
         while(!_image_available) 
         {
+            pthread_cond_wait(&image_condition, 
+                              &image_mutex);
         }
         _image_available = false;
         #endif
+
 
         unsigned char *jpg_data = 0;
         unsigned int jpg_size = 0;
@@ -270,6 +284,10 @@ int main(int argc, char **argv)
             if(!jpg_size) continue; //invalid picture
             #endif
         }
+
+        #if USE_CAMERA_NODE == 1
+        pthread_mutex_unlock(&image_mutex);
+        #endif
 
         // SHARE IMAGE WITH LINE COUNTER
         float dt_memcpy = 0.0f;
