@@ -42,7 +42,7 @@
 #define CAMERA_HEIGHT      600 
 
 #define CAMERA_BUFFERS     3      // Change if frame rate is lower than 60 Hz (see Timing window in debugger)
-#define CAMERA_LEVELS      1      // Downscale factor (0=none, 1=half, 2=quarter)
+#define CAMERA_LEVELS      2      // Downscale factor (0=none, 1=half, 2=quarter)
 #define CAMERA_F_INIT      434.0f // Fisheye parameter: Focal length
 #define CAMERA_U0_INIT     400.0f // Fisheye parameter: Center X
 #define CAMERA_V0_INIT     300.0f // Fisheye parameter: Center Y

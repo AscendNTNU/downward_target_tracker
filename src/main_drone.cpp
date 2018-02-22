@@ -26,10 +26,9 @@
 #include <time.h>
 
 #include <ros/ros.h>
+#include <ros/callback_queue.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <std_msgs/Float32.h>
-#include <image_transport/image_transport.h>
-#include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/CompressedImage.h>
 
@@ -70,9 +69,11 @@ float _maxima_threshold  = MAXIMA_THRESHOLD_INIT;
 float _max_error         = MAX_ERROR_INIT;
 float _tile_width        = TILE_WIDTH_INIT;
 
+#if USE_CAMERA_NODE == 1
 //Stores information about the image data from the callback
 sensor_msgs::CompressedImagePtr _image = boost::make_shared<sensor_msgs::CompressedImage>();
-float _main_drone_ros_spin = false; //variable to secure that image is copied in the first spinOnce of the main loop
+volatile float _image_available = false; // variable to keep track of if callback has made the image available
+#endif
 
 // These describe the latest pose (roll, pitch, yaw, x, y, z)
 // of the drone relative to the grid, and are updated in
@@ -119,6 +120,22 @@ void callback_imu(geometry_msgs::PoseStamped msg)
     _imu_tz = msg.pose.position.z;
 }
 
+#if USE_CAMERA_NODE == 1
+// callback to be added to user queue instead of internal ROS queue
+void callback_camera_img(const sensor_msgs::CompressedImageConstPtr msg) 
+{
+    _image->header  = msg->header;
+    _image->format  = msg->format;
+
+    _image->data.resize(msg->data.size());
+    for(int i = 0; i < msg->data.size(); ++i) 
+    {
+        _image->data[i] = msg->data[i];
+    }
+    _image_available = true;
+}
+#endif
+
 uint64_t getnsec()
 {
     struct timespec ts = {};
@@ -141,23 +158,6 @@ uint64_t getnsec()
 // latest imu pose.
 #include "main_line_counter.cpp"
 
-void callback_camera_img(const sensor_msgs::CompressedImageConstPtr msg) 
-{
-    // only the main drone dictates the rate of image callback
-    if(line_counter_ros_spin && !_main_drone_ros_spin) 
-    {
-        return;
-    }
-    _image->header  = msg->header;
-    _image->format  = msg->format;
-
-    _image->data.resize(msg->data.size());
-    for(int i = 0; i < msg->data.size(); ++i) 
-    {
-        _image->data[i] = msg->data[i];
-    }
-}
-
 void ctrlc(int)
 {
     exit(0);
@@ -167,8 +167,6 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "downward_target_tracker");
     ros::NodeHandle node;
-
-    image_transport::ImageTransport img_transport(node); //Advertise and subscribe to image topics.
 
     ros::Publisher pub_image  = node.advertise<downward_target_tracker::image>(IMAGE_TOPIC, 1);
     ros::Publisher pub_info   = node.advertise<downward_target_tracker::info>(INFO_TOPIC, 1);
@@ -201,8 +199,23 @@ int main(int argc, char **argv)
 
 
     ros::Subscriber sub_imu = node.subscribe(IMU_POSE_TOPIC, 1, callback_imu);
+    
+    #if USE_CAMERA_NODE == 1
+    //We create our own image queue that will be used in an asynchronous spinner
+    ros::CallbackQueue img_queue; 
+    ros::SubscribeOptions ops = ros::SubscribeOptions::create<sensor_msgs::CompressedImage>(
+        CAMERA_TOPIC, 
+        1, 
+        callback_camera_img, 
+        ros::VoidPtr(), 
+        &img_queue 
+        );
+    ros::Subscriber sub_img = node.subscribe(ops);
 
-    ros::Subscriber sub_img = node.subscribe(CAMERA_TOPIC, 1, callback_camera_img);
+    // spawn async spinner with 1 thread, running on our image queue
+    ros::AsyncSpinner async_spinner(1, &img_queue);
+    async_spinner.start();
+    #endif
 
     #if RUN_LINE_COUNTER==1
     line_counter_init(&node);
@@ -228,9 +241,14 @@ int main(int argc, char **argv)
     uint64_t t_begin = getnsec();
     for (int frame = 0;; frame++)
     {
-        _main_drone_ros_spin = true;
         // RECEIVE LATEST IMAGE
-        ros::spinOnce();
+        #if USE_CAMERA_NODE == 1
+        while(!_image_available) 
+        {
+        }
+        _image_available = false;
+        #endif
+
         unsigned char *jpg_data = 0;
         unsigned int jpg_size = 0;
         int img_width, img_height;
@@ -252,7 +270,6 @@ int main(int argc, char **argv)
             if(!jpg_size) continue; //invalid picture
             #endif
         }
-        _main_drone_ros_spin = false;
 
         // SHARE IMAGE WITH LINE COUNTER
         float dt_memcpy = 0.0f;
