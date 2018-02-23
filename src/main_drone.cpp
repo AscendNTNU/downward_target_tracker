@@ -128,14 +128,10 @@ void callback_camera_img(const sensor_msgs::CompressedImageConstPtr msg)
 {
     pthread_mutex_lock(&image_mutex);
 
-    _image->header  = msg->header;
-    _image->format  = msg->format;
-
-    _image->data.resize(msg->data.size());
-    for(int i = 0; i < msg->data.size(); ++i) 
-    {
-        _image->data[i] = msg->data[i];
-    }
+    //copy all info from msg to _image
+    _image->header   = msg->header;
+    _image->format   = msg->format;
+    _image->data     = msg->data;
     _image_available = true;
 
     pthread_cond_signal(&image_condition);
@@ -261,7 +257,6 @@ int main(int argc, char **argv)
         }
         _image_available = false;
         #endif
-
 
         unsigned char *jpg_data = 0;
         unsigned int jpg_size = 0;
