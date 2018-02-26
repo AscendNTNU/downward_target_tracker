@@ -44,10 +44,10 @@
 
 // Line counter parameters
 #define RUN_LINE_COUNTER           1
-#define WHITE_THRESHOLD_R_INIT     (239.0f)
-#define WHITE_THRESHOLD_G_INIT     (239.0f)
-#define WHITE_THRESHOLD_B_INIT     (235.0f)
-#define WHITE_THRESHOLD_D_INIT     (113.5f)
+#define WHITE_THRESHOLD_R_INIT     (226.0f)
+#define WHITE_THRESHOLD_G_INIT     (227.0f)
+#define WHITE_THRESHOLD_B_INIT     (227.0f)
+#define WHITE_THRESHOLD_D_INIT     (74.3f)
 #define PINHOLE_FOV_X_INIT         (137.0f * 3.14f/180.0f)
 #define SOBEL_THRESHOLD_INIT       (10)
 #define MAXIMA_THRESHOLD_INIT      (10)
