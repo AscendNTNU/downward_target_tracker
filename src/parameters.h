@@ -1,4 +1,4 @@
-#define DEVICE_NAME        "/dev/video0" 
+#define DEVICE_NAME        "/dev/camera_downwards" 
 #define USE_CAMERA_NODE     1 // Should be set to 1 if you want to get camera data from an external ROS node instead
 #define USE_SSE             1 // Set to 1 if you want to enable SIMD optimizations
 
