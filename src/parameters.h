@@ -9,7 +9,7 @@
 #define INFO_TOPIC         "/target_tracker/info"        // (output) target bounding boxes, detections, and adjustable parameters
 #define LINE_COUNTER_TOPIC "/line_counter/pose"          // (output) line counter grid detection
 #define SELECTED_TOPIC     "/target_debug/selected"      // (output) unique_id of the highlighted target
-#define CAMERA_TOPIC       "/camera_publisher0/data/video0/compressed_image" // (input) image data feed from fisheye camera
+#define CAMERA_TOPIC       "/dev/video0/compressed_image" // (input) image data feed from fisheye camera
 
 // Minimum required seconds between publishing debug info and compressed JPEG frame
 #define INFO_PUBLISH_INTERVAL  0.0f
