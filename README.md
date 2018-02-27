@@ -54,7 +54,11 @@ $ sudo apt-get install libsdl2-dev
 
 Clone [ascend_msgs](https://github.com/AscendNTNU/ascend_msgs) into catkin workspace.
 
-Run
+If you are building the project on a Jetson TX2(or any other machines without Intel SSE support) you will have to do the following two steps to build the downward tracker:
+1. Remove the parameter `-mavx` in [CMakeLists.txt](CMakeLists.txt).
+2. Change `#define USE_SSE 1` to `#define USE_SSE 0` in [src/parameters.h](src/parameters.h).
+
+Run the following command to build the node:
 ```
 catkin_make
 ```
@@ -94,10 +98,13 @@ You should see the camera feed, a list of targets, and bounding boxes around eac
 Parameter   | What
 ------------|-----
 DEVICE_NAME         | i.e. /dev/video1
+USE_CAMERA_NODE     | Set to 1 if camera input is from an external camera node, 0 otherwise.
+USE_SSE             | Set to 1 if you want to use a SIMD optimized version of the grid detector. Should be set to 0 if the grid detector is used on a computer without Intel SSE support.
 IMU_POSE_TOPIC      | Topic for best current estimate of drone pose (geometry_msgs::PoseStamped)
 TRACKS_TOPIC        | Topic on which list of targets will be published (tracks.msg)
 IMAGE_TOPIC         | Topic on which compressed camera feed will be published (image.msg)
-INFO_TOPIC          | Topic on which debug info (adjustable parameters, bounding boxes and detections) will be published (info.msg)
+INFO_TOPIC          | Topic on which debug info (adjustable parameters, bounding boxes and detections) will be published 
+CAMERA_TOPIC        | Topic on which camera node that we get input from. The images must be published as compressed JPEGs.
 LINE_COUNTER_TOPIC  | Topic on which [line counter output](README_linecounter.md) will be published
 SELECTED_TOPIC      | Topic on which selected target ID will be published (std_msgs::Int32)
 INFO_PUBLISH_INTERVAL | Change this to limit how often debug visualization info is sent (default is every frame)

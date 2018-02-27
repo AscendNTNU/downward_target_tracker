@@ -12,6 +12,8 @@
 #include <turbojpeg.h>
 #include "so_math.h"
 
+#include <cstdio>
+
 struct latest_image_t
 {
     unsigned char *jpg_data;
@@ -37,11 +39,11 @@ void callback_tracks(downward_target_tracker::tracks msg) { latest_tracks = msg;
 void callback_line_counter(ascend_msgs::LineCounter msg) { latest_line_counter = msg; }
 void callback_image(downward_target_tracker::image msg)
 {
-    static tjhandle decompressor = tjInitDecompress();
     int subsamp,width,height,error;
-
     unsigned char *jpg_data = (unsigned char*)&msg.jpg_data[0];
     unsigned int jpg_size = (unsigned int)msg.jpg_data.size();
+
+    static tjhandle decompressor = tjInitDecompress();
 
     error = tjDecompressHeader2(decompressor,
         jpg_data,
@@ -190,7 +192,7 @@ int main(int argc, char **argv)
                 Text("Tracker");
                 PlotTiming("Output rate (Hz)",  1.0f/latest_info.dt_cycle, 0.0f, 60.0f); SameLine(); Text("%.2f Hz", 1.0f/latest_info.dt_cycle);
                 PlotTiming("Frame rate (Hz)",   1.0f/latest_info.dt_frame, 0.0f, 60.0f); SameLine(); Text("%.2f Hz", 1.0f/latest_info.dt_frame);
-                PlotTiming("MJPEG to RGB (ms)", 1000.0f*latest_info.dt_jpeg_to_rgb, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.dt_jpeg_to_rgb);
+                PlotTiming("MJPEG to RGB (ms)" , 1000.0f*latest_info.dt_jpeg_to_rgb, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.dt_jpeg_to_rgb);
                 PlotTiming("Tracker (ms)",      1000.0f*latest_info.dt_track_targets, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.dt_track_targets);
                 Text("Line counter");
                 PlotTiming("MJPEG to RGB (ms)##line_counter", 1000.0f*latest_info.line_counter_dt_jpeg_to_rgb, 0.0f, 10.0f); SameLine(); Text("%.2f ms", 1000.0f*latest_info.line_counter_dt_jpeg_to_rgb);

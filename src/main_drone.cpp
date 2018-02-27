@@ -24,12 +24,18 @@
 #include <assert.h>
 #include <stdint.h>
 #include <time.h>
+
 #include <ros/ros.h>
+#include <ros/callback_queue.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <std_msgs/Float32.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/CompressedImage.h>
+
 #include <downward_target_tracker/image.h>
 #include <downward_target_tracker/info.h>
 #include <downward_target_tracker/tracks.h>
+
 #include "asc_usbcam.h"
 #include "asc_tracker.h"
 #include "mjpg_to_jpg.h"
@@ -62,6 +68,14 @@ float _sobel_threshold   = SOBEL_THRESHOLD_INIT;
 float _maxima_threshold  = MAXIMA_THRESHOLD_INIT;
 float _max_error         = MAX_ERROR_INIT;
 float _tile_width        = TILE_WIDTH_INIT;
+
+#if USE_CAMERA_NODE == 1
+//Stores information about the image data from the callback
+sensor_msgs::CompressedImagePtr _image = boost::make_shared<sensor_msgs::CompressedImage>();
+volatile float _image_available = false; // variable to keep track of if callback has made the image available
+pthread_mutex_t image_mutex;
+pthread_cond_t  image_condition;
+#endif
 
 // These describe the latest pose (roll, pitch, yaw, x, y, z)
 // of the drone relative to the grid, and are updated in
@@ -99,6 +113,7 @@ void callback_maxima_threshold(std_msgs::Float32 msg)  { _maxima_threshold = msg
 void callback_max_error(std_msgs::Float32 msg)         { _max_error = msg.data; }
 void callback_tile_width(std_msgs::Float32 msg)        { _tile_width = msg.data; }
 
+
 void callback_imu(geometry_msgs::PoseStamped msg)
 {
     m_quat_to_ypr(msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w, &_imu_rz, &_imu_ry, &_imu_rx);
@@ -106,6 +121,23 @@ void callback_imu(geometry_msgs::PoseStamped msg)
     _imu_ty = msg.pose.position.y;
     _imu_tz = msg.pose.position.z;
 }
+
+#if USE_CAMERA_NODE == 1
+// callback to be added to user queue instead of internal ROS queue
+void callback_camera_img(const sensor_msgs::CompressedImageConstPtr msg) 
+{
+    pthread_mutex_lock(&image_mutex);
+
+    //copy all info from msg to _image
+    _image->header   = msg->header;
+    _image->format   = msg->format;
+    _image->data     = msg->data;
+    _image_available = true;
+
+    pthread_cond_signal(&image_condition);
+    pthread_mutex_unlock(&image_mutex);
+}
+#endif
 
 uint64_t getnsec()
 {
@@ -168,7 +200,28 @@ int main(int argc, char **argv)
     ros::Subscriber sub_max_error         = node.subscribe("/target_debug/max_error",          1, callback_max_error);
     ros::Subscriber sub_tile_width        = node.subscribe("/target_debug/tile_width",         1, callback_tile_width);
 
+
     ros::Subscriber sub_imu = node.subscribe(IMU_POSE_TOPIC, 1, callback_imu);
+    
+    #if USE_CAMERA_NODE == 1
+    pthread_mutex_init(&image_mutex, NULL);
+    pthread_cond_init(&image_condition, NULL);
+
+    //We create our own image queue that will be used in an asynchronous spinner
+    ros::CallbackQueue img_queue; 
+    ros::SubscribeOptions ops = ros::SubscribeOptions::create<sensor_msgs::CompressedImage>(
+        CAMERA_TOPIC, 
+        1, 
+        callback_camera_img, 
+        ros::VoidPtr(), 
+        &img_queue 
+        );
+    ros::Subscriber sub_img = node.subscribe(ops);
+
+    // spawn async spinner with 1 thread, running on our image queue
+    ros::AsyncSpinner async_spinner(1, &img_queue);
+    async_spinner.start();
+    #endif
 
     #if RUN_LINE_COUNTER==1
     line_counter_init(&node);
@@ -176,7 +229,7 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    #if DUMMY_IMAGE==0
+    #if DUMMY_IMAGE == 0 && USE_CAMERA_NODE == 0
     {
         usbcam_opt_t opt = {0};
         opt.device_name = DEVICE_NAME;
@@ -195,20 +248,41 @@ int main(int argc, char **argv)
     for (int frame = 0;; frame++)
     {
         // RECEIVE LATEST IMAGE
+        #if USE_CAMERA_NODE == 1
+        pthread_mutex_lock(&image_mutex);
+        while(!_image_available) 
+        {
+            pthread_cond_wait(&image_condition, 
+                              &image_mutex);
+        }
+        _image_available = false;
+        #endif
+
         unsigned char *jpg_data = 0;
         unsigned int jpg_size = 0;
+        int img_width, img_height;
         timeval timestamp = {0};
         {
-            #if DUMMY_IMAGE==1
+            #if DUMMY_IMAGE == 1
             jpg_data = mock_jpg;
             jpg_size = mock_jpg_len;
             usleep(5*1000);
-            #elif TESTING_WITH_LAPTOP==1
+            #elif TESTING_WITH_LAPTOP == 1
             usbcam_lock_mjpg(&jpg_data, &jpg_size, &timestamp);
-            #else
+            #elif USE_CAMERA_NODE == 0
             usbcam_lock(&jpg_data, &jpg_size, &timestamp);
+            #elif USE_CAMERA_NODE == 1
+            jpg_data   = _image->data.data();
+            jpg_size   = _image->data.size(); 
+            timestamp.tv_sec  = _image->header.stamp.sec;
+            timestamp.tv_usec = _image->header.stamp.nsec * 1000;
+            if(!jpg_size) continue; //invalid picture
             #endif
         }
+
+        #if USE_CAMERA_NODE == 1
+        pthread_mutex_unlock(&image_mutex);
+        #endif
 
         // SHARE IMAGE WITH LINE COUNTER
         float dt_memcpy = 0.0f;
@@ -227,13 +301,15 @@ int main(int argc, char **argv)
             last_t = t;
         }
 
-        // DECOMPRESS
+        // DECOMPRESS AND CONVERT JPEG TO RGB
         float dt_jpeg_to_rgb = 0.0f;
         {
             uint64_t t1 = getnsec();
             if (!usbcam_jpeg_to_rgb(Ix, Iy, I, jpg_data, jpg_size))
             {
+                #if USE_CAMERA_NODE == 0
                 usbcam_unlock();
+                #endif
                 continue;
             }
             uint64_t t2 = getnsec();
@@ -247,6 +323,7 @@ int main(int argc, char **argv)
         ros::spinOnce();
         float camera_f = _camera_f;
         float camera_u0 = _camera_u0;
+
         float camera_v0 = _camera_v0;
         float cam_imu_rx = _cam_imu_rx;
         float cam_imu_ry = _cam_imu_ry;
@@ -449,12 +526,14 @@ int main(int argc, char **argv)
 
                 downward_target_tracker::image msg;
                 msg.jpg_data.resize(jpg_size);
+                msg.width = CAMERA_WIDTH;
+                msg.height = CAMERA_HEIGHT;
                 memcpy(&msg.jpg_data[0], jpg_data, jpg_size);
                 pub_image.publish(msg);
             }
         }
 
-        #if DUMMY_IMAGE==0
+        #if DUMMY_IMAGE == 0 && USE_CAMERA_NODE == 0
         usbcam_unlock();
         #endif
     }

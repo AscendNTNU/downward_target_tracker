@@ -10,6 +10,7 @@ find_package(catkin REQUIRED
   std_msgs
   message_generation
   ascend_msgs # for LineCounter.msg
+  image_transport
 )
 add_message_files(
   FILES
@@ -22,7 +23,7 @@ generate_messages(
   std_msgs
 )
 catkin_package(CATKIN_DEPENDS message_runtime)
-add_definitions("-O3 -mavx")
+add_definitions("-O3 -mavx -std=c++11")
 include_directories(${catkin_INCLUDE_DIRS})
 
 if (ASC_GRID_DEBUG)

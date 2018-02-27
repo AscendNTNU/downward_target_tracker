@@ -91,10 +91,10 @@ bool usbcam_jpeg_to_rgb(int desired_width, int desired_height, unsigned char *rg
 #include <turbojpeg.h>
 
 #define usbcam_max_buffers 128
-#define usbcam_assert(CONDITION, ...) { if (!(CONDITION)) { printf("[usbcam.h line %d] ", __LINE__); printf(__VA_ARGS__); printf("\n"); exit(EXIT_FAILURE); } }
-#define usbcam_warn(...) { printf("[usbcam.h line %d] ", __LINE__); printf(__VA_ARGS__); printf("\n"); }
+#define usbcam_assert(CONDITION, ...) { if (!(CONDITION)) { printf("[asc_usbcam.h line %d] ", __LINE__); printf(__VA_ARGS__); printf("\n"); exit(EXIT_FAILURE); } }
+#define usbcam_warn(...) { printf("[asc_usbcam.h line %d] ", __LINE__); printf(__VA_ARGS__); printf("\n"); }
 #ifdef USBCAM_DEBUG
-#define usbcam_debug(...) { printf("[usbcam.h line %d] ", __LINE__); printf(__VA_ARGS__); printf("\n"); }
+#define usbcam_debug(...) { printf("[asc_usbcam.h line %d] ", __LINE__); printf(__VA_ARGS__); printf("\n"); }
 #else
 #define usbcam_debug(...) { }
 #endif
