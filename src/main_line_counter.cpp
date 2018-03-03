@@ -2,9 +2,13 @@
 #include "vdb/vdb.h"
 #endif
 #define ASC_GRID_DETECTOR_IMPLEMENTATION
-//#define ASC_GRID_DETECTOR_SSE
+
+#if USE_SSE == 1
+#define ASC_GRID_DETECTOR_SSE
+#endif
+
 #include "asc_grid_detector.h"
-#include <pthread.h>
+#include <pthread.h> 
 #include <ascend_msgs/LineCounter.h>
 
 // These need to be volatile, otherwise the main_line_counter thread did
@@ -14,6 +18,7 @@ volatile unsigned int line_counter_jpg_size;
 static unsigned char  line_counter_jpg_data[CAMERA_WIDTH*CAMERA_HEIGHT*3];
 pthread_mutex_t       line_counter_image_mutex;
 pthread_mutex_t       line_counter_param_mutex;
+pthread_cond_t        line_counter_condition;
 float                 line_counter_dt_jpeg_to_rgb = 0.0f;
 float                 line_counter_dt_find_grid = 0.0f;
 float                 line_counter_dt_threshold = 0.0f;
@@ -25,6 +30,7 @@ void line_counter_init(ros::NodeHandle *node)
 {
     pthread_mutex_init(&line_counter_image_mutex, NULL);
     pthread_mutex_init(&line_counter_param_mutex, NULL);
+    pthread_cond_init(&line_counter_condition, NULL);
 
     pthread_t t;
     pthread_create(&t, NULL, line_counter_main, NULL);
@@ -38,9 +44,13 @@ void line_counter_copy_image(unsigned char *jpg_data, unsigned int jpg_size, flo
     uint64_t t1 = getnsec();
     if (pthread_mutex_trylock(&line_counter_image_mutex) == 0)
     {
+
         memcpy(line_counter_jpg_data, jpg_data, jpg_size);
         line_counter_jpg_size = jpg_size;
         line_counter_image_avail = true;
+
+        // Wakeup the line_counter thread that is waiting on the condition
+        pthread_cond_signal(&line_counter_condition);
         pthread_mutex_unlock(&line_counter_image_mutex);
     }
     else
@@ -63,15 +73,15 @@ void *line_counter_main(void *)
     for (int frame = 0;; frame++)
     {
         // WAIT UNTIL MAIN THREAD RECEIVES FRAME FROM CAMERA
+        pthread_mutex_lock(&line_counter_image_mutex);
         while (!line_counter_image_avail)
         {
+            pthread_cond_wait(&line_counter_condition, 
+                              &line_counter_image_mutex);
         }
         line_counter_image_avail = false; // we have now 'consumed' this frame. main thread will set this to true.
 
-        // ACQUIRE LOCK ON FRAME (disallow main from updating jpg)
-        pthread_mutex_lock(&line_counter_image_mutex);
-
-        // CONVERT JPEG TO RGB
+        // DECOMPRESS AND CONVERT JPEG TO RGB
         float dt_jpeg_to_rgb = 0.0f;
         {
             uint64_t t1 = getnsec();

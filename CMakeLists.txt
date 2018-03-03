@@ -10,6 +10,7 @@ find_package(catkin REQUIRED
   std_msgs
   message_generation
   ascend_msgs # for LineCounter.msg
+  image_transport
 )
 add_message_files(
   FILES
