@@ -1,5 +1,6 @@
 #include "parameters.h"
 
+ 
 #if DUMMY_IMAGE==1
 // This includes the binary data of the JPEG directly
 // through the variables mock_jpg and mock_jpg_len. Nice

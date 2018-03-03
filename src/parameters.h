@@ -1,6 +1,6 @@
 #define DEVICE_NAME        "/dev/camera_downwards" 
 #define USE_CAMERA_NODE     1 // Should be set to 1 if you want to get camera data from an external ROS node instead
-#define USE_SSE             1 // Set to 1 if you want to enable SIMD optimizations
+#define USE_SSE             0 // Set to 1 if you want to enable SIMD optimizations
 
 // Topic names
 #define IMU_POSE_TOPIC     "/mavros/local_position/pose" // (input) best current estimate of drone pose relative grid
@@ -35,11 +35,9 @@
 
 
 // Fisheye camera parameters (see README.md)
-#define USBCAM_DEBUG       1
-
-// If USE_CAMERA_NODE == 1, these values must be the same as the one specified in the camera node
-#define CAMERA_WIDTH       800 
-#define CAMERA_HEIGHT      600 
+#define USBCAM_DEBUG       0
+#define CAMERA_WIDTH       800
+#define CAMERA_HEIGHT      600
 
 #define CAMERA_BUFFERS     3      // Change if frame rate is lower than 60 Hz (see Timing window in debugger)
 #define CAMERA_LEVELS      2      // Downscale factor (0=none, 1=half, 2=quarter)
@@ -50,10 +48,10 @@
 
 // Line counter parameters
 #define RUN_LINE_COUNTER           1
-#define WHITE_THRESHOLD_R_INIT     (222.0f)
-#define WHITE_THRESHOLD_G_INIT     (222.0f)
-#define WHITE_THRESHOLD_B_INIT     (222.0f)
-#define WHITE_THRESHOLD_D_INIT     (70.0f)
+#define WHITE_THRESHOLD_R_INIT     (255.0f)
+#define WHITE_THRESHOLD_G_INIT     (255.0f)
+#define WHITE_THRESHOLD_B_INIT     (183.72f)
+#define WHITE_THRESHOLD_D_INIT     (74.3f)
 #define PINHOLE_FOV_X_INIT         (137.0f * 3.14f/180.0f)
 #define SOBEL_THRESHOLD_INIT       (10)
 #define MAXIMA_THRESHOLD_INIT      (10)

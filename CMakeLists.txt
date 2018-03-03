@@ -23,7 +23,7 @@ generate_messages(
   std_msgs
 )
 catkin_package(CATKIN_DEPENDS message_runtime)
-add_definitions("-O3 -mavx -std=c++11")
+add_definitions("-O3") #-mavx
 include_directories(${catkin_INCLUDE_DIRS})
 
 if (ASC_GRID_DEBUG)
@@ -56,4 +56,3 @@ if (SDL2_FOUND)
   target_link_libraries(debugger ${catkin_LIBRARIES} turbojpeg ${SDL2_LIBRARIES} GL)
 
 endif (SDL2_FOUND)
-
