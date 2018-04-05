@@ -1,4 +1,4 @@
-#define DEVICE_NAME        "/dev/camera_downwards" 
+#define DEVICE_NAME        "/dev/video0" 
 #define USE_CAMERA_NODE     1 // Should be set to 1 if you want to get camera data from an external ROS node instead
 #define USE_SSE             1 // Set to 1 if you want to enable SIMD optimizations
 
@@ -9,7 +9,7 @@
 #define INFO_TOPIC         "/target_tracker/info"        // (output) target bounding boxes, detections, and adjustable parameters
 #define LINE_COUNTER_TOPIC "/line_counter/pose"          // (output) line counter grid detection
 #define SELECTED_TOPIC     "/target_debug/selected"      // (output) unique_id of the highlighted target
-#define CAMERA_TOPIC       "/dev/video0/compressed_image" // (input) image data feed from fisheye camera
+#define CAMERA_TOPIC       "/fisheye/compressed" // (input) image data feed from fisheye camera
 
 // Minimum required seconds between publishing debug info and compressed JPEG frame
 #define INFO_PUBLISH_INTERVAL  0.0f
@@ -42,10 +42,10 @@
 #define CAMERA_HEIGHT      600 
 
 #define CAMERA_BUFFERS     3      // Change if frame rate is lower than 60 Hz (see Timing window in debugger)
-#define CAMERA_LEVELS      2      // Downscale factor (0=none, 1=half, 2=quarter)
-#define CAMERA_F_INIT      434.0f // Fisheye parameter: Focal length
-#define CAMERA_U0_INIT     400.0f // Fisheye parameter: Center X
-#define CAMERA_V0_INIT     300.0f // Fisheye parameter: Center Y
+#define CAMERA_LEVELS      0      // Downscale factor (0=none, 1=half, 2=quarter)
+#define CAMERA_F_INIT      288.0f // Fisheye parameter: Focal length
+#define CAMERA_U0_INIT     376.0f // Fisheye parameter: Center X
+#define CAMERA_V0_INIT     280.0f // Fisheye parameter: Center Y
 
 
 // Line counter parameters
@@ -53,10 +53,10 @@
 #define WHITE_THRESHOLD_R_INIT     (222.0f)
 #define WHITE_THRESHOLD_G_INIT     (222.0f)
 #define WHITE_THRESHOLD_B_INIT     (222.0f)
-#define WHITE_THRESHOLD_D_INIT     (70.0f)
+#define WHITE_THRESHOLD_D_INIT     (115.0f)
 #define PINHOLE_FOV_X_INIT         (137.0f * 3.14f/180.0f)
 #define SOBEL_THRESHOLD_INIT       (10)
 #define MAXIMA_THRESHOLD_INIT      (10)
 #define MAX_ERROR_INIT             (0.5f)
 #define TILE_WIDTH_INIT            (1.0f)
-#define CAMERA_LEVELS_LINE_COUNTER (1) // Downscale factor (0=none, 1=half, 2=quarter)
+#define CAMERA_LEVELS_LINE_COUNTER (0) // Downscale factor (0=none, 1=half, 2=quarter)
