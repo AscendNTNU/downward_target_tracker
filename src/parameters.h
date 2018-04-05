@@ -9,7 +9,7 @@
 #define INFO_TOPIC         "/target_tracker/info"        // (output) target bounding boxes, detections, and adjustable parameters
 #define LINE_COUNTER_TOPIC "/line_counter/pose"          // (output) line counter grid detection
 #define SELECTED_TOPIC     "/target_debug/selected"      // (output) unique_id of the highlighted target
-#define CAMERA_TOPIC       "/dev/video0/compressed_image" // (input) image data feed from fisheye camera
+#define CAMERA_TOPIC       "/fisheye/compressed" // (input) image data feed from fisheye camera
 
 // Minimum required seconds between publishing debug info and compressed JPEG frame
 #define INFO_PUBLISH_INTERVAL  0.0f
@@ -41,9 +41,9 @@
 
 #define CAMERA_BUFFERS     3      // Change if frame rate is lower than 60 Hz (see Timing window in debugger)
 #define CAMERA_LEVELS      2      // Downscale factor (0=none, 1=half, 2=quarter)
-#define CAMERA_F_INIT      434.0f // Fisheye parameter: Focal length
-#define CAMERA_U0_INIT     400.0f // Fisheye parameter: Center X
-#define CAMERA_V0_INIT     300.0f // Fisheye parameter: Center Y
+#define CAMERA_F_INIT      288.0f // Fisheye parameter: Focal length
+#define CAMERA_U0_INIT     376.0f // Fisheye parameter: Center X
+#define CAMERA_V0_INIT     280.0f // Fisheye parameter: Center Y
 
 
 // Line counter parameters
@@ -51,7 +51,7 @@
 #define WHITE_THRESHOLD_R_INIT     (255.0f)
 #define WHITE_THRESHOLD_G_INIT     (255.0f)
 #define WHITE_THRESHOLD_B_INIT     (183.72f)
-#define WHITE_THRESHOLD_D_INIT     (74.3f)
+#define WHITE_THRESHOLD_D_INIT     (115.0f)
 #define PINHOLE_FOV_X_INIT         (137.0f * 3.14f/180.0f)
 #define SOBEL_THRESHOLD_INIT       (10)
 #define MAXIMA_THRESHOLD_INIT      (10)
