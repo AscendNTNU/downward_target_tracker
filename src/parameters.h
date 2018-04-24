@@ -1,6 +1,6 @@
 #define DEVICE_NAME        "/dev/video0" 
 #define USE_CAMERA_NODE     1 // Should be set to 1 if you want to get camera data from an external ROS node instead
-#define USE_SSE             1 // Set to 1 if you want to enable SIMD optimizations
+#define USE_SSE             0 // Set to 1 if you want to enable SIMD optimizations
 
 // Topic names
 #define IMU_POSE_TOPIC     "/mavros/local_position/pose" // (input) best current estimate of drone pose relative grid
@@ -9,7 +9,7 @@
 #define INFO_TOPIC         "/target_tracker/info"        // (output) target bounding boxes, detections, and adjustable parameters
 #define LINE_COUNTER_TOPIC "/line_counter/pose"          // (output) line counter grid detection
 #define SELECTED_TOPIC     "/target_debug/selected"      // (output) unique_id of the highlighted target
-#define CAMERA_TOPIC       "/fisheye/compressed" // (input) image data feed from fisheye camera
+#define CAMERA_TOPIC       "/fisheye_raw/compressed" // (input) image data feed from fisheye camera
 
 // Minimum required seconds between publishing debug info and compressed JPEG frame
 #define INFO_PUBLISH_INTERVAL  0.0f
@@ -50,10 +50,10 @@
 
 // Line counter parameters
 #define RUN_LINE_COUNTER           1
-#define WHITE_THRESHOLD_R_INIT     (222.0f)
-#define WHITE_THRESHOLD_G_INIT     (222.0f)
-#define WHITE_THRESHOLD_B_INIT     (222.0f)
-#define WHITE_THRESHOLD_D_INIT     (115.0f)
+#define WHITE_THRESHOLD_R_INIT     (173.0f)
+#define WHITE_THRESHOLD_G_INIT     (197.0f)
+#define WHITE_THRESHOLD_B_INIT     (161.0f)
+#define WHITE_THRESHOLD_D_INIT     (41.0f)
 #define PINHOLE_FOV_X_INIT         (137.0f * 3.14f/180.0f)
 #define SOBEL_THRESHOLD_INIT       (10)
 #define MAXIMA_THRESHOLD_INIT      (10)

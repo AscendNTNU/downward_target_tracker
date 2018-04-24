@@ -23,7 +23,7 @@ generate_messages(
   std_msgs
 )
 catkin_package(CATKIN_DEPENDS message_runtime)
-add_definitions("-O3 -mavx -std=c++11")
+add_definitions("-O3 -std=c++11")
 include_directories(${catkin_INCLUDE_DIRS})
 
 if (ASC_GRID_DEBUG)
