@@ -37,8 +37,8 @@
 
 // Fisheye camera parameters (see README.md)
 #define USBCAM_DEBUG       0
-#define CAMERA_WIDTH       800
-#define CAMERA_HEIGHT      600
+#define CAMERA_WIDTH       640
+#define CAMERA_HEIGHT      480
 
 #define CAMERA_BUFFERS     3      // Change if frame rate is lower than 60 Hz (see Timing window in debugger)
 #define CAMERA_LEVELS      2      // Downscale factor (0=none, 1=half, 2=quarter)
