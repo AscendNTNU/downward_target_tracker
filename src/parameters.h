@@ -1,6 +1,7 @@
 #define DEVICE_NAME        "/dev/camera_downwards" 
 #define USE_CAMERA_NODE     1 // Should be set to 1 if you want to get camera data from an external ROS node instead
 #define USE_SSE             0 // Set to 1 if you want to enable SIMD optimizations
+#define USE_TRACKER         1 // Set to 1 if you want to enable the built-in ground robot tracker
 
 // Topic names
 #define IMU_POSE_TOPIC     "/mavros/local_position/pose" // (input) best current estimate of drone pose relative grid

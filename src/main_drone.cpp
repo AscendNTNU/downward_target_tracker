@@ -174,7 +174,9 @@ int main(int argc, char **argv)
 
     ros::Publisher pub_image  = node.advertise<downward_target_tracker::image>(IMAGE_TOPIC, 1);
     ros::Publisher pub_info   = node.advertise<downward_target_tracker::info>(INFO_TOPIC, 1);
+    #if USE_TRACKER == 1
     ros::Publisher pub_tracks = node.advertise<downward_target_tracker::tracks>(TRACKS_TOPIC, 1);
+    #endif
 
     ros::Subscriber sub_camera_f          = node.subscribe("/target_debug/camera_f",           1, callback_camera_f);
     ros::Subscriber sub_camera_u0         = node.subscribe("/target_debug/camera_u0",          1, callback_camera_u0);
@@ -373,6 +375,7 @@ int main(int argc, char **argv)
         // DETECT AND TRACK TARGETS
         tracks_t tracks = {0};
         float dt_track_targets = 0.0f;
+        #if USE_TRACKER == 1
         {
             uint64_t t1 = getnsec();
             track_targets_opt_t opt = {0};
@@ -395,6 +398,7 @@ int main(int argc, char **argv)
             uint64_t t2 = getnsec();
             dt_track_targets = (t2-t1)/1e9;
         }
+        #endif 
 
         // MEASURE TIME BETWEEN EACH OUTPUT
         float dt_cycle = 0.0f;
@@ -407,6 +411,7 @@ int main(int argc, char **argv)
 
         // PUBLISH STUFF
         {
+            #if USE_TRACKER == 1
             // PUBLISH TARGET TRACKS
             {
                 downward_target_tracker::tracks msg;
@@ -424,6 +429,7 @@ int main(int argc, char **argv)
                 msg.time_until_180 = tracks.time_until_180;
                 pub_tracks.publish(msg);
             }
+            #endif
 
             static uint64_t t_last_info = getnsec();
 
@@ -479,6 +485,7 @@ int main(int argc, char **argv)
                 msg.camera_h = CAMERA_HEIGHT;
                 msg.image_x = Ix;
                 msg.image_y = Iy;
+                #if USE_TRACKER == 1
                 // tracks
                 msg.num_targets = tracks.num_targets;
                 for (int i = 0; i < tracks.num_targets; i++)
@@ -514,7 +521,7 @@ int main(int argc, char **argv)
                     msg.detection_u2.push_back(tracks.detections[i].u2);
                     msg.detection_v2.push_back(tracks.detections[i].v2);
                 }
-
+                #endif
                 pub_info.publish(msg);
             }
 
