@@ -100,6 +100,7 @@ Parameter   | What
 DEVICE_NAME         | i.e. /dev/video1
 USE_CAMERA_NODE     | Set to 1 if camera input is from an external camera node, 0 otherwise.
 USE_SSE             | Set to 1 if you want to use a SIMD optimized version of the grid detector. Should be set to 0 if the grid detector is used on a computer without Intel SSE support.
+USE_TRACKER             | Set to 1 if you want to use the built-in ground robot tracker
 IMU_POSE_TOPIC      | Topic for best current estimate of drone pose (geometry_msgs::PoseStamped)
 TRACKS_TOPIC        | Topic on which list of targets will be published (tracks.msg)
 IMAGE_TOPIC         | Topic on which compressed camera feed will be published (image.msg)
